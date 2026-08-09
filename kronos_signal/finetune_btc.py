@@ -121,7 +121,7 @@ def finetune_predictor_on_btc(
             loss, _, _ = model.head.compute_loss(logits[0], logits[1], token_out[0], token_out[1])
             optim.zero_grad()
             loss.backward()
-            torch.nn.clip_grad_norm_(model.parameters(), 3.0)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 3.0)
             optim.step()
             losses.append(float(loss.item()))
         mean_loss = float(np.mean(losses)) if losses else float("nan")

@@ -36,9 +36,21 @@ Writes `kronos_signal/last_signal.json` or `kronos_signal/last_backtest.json`.
 - LONG PnL = realized return; SHORT = −realized; HOLD = 0
 - Metrics: hit-rate (active trades), total return, buy&hold, max drawdown
 
+### Improve pipeline (points 1–3)
+```bash
+modal run kronos_signal/modal_app.py --mode improve --n-paths 10 --max-steps 150
+python -m kronos_signal.plot_compare
+```
+
+Compares:
+1. Raw Kronos rule (baseline)
+2. Walk-forward logistic **meta-model** on Kronos + market features
+3. Same after **fine-tuning** Kronos on pre-test BTC only (no leakage)
+
 ## Local unit tests (no GPU)
 
 ```bash
 python -m kronos_signal.test_signals
 python -m kronos_signal.test_backtest
+python -m kronos_signal.test_meta_model
 ```
