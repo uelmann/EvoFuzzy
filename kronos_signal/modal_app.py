@@ -777,6 +777,9 @@ def run_official_ft_pipeline(
 def run_official_ft_backtest_job(
     predictor_size: str = "small",
     signal: str = "mean",
+    lookback_window: int = 90,
+    predict_window: int = 10,
+    also_pure_topk: bool = True,
     verbose: bool = True,
 ) -> dict:
     """Infer with fine-tuned Kronos and run TopkDropout vs ROC/BTC."""
@@ -786,13 +789,20 @@ def run_official_ft_backtest_job(
 
     root = P("/data/crypto/official_runs")
     if verbose:
-        print(f"Official FT backtest root={root} signal={signal}", flush=True)
+        print(
+            f"Official FT backtest root={root} signal={signal} "
+            f"lb={lookback_window} pred={predict_window}",
+            flush=True,
+        )
     out = run_official_ft_backtest(
         root=root,
         device="cuda",
         kronos_root="/opt/Kronos",
         predictor_size=predictor_size,
         signal=signal,
+        lookback_window=lookback_window,
+        predict_window=predict_window,
+        also_pure_topk=also_pure_topk,
     )
     crypto_data.commit()
     return out
@@ -998,15 +1008,33 @@ def main(
         return
 
     if mode == "official_bt":
+        # Reuse CLI lookback/pred_len for inference windows (defaults 400/5 are BTC;
+        # for official recipe pass --lookback 90 --pred-len 10 or 30/3).
+        lb = lookback if lookback not in (0, 400) else 90
+        # If user explicitly set lookback via flag it's fine; for 30/3 they pass both.
+        # Prefer explicit: when pred_len is 3 or lookback is 30, use as-is.
+        if lookback == 400 and pred_len == 5:
+            lb, ph = 90, 10
+        else:
+            lb, ph = lookback, pred_len
         result = run_official_ft_backtest_job.remote(
             predictor_size=predictor_size,
             signal=signal,
+            lookback_window=lb,
+            predict_window=ph,
+            also_pure_topk=True,
             verbose=True,
         )
-        out = Path("kronos_signal") / "last_official_ft_bt.json"
+        tag = f"lb{lb}_h{ph}"
+        out = Path("kronos_signal") / f"last_official_ft_bt_{tag}.json"
         out.write_text(json.dumps(result, indent=2, default=str))
+        (Path("kronos_signal") / "last_official_ft_bt.json").write_text(
+            json.dumps(result, indent=2, default=str)
+        )
         print("\n=== OFFICIAL FT TOPK BACKTEST ===")
-        print(json.dumps(result.get("primary"), indent=2))
+        print("config:", json.dumps(result.get("config"), indent=2))
+        print("primary (dropout):", json.dumps(result.get("primary"), indent=2))
+        print("primary (pure):", json.dumps(result.get("primary_pure"), indent=2))
         print("all signals:", json.dumps(result.get("all_signals"), indent=2))
         print(f"Wrote {out}")
         return

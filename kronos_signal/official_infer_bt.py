@@ -171,13 +171,18 @@ def generate_ft_scores(
 
 
 def _bt_summary(bt: dict) -> dict:
-    return {
+    out = {
         "total_return": bt["total_return"],
         "max_drawdown": bt["max_drawdown"],
         "sharpe": bt["sharpe"],
         "btc_total_return": bt["btc_total_return"],
         "n_days": bt["n_days"],
     }
+    if "turnover_mean" in bt:
+        out["turnover_mean"] = bt["turnover_mean"]
+    if "pure_topk" in bt:
+        out["pure_topk"] = bt["pure_topk"]
+    return out
 
 
 def run_official_ft_backtest(
@@ -186,14 +191,26 @@ def run_official_ft_backtest(
     kronos_root: str | None = None,
     predictor_size: str = "small",
     signal: str = "mean",
+    lookback_window: int | None = None,
+    predict_window: int | None = None,
+    also_pure_topk: bool = True,
 ) -> dict:
     cfg = OfficialConfig(root=root, predictor_size=predictor_size, epochs=30)
+    if lookback_window is not None:
+        cfg.lookback_window = int(lookback_window)
+    if predict_window is not None:
+        cfg.predict_window = int(predict_window)
+
     tok = Path(cfg.finetuned_tokenizer_path)
     pred = Path(cfg.finetuned_predictor_path)
     if not tok.exists() or not pred.exists():
         raise FileNotFoundError(f"Missing FT checkpoints:\n  {tok}\n  {pred}")
 
-    print(f"Loading FT models from {tok} / {pred}", flush=True)
+    print(
+        f"Loading FT models from {tok} / {pred} "
+        f"(infer lookback={cfg.lookback_window} pred={cfg.predict_window})",
+        flush=True,
+    )
     scores_map = generate_ft_scores(cfg, device=device, kronos_root=kronos_root)
 
     data = load_full_panel(cfg)
@@ -202,17 +219,30 @@ def run_official_ft_backtest(
 
     results = {}
     for name, score_df in scores_map.items():
-        bt = topk_dropout_backtest(score_df, close, cfg, universe_mcap=mcap)
+        bt = topk_dropout_backtest(score_df, close, cfg, universe_mcap=mcap, pure_topk=False)
         results[f"kronos_ft_{name}"] = _bt_summary(bt)
         print(f"[bt] kronos_ft_{name}: ret={bt['total_return']:.2%} DD={bt['max_drawdown']:.2%}", flush=True)
+        if also_pure_topk:
+            bt_p = topk_dropout_backtest(score_df, close, cfg, universe_mcap=mcap, pure_topk=True)
+            results[f"kronos_ft_{name}_pure"] = _bt_summary(bt_p)
+            print(
+                f"[bt] kronos_ft_{name}_pure: ret={bt_p['total_return']:.2%} DD={bt_p['max_drawdown']:.2%}",
+                flush=True,
+            )
 
     roc = roc_scores(close, window=cfg.predict_window)
-    results["roc_baseline"] = _bt_summary(topk_dropout_backtest(roc, close, cfg, mcap))
+    results["roc_baseline"] = _bt_summary(topk_dropout_backtest(roc, close, cfg, mcap, pure_topk=False))
+    if also_pure_topk:
+        results["roc_baseline_pure"] = _bt_summary(
+            topk_dropout_backtest(roc, close, cfg, mcap, pure_topk=True)
+        )
 
+    tag = f"lb{cfg.lookback_window}_h{cfg.predict_window}"
     out = {
         "recipe": "official_ft_topk_backtest",
         "signal_primary": signal,
         "primary": results.get(f"kronos_ft_{signal}"),
+        "primary_pure": results.get(f"kronos_ft_{signal}_pure"),
         "all_signals": results,
         "config": {
             "lookback": cfg.lookback_window,
@@ -224,13 +254,15 @@ def run_official_ft_backtest(
             "predictor": cfg.finetuned_predictor_path,
             "inference_T": cfg.inference_T,
             "sample_count": cfg.inference_sample_count,
+            "note": "FT checkpoints were trained at 90/10; this run only changes inference windows",
         },
     }
-    save = Path(root) / "last_official_ft_bt.json"
-    # also persist score pivots for reuse
-    score_path = Path(root) / "ft_prediction_scores.pkl"
+    save = Path(root) / f"last_official_ft_bt_{tag}.json"
+    score_path = Path(root) / f"ft_prediction_scores_{tag}.pkl"
     with open(score_path, "wb") as f:
         pickle.dump(scores_map, f)
     save.write_text(json.dumps(out, indent=2, default=str))
+    # also refresh default alias for latest run
+    (Path(root) / "last_official_ft_bt.json").write_text(json.dumps(out, indent=2, default=str))
     print(f"Wrote {save}", flush=True)
     return out
