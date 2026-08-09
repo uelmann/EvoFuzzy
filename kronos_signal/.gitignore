@@ -1,5 +1,7 @@
 __pycache__/
 *.py[cod]
+data/historical_data.csv
+data/*.parquet
 last_signal.json
 last_backtest.json
 last_improve.json

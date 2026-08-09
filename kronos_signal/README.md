@@ -3,10 +3,14 @@
 Zero-shot **Kronos-base** on **BTCUSDT daily** bars, converted into a trading stance.
 
 ## Data source
-- **Provider:** Binance public klines (not Yahoo Finance)
-- **Endpoint:** `data-api.binance.vision` (fallbacks: `api.binance.us`, `api.binance.com`)
-- **Symbol / interval:** `BTCUSDT` / `1d` (UTC daily candles)
-- History available from ~2017; earlier short backtests used only the **most recent N steps**
+- **BTC signal (existing):** Binance public klines via `data-api.binance.vision` (fallbacks: `api.binance.us`, `api.binance.com`), `BTCUSDT` / `1d`
+- **Cross-asset crypto panel:** CoinMarketCap data-api (same logic as the KuCoin BT notebook) — KuCoin spot universe, daily OHLCV + marketCap
+
+```bash
+# top-60 by mcap among KuCoin-listed (skips stables); writes kronos_signal/data/historical_data.csv
+python -m kronos_signal.download_cmc_kucoin --max-coins 60
+# full KuCoin universe (~800 bases): --max-coins 0
+```
 
 ## Defaults (v1)
 
