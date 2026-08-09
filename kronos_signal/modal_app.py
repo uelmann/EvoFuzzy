@@ -1008,15 +1008,11 @@ def main(
         return
 
     if mode == "official_bt":
-        # Reuse CLI lookback/pred_len for inference windows (defaults 400/5 are BTC;
-        # for official recipe pass --lookback 90 --pred-len 10 or 30/3).
-        lb = lookback if lookback not in (0, 400) else 90
-        # If user explicitly set lookback via flag it's fine; for 30/3 they pass both.
-        # Prefer explicit: when pred_len is 3 or lookback is 30, use as-is.
-        if lookback == 400 and pred_len == 5:
-            lb, ph = 90, 10
-        else:
-            lb, ph = lookback, pred_len
+        # Inference windows (FT ckpt still trained at 90/10). Pass explicitly, e.g.:
+        #   --lookback 90 --pred-len 10   (official)
+        #   --lookback 30 --pred-len 3    (short horizon experiment)
+        lb = 90 if lookback == 400 else lookback
+        ph = 10 if (lookback == 400 and pred_len == 5) else pred_len
         result = run_official_ft_backtest_job.remote(
             predictor_size=predictor_size,
             signal=signal,
