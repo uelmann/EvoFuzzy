@@ -5,7 +5,7 @@ Usage (from repo root, with Modal CLI authenticated):
 
     modal run kronos_signal/modal_app.py
     modal run kronos_signal/modal_app.py --n-paths 10
-    modal run kronos_signal/modal_app.py --mode backtest --n-paths 10 --max-steps 40
+    modal run kronos_signal/modal_app.py --mode backtest --n-paths 10 --max-steps 150
 """
 
 from __future__ import annotations
@@ -125,8 +125,8 @@ def run_walk_forward_backtest(
     lookback: int = 400,
     tau: float = 0.005,
     step: int | None = None,
-    max_steps: int = 40,
-    min_bars: int = 1000,
+    max_steps: int = 150,
+    min_bars: int = 2000,
     verbose: bool = True,
 ) -> dict:
     """Non-overlapping walk-forward backtest on BTCUSDT daily."""
@@ -188,6 +188,7 @@ def run_walk_forward_backtest(
                 "max_drawdown",
                 "start",
                 "end",
+                "diagnostics",
             )
         }
         print(json.dumps(slim, indent=2), flush=True)
@@ -201,7 +202,7 @@ def main(
     pred_len: int = 5,
     lookback: int = 400,
     tau: float = 0.005,
-    max_steps: int = 40,
+    max_steps: int = 150,
     step: int = 5,
 ):
     if mode == "backtest":
@@ -230,6 +231,25 @@ def main(
             f"buy&hold={result['buy_hold_return']:.2%}  "
             f"maxDD={result['max_drawdown']:.2%}"
         )
+        diag = result.get("diagnostics") or {}
+        if diag:
+            print("\n=== DIAGNOSTICS ===")
+            print(
+                f"p_up mean/median={diag.get('p_up_mean', float('nan')):.2%} / "
+                f"{diag.get('p_up_median', float('nan')):.2%}  "
+                f"frac>=0.9={diag.get('frac_p_up_ge_0_9', float('nan')):.2%}"
+            )
+            print(
+                f"pred mean={diag.get('pred_return_mean', float('nan')):.2%}  "
+                f"realized mean={diag.get('realized_return_mean', float('nan')):.2%}  "
+                f"bias={diag.get('pred_vs_realized_bias', float('nan')):.2%}"
+            )
+            print(
+                f"corr(pred,real)={diag.get('corr_pred_realized', float('nan')):.3f}  "
+                f"sign_agree={diag.get('sign_agreement', float('nan')):.2%}  "
+                f"scale_ratio={diag.get('pred_scale_ratio')}"
+            )
+            print(diag.get("long_bias_note", ""))
         print(f"Wrote {out}")
         return
 

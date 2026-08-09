@@ -3,3 +3,7 @@ __pycache__/
 last_signal.json
 last_backtest.json
 .pytest_cache/
+# regenerated locally; committed snapshots optional
+# backtest_equity.png
+# backtest_diagnostics.png
+

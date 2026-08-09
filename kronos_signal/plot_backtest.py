@@ -85,6 +85,50 @@ def plot_backtest(
     return out
 
 
+def plot_diagnostics(
+    json_path: Path | str = Path(__file__).with_name("last_backtest.json"),
+    out_path: Path | str | None = None,
+) -> Path:
+    json_path = Path(json_path)
+    data = json.loads(json_path.read_text())
+    steps = data["steps"]
+    pred = np.array([s["mean_return"] for s in steps], dtype=float) * 100
+    real = np.array([s["realized_return"] for s in steps], dtype=float) * 100
+    p_up = np.array([s["p_up"] for s in steps], dtype=float)
+
+    out = Path(out_path) if out_path else Path(__file__).with_name("backtest_diagnostics.png")
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.5))
+
+    ax = axes[0]
+    ax.scatter(pred, real, c="#1f6feb", alpha=0.65, edgecolors="none", s=36)
+    lim = max(5, np.percentile(np.abs(np.concatenate([pred, real])), 95))
+    ax.plot([-lim, lim], [-lim, lim], color="#8b949e", ls="--", lw=1, label="y = x")
+    ax.axhline(0, color="#d0d7de", lw=1)
+    ax.axvline(0, color="#d0d7de", lw=1)
+    ax.set_xlabel("Predicted mean return %")
+    ax.set_ylabel("Realized return %")
+    corr = np.corrcoef(pred, real)[0, 1] if len(pred) > 1 else float("nan")
+    ax.set_title(f"Pred vs realized (corr={corr:.2f})")
+    ax.grid(True, alpha=0.3)
+    ax.legend(frameon=False)
+
+    ax2 = axes[1]
+    ax2.hist(p_up, bins=np.linspace(0, 1, 11), color="#1f6feb", alpha=0.85, edgecolor="white")
+    ax2.axvline(0.6, color="#1a7f37", ls="--", label="LONG thr 0.60")
+    ax2.axvline(0.4, color="#cf222e", ls="--", label="SHORT thr 0.40")
+    ax2.set_xlabel("p_up")
+    ax2.set_ylabel("Count")
+    ax2.set_title(f"Upside-probability mass (mean={p_up.mean():.2%})")
+    ax2.grid(True, axis="y", alpha=0.3)
+    ax2.legend(frameon=False)
+
+    fig.suptitle("Why the signal fails: optimistic bias + weak ranking", y=1.02)
+    fig.tight_layout()
+    fig.savefig(out, dpi=160, bbox_inches="tight")
+    plt.close(fig)
+    return out
+
+
 if __name__ == "__main__":
-    path = plot_backtest()
-    print(path)
+    print(plot_backtest())
+    print(plot_diagnostics())

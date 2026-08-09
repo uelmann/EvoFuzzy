@@ -29,6 +29,8 @@ def test_summarize_hit_rate_and_equity():
     # equity: 1 * 1.02 * 1.0 * 0.97
     assert abs(summary.equity_final - 1.02 * 0.97) < 1e-9
     assert abs(summary.buy_hold_return - 0.04) < 1e-9
+    assert "corr_pred_realized" in summary.diagnostics
+    assert "p_up_mean" in summary.diagnostics
 
 
 def test_walk_forward_with_fake_forecast():

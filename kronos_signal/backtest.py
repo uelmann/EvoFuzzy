@@ -55,10 +55,42 @@ class BacktestSummary:
     equity_final: float
     start: str
     end: str
+    diagnostics: dict = field(default_factory=dict)
     steps: list[dict] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return asdict(self)
+
+
+def compute_diagnostics(steps: list[StepResult]) -> dict:
+    """Explain failure modes: long-bias, scale bias, weak rank correlation."""
+    if not steps:
+        return {}
+    pred = np.array([s.mean_return for s in steps], dtype=float)
+    real = np.array([s.realized_return for s in steps], dtype=float)
+    p_up = np.array([s.p_up for s in steps], dtype=float)
+    corr = float(np.corrcoef(pred, real)[0, 1]) if len(steps) > 1 else float("nan")
+    abs_pred = float(np.mean(np.abs(pred)))
+    abs_real = float(np.mean(np.abs(real)))
+    return {
+        "p_up_mean": float(np.mean(p_up)),
+        "p_up_median": float(np.median(p_up)),
+        "p_up_min": float(np.min(p_up)),
+        "frac_p_up_ge_0_9": float(np.mean(p_up >= 0.9)),
+        "pred_return_mean": float(np.mean(pred)),
+        "realized_return_mean": float(np.mean(real)),
+        "pred_vs_realized_bias": float(np.mean(pred) - np.mean(real)),
+        "pred_abs_mean": abs_pred,
+        "realized_abs_mean": abs_real,
+        "pred_scale_ratio": abs_pred / abs_real if abs_real > 1e-12 else None,
+        "corr_pred_realized": corr,
+        "sign_agreement": float(np.mean(np.sign(pred) == np.sign(real))),
+        "long_bias_note": (
+            "Model almost always forecasts upside; thresholds rarely produce SHORT/HOLD."
+            if float(np.mean(p_up)) >= 0.8
+            else "p_up distribution is more balanced."
+        ),
+    }
 
 
 def _max_drawdown(equity: np.ndarray) -> float:
@@ -117,6 +149,7 @@ def summarize_steps(
         equity_final=float(equity_arr[-1]),
         start=steps[0].asof if steps else "",
         end=steps[-1].asof if steps else "",
+        diagnostics=compute_diagnostics(steps),
         steps=[asdict(s) for s in steps],
     )
 
