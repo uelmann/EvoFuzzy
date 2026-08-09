@@ -84,9 +84,10 @@ def forecast_close_paths(
     x_std = np.std(x, axis=0)
     x_norm = np.clip((x - x_mean) / (x_std + 1e-5), -predictor.clip, predictor.clip)
 
-    x_t = torch.from_numpy(x_norm[np.newaxis, :].astype(np.float32))
-    x_stamp_t = torch.from_numpy(x_stamp[np.newaxis, :].astype(np.float32))
-    y_stamp_t = torch.from_numpy(y_stamp[np.newaxis, :].astype(np.float32))
+    device = predictor.device
+    x_t = torch.from_numpy(x_norm[np.newaxis, :].astype(np.float32)).to(device)
+    x_stamp_t = torch.from_numpy(x_stamp[np.newaxis, :].astype(np.float32)).to(device)
+    y_stamp_t = torch.from_numpy(y_stamp[np.newaxis, :].astype(np.float32)).to(device)
 
     close_idx = price_cols.index("close")
     path_closes = []
