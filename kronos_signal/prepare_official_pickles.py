@@ -40,6 +40,8 @@ def prepare_pickles(
     cfg = cfg or OfficialConfig()
     min_bars = min_bars or (cfg.lookback_window + cfg.predict_window + 1)
     long_df = load_historical_long(csv_path)
+    begin = pd.Timestamp(cfg.dataset_begin_time, tz="UTC")
+    long_df = long_df[long_df["date"] >= begin].copy()
     symbols = sorted(s for s in long_df["currency_symbol"].unique() if s not in EXCLUDE_SYMBOLS)
 
     data: dict[str, pd.DataFrame] = {}
