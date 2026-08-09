@@ -21,16 +21,24 @@ Zero-shot **Kronos-base** on **BTCUSDT daily** bars, converted into a trading st
 ## Run on Modal (GPU)
 
 ```bash
-# from repo root, Modal profile already active
+# live signal
 modal run kronos_signal/modal_app.py
-# cheaper smoke test
 modal run kronos_signal/modal_app.py --n-paths 5
+
+# walk-forward backtest (non-overlapping 5d steps)
+modal run kronos_signal/modal_app.py --mode backtest --n-paths 10 --max-steps 40
 ```
 
-Writes `kronos_signal/last_signal.json`.
+Writes `kronos_signal/last_signal.json` or `kronos_signal/last_backtest.json`.
+
+### Backtest design
+- Non-overlapping: decide every `pred_len` days, hold stance for that horizon
+- LONG PnL = realized return; SHORT = −realized; HOLD = 0
+- Metrics: hit-rate (active trades), total return, buy&hold, max drawdown
 
 ## Local unit tests (no GPU)
 
 ```bash
 python -m kronos_signal.test_signals
+python -m kronos_signal.test_backtest
 ```
