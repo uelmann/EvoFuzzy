@@ -208,6 +208,11 @@ def run_walk_forward(
                 f"[{i + 1}/{len(end_indices)}] {x_ts.iloc[-1]} close={last_close:.2f}",
                 flush=True,
             )
+        elif (i + 1) % 100 == 0 or (i + 1) == len(end_indices):
+            print(
+                f"[progress] {i + 1}/{len(end_indices)} asof={x_ts.iloc[-1]}",
+                flush=True,
+            )
 
         path_closes = forecast_fn(x_df, x_ts, y_ts, pred_len)
         pred_returns = path_returns(last_close, path_closes[:, -1])
