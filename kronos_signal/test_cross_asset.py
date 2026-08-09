@@ -6,7 +6,12 @@ from pathlib import Path
 
 import pandas as pd
 
-from kronos_signal.cross_asset_bt import CrossAssetConfig, roc_score_fn, run_long_short_backtest
+from kronos_signal.cross_asset_bt import (
+    CrossAssetConfig,
+    precomputed_score_fn,
+    roc_score_fn,
+    run_long_short_backtest,
+)
 from kronos_signal.panel_data import (
     load_historical_long,
     point_in_time_universe,
@@ -56,7 +61,29 @@ def test_roc_long_short_smoke():
     assert abs(sample[sample < 0].sum() + 1.0) < 1e-6
 
 
+def test_precomputed_score_fn_smoke():
+    panels = to_wide_panels(load_historical_long(CSV))
+    close = panels["close"]
+    # Fake scores = recent ROC so ranking is well-defined.
+    fake = close / close.shift(10) - 1.0
+    cfg = CrossAssetConfig(
+        universe_n=20,
+        long_n=3,
+        short_n=3,
+        pred_len=10,
+        lookback=60,
+        min_history_days=40,
+        start="2024-01-01",
+        end="2024-06-01",
+        cost_bps=10.0,
+    )
+    out = run_long_short_backtest(panels, precomputed_score_fn(fake), cfg)
+    assert out["n_rebalances"] > 2
+    assert "total_return" in out
+
+
 if __name__ == "__main__":
     test_panel_and_universe()
     test_roc_long_short_smoke()
+    test_precomputed_score_fn_smoke()
     print("ok")

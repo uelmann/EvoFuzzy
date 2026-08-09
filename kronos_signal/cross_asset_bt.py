@@ -41,6 +41,45 @@ def roc_score_fn(window: int = 30) -> ScoreFn:
     return _score
 
 
+def precomputed_score_fn(score_df: pd.DataFrame) -> ScoreFn:
+    """Wrap a date×symbol score matrix (e.g. Kronos FT mean/last) as a ScoreFn."""
+    df = score_df.copy()
+    df.index = pd.to_datetime(df.index, utc=True)
+
+    def _score(asof: pd.Timestamp, symbols: list[str], panels: dict[str, pd.DataFrame]) -> pd.Series:
+        asof = pd.Timestamp(asof)
+        if asof.tzinfo is None:
+            asof = asof.tz_localize("UTC")
+        else:
+            asof = asof.tz_convert("UTC")
+        if asof in df.index:
+            row = df.loc[asof]
+        else:
+            prev = df.index[df.index <= asof]
+            if len(prev) == 0:
+                return pd.Series(dtype=float)
+            row = df.loc[prev[-1]]
+        if isinstance(row, pd.DataFrame):
+            row = row.iloc[-1]
+        return row.reindex(symbols).dropna().astype(float)
+
+    return _score
+
+
+def summarize_long_short(result: dict) -> dict:
+    """JSON-friendly metrics (drop heavy frames)."""
+    return {
+        "n_rebalances": result["n_rebalances"],
+        "total_return": result["total_return"],
+        "max_drawdown": result["max_drawdown"],
+        "ann_vol": result["ann_vol"],
+        "sharpe": result["sharpe"],
+        "btc_total_return": result["btc_total_return"],
+        "turnover_mean": result["turnover_mean"],
+        "n_days": int(len(result["daily_return"])),
+    }
+
+
 def run_long_short_backtest(
     panels: dict[str, pd.DataFrame],
     score_fn: ScoreFn,
