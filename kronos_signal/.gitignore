@@ -1,0 +1,4 @@
+__pycache__/
+*.py[cod]
+last_signal.json
+.pytest_cache/
