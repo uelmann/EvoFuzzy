@@ -704,13 +704,13 @@ def run_improve_v2_pipeline(
 
 
 @app.function(
-    gpu="A10G",
+    gpu="H100",
     timeout=60 * 60 * 12,
     volumes={
         "/root/.cache/huggingface": hf_cache,
         "/data/crypto": crypto_data,
     },
-    memory=32768,
+    memory=65536,
 )
 def run_official_ft_pipeline(
     predictor_size: str = "small",
