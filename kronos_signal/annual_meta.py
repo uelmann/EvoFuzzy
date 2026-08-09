@@ -1,10 +1,12 @@
 """
-Annual retrain/test meta walk-forward.
+Expanding annual retrain/test for the meta-model (best logistic config).
 
-For each test year Y:
-  - train logistic meta on all prior feature rows (asof < Y-01-01)
-  - test on rows with asof in year Y
-Then stitch yearly test segments into one equity curve.
+Fold for calendar year Y:
+  TRAIN = all feature rows with asof <= Dec 31 of (Y-1)   # all history up to then
+  TEST  = all feature rows with asof in [Jan 1 Y, Dec 31 Y]
+
+Then move forward one year: include year Y into train, test Y+1, etc.
+This is NOT "train once until 2022 then test everything after".
 """
 
 from __future__ import annotations
@@ -23,6 +25,10 @@ from .meta_model import _make_model
 @dataclass
 class YearResult:
     year: int
+    train_start: str
+    train_end: str
+    test_start: str
+    test_end: str
     n_train: int
     n_test: int
     n_long: int
@@ -32,6 +38,7 @@ class YearResult:
     total_return: float
     buy_hold_return: float
     max_drawdown: float
+    model: str
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -58,46 +65,40 @@ def annual_retrain_meta(
     feature_cols: list[str] | None = None,
 ) -> dict:
     frame = steps_to_frame(steps, ohlcv)
-    frame["year"] = pd.to_datetime(frame["asof"], utc=True).dt.year
+    asofs = pd.to_datetime(frame["asof"], utc=True)
+    frame = frame.assign(asof=asofs)
     feat_cols = feature_cols or list(BASELINE_META_FEATURES)
     feat_cols = [c for c in feat_cols if c in frame.columns]
 
-    years = sorted(frame["year"].unique().tolist())
+    years_present = sorted(asofs.dt.year.unique().tolist())
     if test_years is None:
-        # need at least one prior year of rows for training when possible
-        test_years = [y for y in years if y >= years[0] + 1] or years
+        test_years = [y for y in years_present if y >= years_present[0] + 1]
     else:
-        test_years = [y for y in test_years if y in years]
+        test_years = [y for y in test_years if y in years_present]
 
     X = np.nan_to_num(frame[feat_cols].to_numpy(dtype=float), nan=0.0, posinf=0.0, neginf=0.0)
     y = frame["y_up"].to_numpy(dtype=int)
     realized = frame["realized_return"].to_numpy(dtype=float)
-    asofs = pd.to_datetime(frame["asof"], utc=True)
 
     all_steps: list[StepResult] = []
     year_rows: list[YearResult] = []
 
     for year in test_years:
-        train_idx = np.where(asofs.dt.year < year)[0]
-        test_idx = np.where(asofs.dt.year == year)[0]
+        train_end = pd.Timestamp(f"{year - 1}-12-31", tz="UTC")
+        test_start = pd.Timestamp(f"{year}-01-01", tz="UTC")
+        test_end = pd.Timestamp(f"{year}-12-31", tz="UTC")
+
+        train_idx = np.where(asofs <= train_end)[0]
+        test_idx = np.where((asofs >= test_start) & (asofs <= test_end))[0]
         if len(test_idx) == 0:
             continue
+
+        train_start_s = str(asofs.iloc[train_idx[0]].date()) if len(train_idx) else ""
+        train_end_s = str(asofs.iloc[train_idx[-1]].date()) if len(train_idx) else str(train_end.date())
+        test_start_s = str(asofs.iloc[test_idx[0]].date())
+        test_end_s = str(asofs.iloc[test_idx[-1]].date())
+
         if len(train_idx) < min_train:
-            # not enough history: skip or HOLD-all
-            year_rows.append(
-                YearResult(
-                    year=year,
-                    n_train=len(train_idx),
-                    n_test=len(test_idx),
-                    n_long=0,
-                    n_short=0,
-                    n_hold=len(test_idx),
-                    hit_rate=None,
-                    total_return=0.0,
-                    buy_hold_return=float(np.prod(1.0 + realized[test_idx]) - 1.0),
-                    max_drawdown=0.0,
-                )
-            )
             for i in test_idx:
                 all_steps.append(
                     StepResult(
@@ -112,9 +113,28 @@ def annual_retrain_meta(
                         correct=None,
                     )
                 )
+            year_rows.append(
+                YearResult(
+                    year=year,
+                    train_start=train_start_s,
+                    train_end=train_end_s,
+                    test_start=test_start_s,
+                    test_end=test_end_s,
+                    n_train=len(train_idx),
+                    n_test=len(test_idx),
+                    n_long=0,
+                    n_short=0,
+                    n_hold=len(test_idx),
+                    hit_rate=None,
+                    total_return=0.0,
+                    buy_hold_return=float(np.prod(1.0 + realized[test_idx]) - 1.0),
+                    max_drawdown=0.0,
+                    model=model_type,
+                )
+            )
             continue
 
-        model, _ = _make_model(model_type)
+        model, used = _make_model(model_type)
         model.fit(X[train_idx], y[train_idx])
 
         year_step_rets = []
@@ -154,6 +174,10 @@ def annual_retrain_meta(
         year_rows.append(
             YearResult(
                 year=year,
+                train_start=train_start_s,
+                train_end=train_end_s,
+                test_start=test_start_s,
+                test_end=test_end_s,
                 n_train=len(train_idx),
                 n_test=len(test_idx),
                 n_long=n_long,
@@ -163,6 +187,7 @@ def annual_retrain_meta(
                 total_return=total_r,
                 buy_hold_return=float(np.prod(1.0 + realized[test_idx]) - 1.0),
                 max_drawdown=max_dd,
+                model=used,
             )
         )
 
@@ -182,10 +207,29 @@ def annual_retrain_meta(
         tau=0.0,
     )
 
+    folds = [
+        {
+            "fold": i + 1,
+            "train": f"{y.train_start} → {y.train_end}",
+            "test": f"{y.test_start} → {y.test_end}",
+            "n_train": y.n_train,
+            "n_test": y.n_test,
+            "ret": y.total_return,
+            "bh": y.buy_hold_return,
+        }
+        for i, y in enumerate(year_rows)
+    ]
+
     return {
-        "scheme": "annual_retrain_meta",
+        "scheme": "expanding_annual_retrain",
+        "scheme_detail": (
+            "For each test year Y: train on ALL prior rows through Dec 31 (Y-1), "
+            "test only Jan-Dec Y; then roll forward including Y into the next train set."
+        ),
+        "model": "logistic_meta_baseline_features",
         "data_source": "Binance BTCUSDT 1d (data-api.binance.vision / mirrors)",
         "test_years": test_years,
+        "folds": folds,
         "by_year": [y.to_dict() for y in year_rows],
         "overall": {
             "n_steps": len(all_steps),
@@ -199,7 +243,6 @@ def annual_retrain_meta(
             "start": all_steps[0].asof if all_steps else "",
             "end": all_steps[-1].asof if all_steps else "",
         },
-        "raw_full_period": None,  # filled by caller if desired
         "steps": [asdict(s) for s in all_steps],
         "feature_cols": feat_cols,
     }

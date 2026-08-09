@@ -1,4 +1,4 @@
-"""Plot annual-retrain meta equity and per-year bars."""
+"""Plot expanding annual-retrain meta equity and per-year bars."""
 
 from __future__ import annotations
 
@@ -28,14 +28,31 @@ def plot_annual(
     y_ret = [y["total_return"] * 100 for y in data["by_year"]]
     y_bh = [y["buy_hold_return"] * 100 for y in data["by_year"]]
 
-    fig, axes = plt.subplots(2, 1, figsize=(11, 7.5), gridspec_kw={"height_ratios": [2.0, 1.1]})
+    fig, axes = plt.subplots(2, 1, figsize=(11, 8.0), gridspec_kw={"height_ratios": [2.0, 1.2]})
     ax = axes[0]
     ov = data["overall"]
-    ax.plot(x, eq, color="#1f6feb", lw=2.2, label=f"Annual-retrain meta ({ov['total_return']:+.1%})")
-    ax.plot(x, eq_bh, color="#8b949e", lw=1.6, ls="--", label=f"Buy&hold rolls ({ov['buy_hold_return']:+.1%})")
+    ax.plot(
+        x,
+        eq,
+        color="#1f6feb",
+        lw=2.2,
+        label=f"Expanding annual meta ({ov['total_return']:+.1%})",
+    )
+    ax.plot(
+        x,
+        eq_bh,
+        color="#8b949e",
+        lw=1.6,
+        ls="--",
+        label=f"Buy&hold rolls ({ov['buy_hold_return']:+.1%})",
+    )
     ax.axhline(1.0, color="#d0d7de", lw=1)
+    # mark year boundaries
+    for y in years[1:]:
+        ax.axvline(pd.Timestamp(f"{y}-01-01", tz="UTC"), color="#d0d7de", lw=0.8, ls=":")
     ax.set_title(
-        f"Binance BTCUSDT daily — annual meta retrain\n"
+        "Binance BTCUSDT daily — expanding annual retrain\n"
+        f"each fold: train ALL history through Dec(Y-1) → test only year Y\n"
         f"{ov['start'][:10]} → {ov['end'][:10]}  hit={ov['hit_rate']}  maxDD={ov['max_drawdown']:.1%}"
     )
     ax.set_ylabel("Equity")
@@ -45,11 +62,14 @@ def plot_annual(
     ax2 = axes[1]
     xpos = np.arange(len(years))
     w = 0.38
-    ax2.bar(xpos - w / 2, y_ret, width=w, color="#1f6feb", label="Meta")
-    ax2.bar(xpos + w / 2, y_bh, width=w, color="#8b949e", label="B&H")
+    ax2.bar(xpos - w / 2, y_ret, width=w, color="#1f6feb", label="Meta (test year)")
+    ax2.bar(xpos + w / 2, y_bh, width=w, color="#8b949e", label="B&H (test year)")
     ax2.axhline(0, color="#d0d7de", lw=1)
+    labels = []
+    for y in data["by_year"]:
+        labels.append(f"{y['year']}\ntrain→{y.get('train_end', '')[-4:]}\nn={y['n_train']}")
     ax2.set_xticks(xpos)
-    ax2.set_xticklabels([str(y) for y in years])
+    ax2.set_xticklabels(labels, fontsize=8)
     ax2.set_ylabel("Year return %")
     ax2.grid(True, axis="y", alpha=0.3)
     ax2.legend(frameon=False)
