@@ -49,7 +49,13 @@ def main() -> None:
         "--signals",
         type=str,
         default="mean,last",
-        help="Comma-separated FT score keys to backtest",
+        help="Comma-separated score keys to backtest (FT and ZS)",
+    )
+    p.add_argument(
+        "--zs-scores",
+        type=Path,
+        default=None,
+        help="Optional zero-shot (non-FT) score pickle for comparison",
     )
     p.add_argument(
         "--out",
@@ -65,6 +71,10 @@ def main() -> None:
 
     with open(args.scores, "rb") as f:
         scores_map = pickle.load(f)
+    zs_map = None
+    if args.zs_scores is not None:
+        with open(args.zs_scores, "rb") as f:
+            zs_map = pickle.load(f)
     panels = _load_panels(args.panel_pkl, args.csv)
     cfg = CrossAssetConfig(
         universe_n=args.universe_n,
@@ -80,12 +90,13 @@ def main() -> None:
 
     results: dict[str, dict] = {}
     equities: dict[str, object] = {}
+    keys = [s.strip() for s in args.signals.split(",") if s.strip()]
 
-    for key in [s.strip() for s in args.signals.split(",") if s.strip()]:
-        if key not in scores_map:
-            raise SystemExit(f"Missing score key {key!r}; have {list(scores_map)}")
-        bt = run_long_short_backtest(panels, precomputed_score_fn(scores_map[key]), cfg)
-        name = f"kronos_ft_{key}"
+    def _run_named(prefix: str, smap: dict, key: str) -> None:
+        if key not in smap:
+            raise SystemExit(f"Missing score key {key!r} in {prefix}; have {list(smap)}")
+        bt = run_long_short_backtest(panels, precomputed_score_fn(smap[key]), cfg)
+        name = f"{prefix}_{key}"
         results[name] = summarize_long_short(bt)
         equities[name] = bt["equity"]
         print(
@@ -93,6 +104,12 @@ def main() -> None:
             f"mdd={bt['max_drawdown']:.1%} rebals={bt['n_rebalances']}",
             flush=True,
         )
+
+    for key in keys:
+        _run_named("kronos_ft", scores_map, key)
+    if zs_map is not None:
+        for key in keys:
+            _run_named("kronos_zs", zs_map, key)
 
     roc_bt = run_long_short_backtest(panels, roc_score_fn(args.roc_window), cfg)
     results["roc_baseline"] = summarize_long_short(roc_bt)
@@ -105,34 +122,54 @@ def main() -> None:
     )
 
     out = {
-        "recipe": "ft_l3s3",
-        "note": "FT scores from lookback=90/pred=10; portfolio = long top-N / short worst-N",
+        "recipe": "ft_vs_zs_l3s3" if zs_map is not None else "ft_l3s3",
+        "note": (
+            "L3/S3 dollar-neutral; FT vs pretrained zero-shot Kronos scores"
+            if zs_map is not None
+            else "FT scores; portfolio = long top-N / short worst-N"
+        ),
         "config": cfg.__dict__,
         "roc_window": args.roc_window,
         "scores_path": str(args.scores),
+        "zs_scores_path": str(args.zs_scores) if args.zs_scores else None,
         "signals": results,
-        "primary": results.get("kronos_ft_mean") or next(iter(results.values())),
+        "primary": results.get("kronos_ft_last")
+        or results.get("kronos_ft_mean")
+        or next(iter(results.values())),
     }
     args.out.write_text(json.dumps(out, indent=2, default=str))
     print(f"Wrote {args.out}", flush=True)
 
-    # Equity plot
+    # Equity plot — focus on last (best FT) + ZS last + ROC + BTC when comparing
     fig, ax = plt.subplots(figsize=(11, 5.5))
     colors = {
-        "kronos_ft_mean": "#1f6feb",
         "kronos_ft_last": "#116329",
+        "kronos_ft_mean": "#1f6feb",
+        "kronos_zs_last": "#8250df",
+        "kronos_zs_mean": "#bf3989",
         "roc_baseline": "#bf8700",
     }
-    for name, eq in equities.items():
+    plot_order = [
+        "kronos_ft_last",
+        "kronos_zs_last",
+        "kronos_ft_mean",
+        "kronos_zs_mean",
+        "roc_baseline",
+    ]
+    for name in plot_order:
+        eq = equities.get(name)
         if eq is None or len(eq) < 2:
             continue
         norm = eq / eq.iloc[0]
         ret = results[name]["total_return"]
+        lw = 2.2 if name.endswith("_last") or name == "roc_baseline" else 1.4
+        ls = "--" if name.startswith("kronos_zs") else "-"
         ax.plot(
             norm.index,
             norm.values,
             label=f"{name} {ret:+.0%}",
-            lw=2.0 if "mean" in name or name == "roc_baseline" else 1.6,
+            lw=lw,
+            ls=ls,
             color=colors.get(name, None),
         )
     if btc_eq is not None and len(btc_eq) > 1:
@@ -145,9 +182,11 @@ def main() -> None:
             color="#8b949e",
         )
     ax.axhline(1.0, color="#d0d7de", lw=1)
+    title_cmp = "FT vs zero-shot" if zs_map is not None else "FT"
     ax.set_title(
-        f"L{cfg.long_n}/S{cfg.short_n} dollar-neutral — lookback={cfg.lookback} / "
-        f"hold={cfg.pred_len}d\n{cfg.start} → {cfg.end}  |  PIT top-{cfg.universe_n}"
+        f"L{cfg.long_n}/S{cfg.short_n} dollar-neutral ({title_cmp}) — "
+        f"lookback={cfg.lookback} / hold={cfg.pred_len}d\n"
+        f"{cfg.start} → {cfg.end}  |  PIT top-{cfg.universe_n}"
     )
     ax.set_ylabel("Equity (start=1)")
     ax.legend(loc="best", frameon=False, fontsize=9)

@@ -12,6 +12,7 @@ Usage (from repo root, with Modal CLI authenticated):
     modal run kronos_signal/modal_app.py --mode long_annual --pred-len 1 --n-paths 10 --start-asof 2021-01-01
     modal run kronos_signal/modal_app.py --mode official --predictor-size small --official-epochs 30
     modal run kronos_signal/modal_app.py --mode official_bt --predictor-size small --signal mean
+    modal run kronos_signal/modal_app.py --mode zs_scores --predictor-size small --lookback 90 --pred-len 10
 """
 
 from __future__ import annotations
@@ -808,6 +809,64 @@ def run_official_ft_backtest_job(
     return out
 
 
+@app.function(
+    gpu="H100",
+    timeout=60 * 60 * 6,
+    volumes={
+        "/root/.cache/huggingface": hf_cache,
+        "/data/crypto": crypto_data,
+    },
+    memory=65536,
+)
+def run_zero_shot_scores_job(
+    predictor_size: str = "small",
+    lookback_window: int = 90,
+    predict_window: int = 10,
+    verbose: bool = True,
+) -> dict:
+    """Infer with pretrained (non-FT) Kronos and save score matrices for L3/S3."""
+    import pickle
+    from pathlib import Path as P
+
+    from kronos_signal.official_config import OfficialConfig
+    from kronos_signal.official_infer_bt import generate_zero_shot_scores
+
+    root = P("/data/crypto/official_runs")
+    cfg = OfficialConfig(root=root, predictor_size=predictor_size, epochs=30)
+    cfg.lookback_window = int(lookback_window)
+    cfg.predict_window = int(predict_window)
+    if verbose:
+        print(
+            f"Zero-shot infer root={root} pretrained={cfg.pretrained_predictor_path} "
+            f"lb={cfg.lookback_window} pred={cfg.predict_window}",
+            flush=True,
+        )
+    scores = generate_zero_shot_scores(cfg, device="cuda", kronos_root="/opt/Kronos")
+    tag = f"lb{cfg.lookback_window}_h{cfg.predict_window}"
+    out_path = root / f"zs_prediction_scores_{tag}.pkl"
+    alias = root / "zs_prediction_scores.pkl"
+    with open(out_path, "wb") as f:
+        pickle.dump(scores, f)
+    with open(alias, "wb") as f:
+        pickle.dump(scores, f)
+    meta = {
+        "recipe": "zero_shot_scores",
+        "predictor": cfg.pretrained_predictor_path,
+        "tokenizer": cfg.pretrained_tokenizer_path,
+        "lookback": cfg.lookback_window,
+        "predict_window": cfg.predict_window,
+        "scores_path": str(out_path),
+        "n_dates": {k: int(len(v)) for k, v in scores.items()},
+        "n_symbols": {k: int(v.shape[1]) for k, v in scores.items()},
+    }
+    (root / f"last_zs_scores_{tag}.json").write_text(
+        __import__("json").dumps(meta, indent=2)
+    )
+    crypto_data.commit()
+    hf_cache.commit()
+    return meta
+
+
 @app.local_entrypoint()
 def main(
     mode: str = "signal",
@@ -1035,10 +1094,26 @@ def main(
         print(f"Wrote {out}")
         return
 
+    if mode == "zs_scores":
+        lb = 90 if lookback == 400 else lookback
+        ph = 10 if (lookback == 400 and pred_len == 5) else pred_len
+        result = run_zero_shot_scores_job.remote(
+            predictor_size=predictor_size,
+            lookback_window=lb,
+            predict_window=ph,
+            verbose=True,
+        )
+        out = Path("kronos_signal") / f"last_zs_scores_lb{lb}_h{ph}.json"
+        out.write_text(json.dumps(result, indent=2, default=str))
+        print("\n=== ZERO-SHOT KRONOS SCORES ===")
+        print(json.dumps(result, indent=2, default=str))
+        print(f"Wrote {out}")
+        return
+
     if mode != "signal":
         raise SystemExit(
             f"Unknown mode={mode!r}; use 'signal', 'backtest', 'long_annual', "
-            f"'improve', 'improve_v2', 'official', or 'official_bt'"
+            f"'improve', 'improve_v2', 'official', 'official_bt', or 'zs_scores'"
         )
 
     n_paths = 30 if n_paths <= 0 else n_paths

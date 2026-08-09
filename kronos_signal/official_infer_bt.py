@@ -96,8 +96,14 @@ def generate_ft_scores(
     device: str = "cuda",
     kronos_root: str | None = None,
     signal: str = "mean",
+    tokenizer_path: str | None = None,
+    predictor_path: str | None = None,
 ) -> dict[str, pd.DataFrame]:
-    """Return dict of score DataFrames (last/mean/max/min) like upstream qlib_test."""
+    """Return dict of score DataFrames (last/mean/max/min) like upstream qlib_test.
+
+    By default loads fine-tuned checkpoints. Pass HuggingFace ids / paths to
+    compare zero-shot pretrained Kronos (e.g. NeoQuasar/Kronos-small).
+    """
     _ensure_kronos_on_path(kronos_root)
     from model.kronos import Kronos, KronosTokenizer, auto_regressive_inference
 
@@ -112,8 +118,11 @@ def generate_ft_scores(
         cols = [c for c in cfg.feature_list if c in df.columns]
         data[sym] = df[cols].dropna()
 
-    tokenizer = KronosTokenizer.from_pretrained(cfg.finetuned_tokenizer_path).to(device).eval()
-    model = Kronos.from_pretrained(cfg.finetuned_predictor_path).to(device).eval()
+    tok_path = tokenizer_path or cfg.finetuned_tokenizer_path
+    pred_path = predictor_path or cfg.finetuned_predictor_path
+    print(f"Loading tokenizer={tok_path} predictor={pred_path}", flush=True)
+    tokenizer = KronosTokenizer.from_pretrained(tok_path).to(device).eval()
+    model = Kronos.from_pretrained(pred_path).to(device).eval()
 
     bt_start, bt_end = cfg.backtest_time_range
     # Include lookback warm-up before backtest start for scoring continuity
@@ -168,6 +177,21 @@ def generate_ft_scores(
         pivot = df.pivot_table(index="datetime", columns="instrument", values="score")
         prediction_dfs[sig_type] = pivot.sort_index()
     return prediction_dfs
+
+
+def generate_zero_shot_scores(
+    cfg: OfficialConfig,
+    device: str = "cuda",
+    kronos_root: str | None = None,
+) -> dict[str, pd.DataFrame]:
+    """Same inference recipe as FT, but with pretrained tokenizer + predictor."""
+    return generate_ft_scores(
+        cfg,
+        device=device,
+        kronos_root=kronos_root,
+        tokenizer_path=cfg.pretrained_tokenizer_path,
+        predictor_path=cfg.pretrained_predictor_path,
+    )
 
 
 def _bt_summary(bt: dict) -> dict:
