@@ -7,6 +7,7 @@ Usage (from repo root, with Modal CLI authenticated):
     modal run kronos_signal/modal_app.py --n-paths 10
     modal run kronos_signal/modal_app.py --mode backtest --n-paths 10 --max-steps 150
     modal run kronos_signal/modal_app.py --mode improve --n-paths 10 --max-steps 150
+    modal run kronos_signal/modal_app.py --mode improve_v2
 """
 
 from __future__ import annotations
@@ -35,6 +36,7 @@ image = (
         "tqdm==4.67.1",
         "requests",
         "scikit-learn",
+        "lightgbm",
     )
     .run_commands(f"git clone --depth 1 {KRONOS_REPO} /opt/Kronos")
     .env({"HF_HOME": "/root/.cache/huggingface"})
@@ -394,6 +396,174 @@ def run_improve_pipeline(
     return payload
 
 
+@app.function(
+    gpu="T4",
+    timeout=3 * 60 * 60,
+    volumes={"/root/.cache/huggingface": hf_cache},
+    memory=8192,
+)
+def run_improve_v2_pipeline(
+    zeroshot_steps_json: str,
+    *,
+    min_train: int = 40,
+    supervised_epochs: int = 8,
+    lookback_sup: int = 90,
+    pred_len: int = 5,
+    verbose: bool = True,
+) -> dict:
+    """
+    Next-step package:
+      - LightGBM meta + richer features + embargo
+      - Supervised direction head on Kronos context (pre-test only)
+      - Meta with supervised proba as extra feature
+    """
+    import pandas as pd
+
+    from kronos_signal.compare import compare_raw_vs_meta
+    from kronos_signal.data import fetch_binance_klines_history
+    from kronos_signal.supervised_ft import (
+        load_supervised_bundle,
+        predict_supervised_p_up_loaded,
+        supervised_rule_backtest,
+        train_supervised_direction,
+    )
+
+    zs_steps = json.loads(zeroshot_steps_json)
+    df = fetch_binance_klines_history(min_bars=2000)
+    first_asof = pd.Timestamp(zs_steps[0]["asof"])
+    train_df = df[df["timestamps"] < first_asof].copy()
+    if verbose:
+        print(
+            f"Improve v2: {len(zs_steps)} zeroshot steps, "
+            f"supervised train bars={len(train_df)} before {first_asof}",
+            flush=True,
+        )
+
+    # 1) Meta variants on zero-shot Kronos features
+    meta_base = compare_raw_vs_meta(
+        zs_steps,
+        ohlcv=df,
+        min_train=min_train,
+        model_type="logistic",
+        embargo_steps=0,
+        proba_long=0.55,
+        proba_short=0.45,
+    )
+    meta_embargo = compare_raw_vs_meta(
+        zs_steps,
+        ohlcv=df,
+        min_train=min_train,
+        model_type="logistic",
+        embargo_steps=1,
+        proba_long=0.55,
+        proba_short=0.45,
+    )
+    meta_lgbm = compare_raw_vs_meta(
+        zs_steps,
+        ohlcv=df,
+        min_train=min_train,
+        model_type="lightgbm",
+        embargo_steps=0,
+        rich=True,
+        proba_long=0.55,
+        proba_short=0.45,
+    )
+
+    # 2) Supervised direction head
+    ckpt = "/root/.cache/huggingface/kronos-btc-supervised"
+    sup_info = train_supervised_direction(
+        train_df,
+        save_dir=ckpt,
+        epochs=supervised_epochs,
+        batch_size=8,
+        lookback=lookback_sup,
+        pred_len=pred_len,
+        n_samples=2500,
+        unfreeze_last_n=2,
+        kronos_root="/opt/Kronos",
+    )
+
+    tokenizer, model, head, meta, device = load_supervised_bundle(
+        ckpt, kronos_root="/opt/Kronos"
+    )
+    sup_map: dict[str, float] = {}
+    import numpy as np
+
+    ts_vals = pd.to_datetime(df["timestamps"])
+    for i, s in enumerate(zs_steps):
+        asof = pd.Timestamp(s["asof"])
+        matches = np.where(ts_vals == asof)[0]
+        if len(matches) == 0:
+            # try tz-normalize match on date
+            matches = np.where(ts_vals.dt.tz_convert("UTC") == asof.tz_convert("UTC"))[0]
+        if len(matches) == 0:
+            raise RuntimeError(f"asof {asof} not found in OHLCV")
+        end_idx = int(matches[0])
+        hist = df.iloc[max(0, end_idx - lookback_sup + 1) : end_idx + 1]
+        p = predict_supervised_p_up_loaded(
+            hist, tokenizer, model, head, meta, device
+        )
+        sup_map[str(asof)] = p
+        if verbose and (i + 1) % 25 == 0:
+            print(f"supervised probs {i + 1}/{len(zs_steps)}", flush=True)
+
+    # 3) Meta + supervised feature (baseline logistic config)
+    zs_sup_compare = compare_raw_vs_meta(
+        zs_steps,
+        ohlcv=df,
+        min_train=min_train,
+        model_type="logistic",
+        embargo_steps=0,
+        supervised_p_up=sup_map,
+        proba_long=0.55,
+        proba_short=0.45,
+    )
+    sup_alone = supervised_rule_backtest(
+        zs_steps, sup_map, min_train=min_train, proba_long=0.55, proba_short=0.45
+    )
+
+    hf_cache.commit()
+    payload = {
+        "meta_v2": {
+            "raw_aligned": meta_base["raw_aligned"],
+            "meta_logistic": meta_base["meta"],
+            "meta_logistic_embargo": meta_embargo["meta"],
+            "meta_market_only": meta_base["meta_market_only"],
+            "meta_lgbm_rich": meta_lgbm["meta"],
+        },
+        "supervised": {
+            "train_info": {
+                "save_dir": sup_info.get("save_dir"),
+                "n_train_bars": sup_info.get("n_train_bars"),
+                "lookback": sup_info.get("lookback"),
+                "pred_len": sup_info.get("pred_len"),
+                "history": sup_info.get("history"),
+                "supervised_epochs": supervised_epochs,
+            },
+            "head_alone": sup_alone,
+            "meta_with_sup": zs_sup_compare["meta"],
+            "sup_p_up": sup_map,
+        },
+    }
+    if verbose:
+        print(
+            json.dumps(
+                {
+                    "raw_aligned": meta_base["raw_aligned"]["total_return"],
+                    "meta_logistic": meta_base["meta"]["total_return"],
+                    "meta_logistic_embargo": meta_embargo["meta"]["total_return"],
+                    "meta_market_only": meta_base["meta_market_only"]["total_return"],
+                    "meta_lgbm_rich": meta_lgbm["meta"]["total_return"],
+                    "sup_head_alone": sup_alone["total_return"],
+                    "meta_with_sup": zs_sup_compare["meta"]["total_return"],
+                },
+                indent=2,
+            ),
+            flush=True,
+        )
+    return payload
+
+
 @app.local_entrypoint()
 def main(
     mode: str = "signal",
@@ -404,6 +574,7 @@ def main(
     max_steps: int = 150,
     step: int = 5,
     finetune_epochs: int = 5,
+    supervised_epochs: int = 8,
 ):
     def _print_bt(title: str, result: dict):
         print(f"\n=== {title} ===")
@@ -470,8 +641,53 @@ def main(
         print(f"Wrote {out}")
         return
 
+    if mode == "improve_v2":
+        zs_path = Path("kronos_signal") / "last_backtest.json"
+        if not zs_path.exists():
+            # fall back to zeroshot steps embedded in last_improve.json
+            alt = Path("kronos_signal") / "last_improve.json"
+            if not alt.exists():
+                raise SystemExit("Need kronos_signal/last_backtest.json (or last_improve.json)")
+            zs_steps = json.loads(alt.read_text())["zeroshot"]["steps"]
+        else:
+            zs_steps = json.loads(zs_path.read_text())["steps"]
+        result = run_improve_v2_pipeline.remote(
+            json.dumps(zs_steps),
+            min_train=40,
+            supervised_epochs=supervised_epochs,
+            lookback_sup=90,
+            pred_len=pred_len,
+            verbose=True,
+        )
+        out = Path("kronos_signal") / "last_improve_v2.json"
+        out.write_text(json.dumps(result, indent=2))
+        print("\n=== IMPROVE V2 SUMMARY ===")
+        mv = result["meta_v2"]
+        for key in (
+            "raw_aligned",
+            "meta_logistic",
+            "meta_logistic_embargo",
+            "meta_market_only",
+            "meta_lgbm_rich",
+        ):
+            r = mv[key]
+            print(
+                f"{key:24} {r['total_return']:.2%}  hit={r['hit_rate']}  "
+                f"L/S/H={r['n_long']}/{r['n_short']}/{r['n_hold']}"
+            )
+        for key in ("head_alone", "meta_with_sup"):
+            r = result["supervised"][key]
+            print(
+                f"{key:24} {r['total_return']:.2%}  hit={r['hit_rate']}  "
+                f"L/S/H={r['n_long']}/{r['n_short']}/{r['n_hold']}"
+            )
+        print(f"Wrote {out}")
+        return
+
     if mode != "signal":
-        raise SystemExit(f"Unknown mode={mode!r}; use 'signal', 'backtest', or 'improve'")
+        raise SystemExit(
+            f"Unknown mode={mode!r}; use 'signal', 'backtest', 'improve', or 'improve_v2'"
+        )
 
     n_paths = 30 if n_paths <= 0 else n_paths
     result = run_daily_signal.remote(

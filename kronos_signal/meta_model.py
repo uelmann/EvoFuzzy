@@ -1,8 +1,7 @@
 """
 Walk-forward meta-model on Kronos + market features.
 
-Point 1-2: do NOT trade raw Kronos; train a classifier that maps features →
-LONG/SHORT/HOLD and backtest it with expanding window (no future leakage).
+Uses expanding window with purge/embargo and LightGBM (fallback: logistic).
 """
 
 from __future__ import annotations
@@ -16,7 +15,14 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 from .backtest import StepResult, summarize_steps
-from .features import FEATURE_COLS
+from .features import active_feature_cols
+
+try:
+    from lightgbm import LGBMClassifier
+
+    HAS_LGBM = True
+except Exception:  # noqa: BLE001
+    HAS_LGBM = False
 
 
 @dataclass
@@ -36,27 +42,65 @@ class MetaBacktestResult:
     min_train: int
     proba_long: float
     proba_short: float
-    steps: list[dict]
+    model_type: str = "logistic"
+    embargo_steps: int = 1
+    steps: list[dict] | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)
 
 
-def _clf() -> Pipeline:
-    return Pipeline(
-        [
-            ("scaler", StandardScaler()),
-            (
-                "lr",
-                LogisticRegression(
-                    max_iter=500,
-                    class_weight="balanced",
-                    C=0.5,
-                    solver="lbfgs",
+def _make_model(model_type: str = "auto"):
+    if model_type == "auto":
+        model_type = "lightgbm" if HAS_LGBM else "logistic"
+    if model_type == "lightgbm":
+        if not HAS_LGBM:
+            raise RuntimeError("lightgbm not installed")
+        # Conservative params for small financial samples
+        return LGBMClassifier(
+            n_estimators=80,
+            learning_rate=0.05,
+            num_leaves=8,
+            max_depth=3,
+            min_child_samples=8,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            reg_lambda=1.0,
+            class_weight="balanced",
+            random_state=42,
+            verbosity=-1,
+        ), "lightgbm"
+    return (
+        Pipeline(
+            [
+                ("scaler", StandardScaler()),
+                (
+                    "lr",
+                    LogisticRegression(
+                        max_iter=500,
+                        class_weight="balanced",
+                        C=0.5,
+                        solver="lbfgs",
+                    ),
                 ),
-            ),
-        ]
+            ]
+        ),
+        "logistic",
     )
+
+
+def _train_mask(t: int, embargo_steps: int) -> np.ndarray:
+    """
+    Indices [0, t) usable for training at decision t.
+    Embargo drops the last `embargo_steps` labels to reduce serial leakage.
+    With non-overlapping 5d steps, overlapping-label purge is already mostly handled;
+    embargo is an extra safety buffer.
+    """
+    end = max(0, t - embargo_steps)
+    mask = np.zeros(t, dtype=bool)
+    if end > 0:
+        mask[:end] = True
+    return mask
 
 
 def walk_forward_meta(
@@ -70,38 +114,46 @@ def walk_forward_meta(
     n_paths: int = 10,
     step: int = 5,
     tau: float = 0.0,
+    model_type: str = "auto",
+    embargo_steps: int = 1,
+    name: str | None = None,
+    feature_cols: list[str] | None = None,
 ) -> MetaBacktestResult:
-    """
-    Expanding-window walk-forward:
-    for each t >= min_train, fit on [0, t), predict P(up) at t, trade, realize label at t.
-    """
+    """Expanding-window walk-forward with embargoed training labels."""
     if len(frame) <= min_train:
         raise ValueError(f"Need more than min_train={min_train} rows, got {len(frame)}")
 
-    X = frame[FEATURE_COLS].to_numpy(dtype=float)
+    feat_cols = feature_cols or active_feature_cols(frame)
+    feat_cols = [c for c in feat_cols if c in frame.columns]
+    if not feat_cols:
+        raise ValueError("No usable feature columns")
+    X = frame[feat_cols].to_numpy(dtype=float)
     y = frame["y_up"].to_numpy(dtype=int)
     realized = frame["realized_return"].to_numpy(dtype=float)
 
+    # Impute non-finite
+    X = np.nan_to_num(X, nan=0.0, posinf=0.0, neginf=0.0)
+
     steps: list[StepResult] = []
+    used_model = None
     for t in range(min_train, len(frame)):
-        model = _clf()
-        model.fit(X[:t], y[:t])
-        proba = float(model.predict_proba(X[t : t + 1])[0, 1])
-        real = float(realized[t])
-
-        if proba >= proba_long:
-            signal = "LONG"
-            strat = real
-            correct = real > 0
-        elif proba <= proba_short:
-            signal = "SHORT"
-            strat = -real
-            correct = real < 0
+        mask = _train_mask(t, embargo_steps)
+        if mask.sum() < max(10, min_train // 2):
+            # not enough clean train rows yet
+            signal, proba, strat, correct = "HOLD", 0.5, 0.0, None
         else:
-            signal = "HOLD"
-            strat = 0.0
-            correct = None
+            model, used_model = _make_model(model_type)
+            model.fit(X[:t][mask], y[:t][mask])
+            proba = float(model.predict_proba(X[t : t + 1])[0, 1])
+            real = float(realized[t])
+            if proba >= proba_long:
+                signal, strat, correct = "LONG", real, real > 0
+            elif proba <= proba_short:
+                signal, strat, correct = "SHORT", -real, real < 0
+            else:
+                signal, strat, correct = "HOLD", 0.0, None
 
+        real = float(realized[t])
         steps.append(
             StepResult(
                 asof=str(frame.iloc[t]["asof"]),
@@ -116,11 +168,7 @@ def walk_forward_meta(
             )
         )
 
-    # buy&hold over meta evaluation window
-    first_close = 1.0
-    # approximate B&H from compounded realized of the evaluated steps
     bh = float(np.prod(1.0 + realized[min_train:]) - 1.0)
-    # use summarize with dummy closes; override buy_hold after
     summary = summarize_steps(
         steps,
         first_close=100.0,
@@ -132,7 +180,7 @@ def walk_forward_meta(
         tau=tau,
     )
     return MetaBacktestResult(
-        name="meta_logistic_walkforward",
+        name=name or f"meta_{used_model or model_type}_purge",
         n_steps=summary.n_steps,
         n_long=summary.n_long,
         n_short=summary.n_short,
@@ -147,6 +195,8 @@ def walk_forward_meta(
         min_train=min_train,
         proba_long=proba_long,
         proba_short=proba_short,
+        model_type=used_model or model_type,
+        embargo_steps=embargo_steps,
         steps=summary.steps,
     )
 
@@ -203,5 +253,7 @@ def raw_rule_on_frame(frame: pd.DataFrame) -> MetaBacktestResult:
         min_train=0,
         proba_long=0.6,
         proba_short=0.4,
+        model_type="raw_rule",
+        embargo_steps=0,
         steps=summary.steps,
     )

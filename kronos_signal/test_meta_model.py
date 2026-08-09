@@ -7,7 +7,7 @@ from kronos_signal.features import FEATURE_COLS, steps_to_frame
 from kronos_signal.meta_model import walk_forward_meta
 
 
-def _fake_ohlcv(n=200, start="2024-01-01"):
+def _fake_ohlcv(n=250, start="2024-01-01"):
     closes = np.cumprod(1 + np.random.default_rng(0).normal(0, 0.01, n)) * 100
     ts = pd.date_range(start, periods=n, freq="D", tz="UTC")
     return pd.DataFrame(
@@ -26,11 +26,9 @@ def _fake_ohlcv(n=200, start="2024-01-01"):
 def test_walk_forward_meta_runs():
     ohlcv = _fake_ohlcv(250)
     steps = []
-    # Use late bars so market features have history
-    for i in range(80, 200, 5):
+    for i in range(120, 230, 5):
         asof = ohlcv.iloc[i]["timestamps"]
         real = float(ohlcv.iloc[i + 5]["close"] / ohlcv.iloc[i]["close"] - 1)
-        # Kronos feature correlated (noisy) with future return
         steps.append(
             {
                 "asof": str(asof),
@@ -42,8 +40,15 @@ def test_walk_forward_meta_runs():
         )
     frame = steps_to_frame(steps, ohlcv)
     assert all(c in frame.columns for c in FEATURE_COLS)
-    meta = walk_forward_meta(frame, min_train=10, proba_long=0.55, proba_short=0.45)
-    assert meta.n_steps == len(frame) - 10
+    meta = walk_forward_meta(
+        frame,
+        min_train=8,
+        proba_long=0.55,
+        proba_short=0.45,
+        model_type="logistic",
+        embargo_steps=1,
+    )
+    assert meta.n_steps == len(frame) - 8
     assert meta.n_long + meta.n_short + meta.n_hold == meta.n_steps
 
 
