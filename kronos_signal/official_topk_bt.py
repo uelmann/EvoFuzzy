@@ -33,14 +33,14 @@ def topk_dropout_backtest(
     close: pd.DataFrame,
     cfg: OfficialConfig,
     universe_mcap: pd.DataFrame | None = None,
+    pure_topk: bool = False,
 ) -> dict:
     """
     scores: date × symbol prediction scores (higher = more bullish).
-    Implements a simplified TopkDropout:
-      - restrict to point-in-time top `universe_n` by mcap when provided
-      - hold `topk` names, each day drop up to `n_drop` worst held if replacements exist
-      - enforce hold_thresh in trading days
-      - delay execution by 1 day; equal-weight long-only
+
+    Default: simplified TopkDropout (hold_thresh + n_drop), like Kronos qlib_test.
+    If pure_topk=True: every day hold exactly the current top-k scores (no min-hold,
+    no n_drop cap) — full daily rebalance, still delay_execution=1 day.
     """
     topk = cfg.backtest_n_symbol_hold
     n_drop = cfg.backtest_n_symbol_drop
@@ -65,25 +65,27 @@ def topk_dropout_backtest(
         if day_scores.empty:
             continue
 
-        # Drop worst held (if held long enough)
-        droppable = [s for s, age in holdings.items() if age >= hold_thresh and s in day_scores.index]
-        droppable_sorted = sorted(droppable, key=lambda s: day_scores.get(s, -np.inf))
-        to_drop = droppable_sorted[:n_drop]
+        if pure_topk:
+            new_hold = list(day_scores.nlargest(min(topk, len(day_scores))).index)
+            holdings = {s: 1 for s in new_hold}
+        else:
+            # Drop worst held (if held long enough)
+            droppable = [s for s, age in holdings.items() if age >= hold_thresh and s in day_scores.index]
+            droppable_sorted = sorted(droppable, key=lambda s: day_scores.get(s, -np.inf))
+            to_drop = droppable_sorted[:n_drop]
 
-        kept = [s for s in holdings if s not in to_drop]
-        # Fill up to topk with best not held
-        candidates = [s for s in day_scores.sort_values(ascending=False).index if s not in kept]
-        need = max(topk - len(kept), 0)
-        add = candidates[:need]
-        new_hold = kept + add
-        # If still over topk (shouldn't), trim worst
-        if len(new_hold) > topk:
-            new_hold = sorted(new_hold, key=lambda s: day_scores.get(s, -np.inf), reverse=True)[:topk]
+            kept = [s for s in holdings if s not in to_drop]
+            candidates = [s for s in day_scores.sort_values(ascending=False).index if s not in kept]
+            need = max(topk - len(kept), 0)
+            add = candidates[:need]
+            new_hold = kept + add
+            if len(new_hold) > topk:
+                new_hold = sorted(new_hold, key=lambda s: day_scores.get(s, -np.inf), reverse=True)[:topk]
 
-        new_holdings: dict[str, int] = {}
-        for s in new_hold:
-            new_holdings[s] = (holdings.get(s, 0) + 1) if s in holdings else 1
-        holdings = new_holdings
+            new_holdings: dict[str, int] = {}
+            for s in new_hold:
+                new_holdings[s] = (holdings.get(s, 0) + 1) if s in holdings else 1
+            holdings = new_holdings
 
         if not holdings:
             continue
@@ -124,6 +126,8 @@ def topk_dropout_backtest(
         "daily_return": active,
         "weights": weights,
         "n_days": len(active),
+        "turnover_mean": float((0.5 * dw).loc[active.index].mean()) if len(active) else 0.0,
+        "pure_topk": pure_topk,
     }
 
 
