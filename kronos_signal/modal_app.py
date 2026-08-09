@@ -8,7 +8,8 @@ Usage (from repo root, with Modal CLI authenticated):
     modal run kronos_signal/modal_app.py --mode backtest --n-paths 10 --max-steps 150
     modal run kronos_signal/modal_app.py --mode improve --n-paths 10 --max-steps 150
     modal run kronos_signal/modal_app.py --mode improve_v2
-    modal run kronos_signal/modal_app.py --mode long_annual --n-paths 10 --start-asof 2022-01-01
+    modal run kronos_signal/modal_app.py --mode long_annual --n-paths 10 --start-asof 2021-01-01
+    modal run kronos_signal/modal_app.py --mode long_annual --pred-len 1 --n-paths 10 --start-asof 2021-01-01
 """
 
 from __future__ import annotations
@@ -415,15 +416,18 @@ def run_improve_pipeline(
 def run_long_annual_pipeline(
     n_paths: int = 10,
     pred_len: int = 5,
+    step: int | None = None,
     lookback: int = 400,
     tau: float = 0.005,
-    start_asof: str = "2022-01-01",
+    start_asof: str = "2021-01-01",
     end_asof: str | None = None,
     verbose: bool = True,
 ) -> dict:
     """
     Long Binance daily Kronos feature backtest from start_asof, then
-    annual retrain/test of the logistic meta-model.
+    expanding annual retrain/test of the logistic meta-model.
+
+    Use pred_len=1 and step=1 for next-day prediction + daily rebalancing.
     """
     from kronos_signal.annual_meta import annual_retrain_meta
     from kronos_signal.backtest import run_walk_forward
@@ -432,7 +436,10 @@ def run_long_annual_pipeline(
     from kronos_signal.meta_model import raw_rule_on_frame
     from kronos_signal.features import steps_to_frame
 
+    step = pred_len if step is None else step
     df = fetch_binance_klines_history(min_bars=3200)
+    # For dense daily steps, avoid flooding logs.
+    step_verbose = bool(verbose and step > 1)
     if verbose:
         print(
             f"Binance daily BTCUSDT: {len(df)} bars "
@@ -440,7 +447,8 @@ def run_long_annual_pipeline(
             flush=True,
         )
         print(
-            f"Kronos feature gen from {start_asof} (lookback={lookback}, n_paths={n_paths})",
+            f"Kronos-base feature gen from {start_asof} "
+            f"(lookback={lookback}, pred_len={pred_len}, step={step}, n_paths={n_paths}, tau={tau})",
             flush=True,
         )
 
@@ -457,23 +465,29 @@ def run_long_annual_pipeline(
         lookback=lookback,
         pred_len=pred_len,
         n_paths=n_paths,
-        step=pred_len,
+        step=step,
         tau=tau,
         max_steps=None,
         start_asof=start_asof,
         end_asof=end_asof,
-        verbose=verbose,
+        verbose=step_verbose,
     )
     steps = kronos_bt.to_dict()["steps"]
     if verbose:
-        print(f"Generated {len(steps)} Kronos steps; running annual meta retrain...", flush=True)
+        print(
+            f"Generated {len(steps)} Kronos steps "
+            f"({steps[0]['asof'][:10]} → {steps[-1]['asof'][:10]}); "
+            "running expanding annual meta retrain...",
+            flush=True,
+        )
 
+    # More train rows available with daily sampling.
+    min_train = 60 if step == 1 else 30
     annual = annual_retrain_meta(
         steps,
         df,
-        # Train on prior calendar years, test each year from 2022 onward.
         test_years=[2022, 2023, 2024, 2025, 2026],
-        min_train=30,
+        min_train=min_train,
         model_type="logistic",
     )
     frame = steps_to_frame(steps, df)
@@ -495,10 +509,19 @@ def run_long_annual_pipeline(
             "diagnostics",
         )
     }
+    annual["horizon"] = {
+        "model": "NeoQuasar/Kronos-base",
+        "pred_len": pred_len,
+        "step": step,
+        "tau": tau,
+        "n_paths": n_paths,
+        "lookback": lookback,
+        "rebalance": "daily" if step == 1 else f"every_{step}_days",
+    }
     annual["kronos_steps"] = steps
     hf_cache.commit()
     if verbose:
-        print(json.dumps({"by_year": annual["by_year"], "overall": annual["overall"]}, indent=2))
+        print(json.dumps({"horizon": annual["horizon"], "folds": annual["folds"], "overall": annual["overall"]}, indent=2))
     return annual
 
 
@@ -719,20 +742,38 @@ def main(
         return
 
     if mode == "long_annual":
+        from kronos_signal import config as cfg
+
         n_paths = 10 if n_paths <= 0 else n_paths
+        # Convenience: pred_len=1 implies daily rebalance + tighter tau unless overridden.
+        use_step = step if step > 0 else pred_len
+        use_tau = tau
+        if pred_len == 1 and abs(tau - 0.005) < 1e-12:
+            use_tau = cfg.DAILY_TAU
+            use_step = 1
         result = run_long_annual_pipeline.remote(
             n_paths=n_paths,
             pred_len=pred_len,
+            step=use_step,
             lookback=lookback,
-            tau=tau,
+            tau=use_tau,
             start_asof=start_asof or "2021-01-01",
             end_asof=end_asof or None,
             verbose=True,
         )
-        out = Path("kronos_signal") / "last_long_annual.json"
+        tag = "daily" if pred_len == 1 and use_step == 1 else "h" + str(pred_len)
+        out = Path("kronos_signal") / f"last_long_annual_{tag}.json"
+        # also keep stable alias for daily / default
         out.write_text(json.dumps(result, indent=2))
+        alias = Path("kronos_signal") / "last_long_annual.json"
+        alias.write_text(json.dumps(result, indent=2))
         print("\n=== LONG ANNUAL META ===")
+        hz = result.get("horizon") or {}
         print(f"data: {result.get('data_source')}")
+        print(
+            f"horizon: Kronos-base pred_len={hz.get('pred_len')} step={hz.get('step')} "
+            f"rebalance={hz.get('rebalance')} tau={hz.get('tau')} n_paths={hz.get('n_paths')}"
+        )
         print(
             f"overall: {result['overall']['start']} → {result['overall']['end']}  "
             f"steps={result['overall']['n_steps']}  "
@@ -742,7 +783,8 @@ def main(
         )
         for y in result["by_year"]:
             print(
-                f"  {y['year']}: train={y['n_train']:3d} test={y['n_test']:3d}  "
+                f"  TRAIN {y.get('train_start')}→{y.get('train_end')}  "
+                f"TEST {y.get('test_start')}→{y.get('test_end')}  "
                 f"ret={y['total_return']:+.1%}  B&H={y['buy_hold_return']:+.1%}  "
                 f"hit={y['hit_rate']}  L/S/H={y['n_long']}/{y['n_short']}/{y['n_hold']}"
             )

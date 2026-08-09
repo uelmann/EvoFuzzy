@@ -50,8 +50,11 @@ modal run kronos_signal/modal_app.py --mode improve --n-paths 10 --max-steps 150
 # v2: LightGBM meta (purge/embargo) + supervised direction head
 modal run kronos_signal/modal_app.py --mode improve_v2
 
-# Long history from 2021 + annual meta retrain/test (2022–2026)
+# Long history from 2021 + annual meta retrain/test (2022–2026), 5d horizon
 modal run kronos_signal/modal_app.py --mode long_annual --n-paths 10 --start-asof 2021-01-01
+
+# Next-day prediction + daily rebalancing (Kronos-base, pred_len=1, step=1)
+modal run kronos_signal/modal_app.py --mode long_annual --pred-len 1 --n-paths 10 --start-asof 2021-01-01
 python -m kronos_signal.plot_annual
 ```
 

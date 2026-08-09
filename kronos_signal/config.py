@@ -10,9 +10,9 @@ INTERVAL = "1d"
 
 # Kronos-base max context is 512; stay under that.
 LOOKBACK = 400
-PRED_LEN = 5  # signal horizon in daily bars
+PRED_LEN = 5  # default multi-day horizon; use 1 for daily prediction/rebalance
 
-MODEL_ID = "NeoQuasar/Kronos-base"
+MODEL_ID = "NeoQuasar/Kronos-base"  # base, not small
 TOKENIZER_ID = "NeoQuasar/Kronos-Tokenizer-base"
 MAX_CONTEXT = 512
 
@@ -24,4 +24,9 @@ TOP_P = 0.9
 # Decision thresholds on expected return over PRED_LEN days
 P_UP_LONG = 0.60
 P_UP_SHORT = 0.40
-TAU = 0.005  # 0.5% mean move required to leave HOLD
+TAU = 0.005  # 0.5% for multi-day; daily mode typically uses a smaller tau
+
+# Daily prediction + daily rebalancing profile
+DAILY_PRED_LEN = 1
+DAILY_STEP = 1
+DAILY_TAU = 0.002  # 0.2% threshold on next-day expected move
