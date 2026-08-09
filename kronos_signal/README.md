@@ -12,25 +12,30 @@ python -m kronos_signal.download_cmc_kucoin --max-coins 60
 # full KuCoin universe (~800 bases): --max-coins 0
 ```
 
-## Cross-asset long/short (top-30 crypto)
+## Official Kronos recipe (match their FT protocol)
 
-CSI300-style **relative ranking**, not BTC timing:
+Mirrored from `Kronos/finetune/` (tokenizer → predictor → TopkDropout **long-only**):
 
-| Knob | Value |
-|------|-------|
-| Universe | Point-in-time top **30** by market cap (KuCoin/CMC panel) |
-| Portfolio | **Long top 3** + **short worst 3** (equal-weight, dollar-neutral) |
-| Horizon | Rebalance every **10** days (like Kronos A-share `predict_window`) |
-| Baseline | ROC(30) ranks (no GPU) |
-| Kronos | Zero-shot / FT from **`Kronos-base`** (not mini) |
+| Step | Their A-share demo | Our run |
+|------|--------------------|---------|
+| Data | Qlib CSI300 | Crypto panel (same pickle schema) |
+| Lookback / predict | **90 / 10** | **90 / 10** |
+| Start checkpoint | **Kronos-small** | **small** (`--predictor-size base` optional) |
+| Epochs / batch / LR | 30 / 50 / 2e-4 & 4e-5 | same |
+| Backtest | TopkDropout hold 50 / drop 5 | scaled **hold 5 / drop 1** on PIT top-30 |
+| Benchmark | CSI300 | BTC |
 
 ```bash
-# ROC baseline (CPU)
-python -m kronos_signal.test_cross_asset
-python -m kronos_signal.run_cross_asset_roc --start 2021-01-01
+python -m kronos_signal.test_official
+modal run kronos_signal/modal_app.py --mode official --predictor-size small --official-epochs 30
+# smoke
+modal run kronos_signal/modal_app.py --mode official --official-epochs 2
 ```
 
-Next: Modal GPU zero-shot Kronos-base scores on the same Top3/Worst3 engine, then tokenizer+predictor fine-tune from **base**.
+Literal China CSI300 still needs Qlib `cn_data`; this mirrors their **code path** on crypto.
+
+### Experimental fork (not official): Top3 long / Worst3 short
+`cross_asset_bt.py` — dollar-neutral L/S. **Not** their README backtest.
 
 ## Defaults (v1 BTC timing)
 

@@ -10,6 +10,7 @@ Usage (from repo root, with Modal CLI authenticated):
     modal run kronos_signal/modal_app.py --mode improve_v2
     modal run kronos_signal/modal_app.py --mode long_annual --n-paths 10 --start-asof 2021-01-01
     modal run kronos_signal/modal_app.py --mode long_annual --pred-len 1 --n-paths 10 --start-asof 2021-01-01
+    modal run kronos_signal/modal_app.py --mode official --predictor-size small --official-epochs 30
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ KRONOS_REPO = "https://github.com/shiyu-coder/Kronos.git"
 
 # Cache Hugging Face weights / fine-tuned checkpoints across runs.
 hf_cache = modal.Volume.from_name("kronos-hf-cache", create_if_missing=True)
+crypto_data = modal.Volume.from_name("kronos-crypto-data", create_if_missing=True)
 
 image = (
     modal.Image.debian_slim(python_version="3.11")
@@ -44,6 +46,14 @@ image = (
     .env({"HF_HOME": "/root/.cache/huggingface"})
     .add_local_python_source("kronos_signal")
 )
+
+# Bundle local CMC panel if present (gitignored; must exist on the machine running modal).
+_local_hist = Path(__file__).resolve().parent / "data" / "historical_data.csv"
+if _local_hist.exists():
+    image = image.add_local_file(
+        str(_local_hist),
+        remote_path="/root/kronos_signal_data/historical_data.csv",
+    )
 
 app = modal.App(APP_NAME, image=image)
 
@@ -693,6 +703,67 @@ def run_improve_v2_pipeline(
     return payload
 
 
+@app.function(
+    gpu="A10G",
+    timeout=60 * 60 * 12,
+    volumes={
+        "/root/.cache/huggingface": hf_cache,
+        "/data/crypto": crypto_data,
+    },
+    memory=32768,
+)
+def run_official_ft_pipeline(
+    predictor_size: str = "small",
+    epochs: int = 30,
+    skip_train: bool = False,
+    skip_tokenizer: bool = False,
+    skip_predictor: bool = False,
+    verbose: bool = True,
+) -> dict:
+    """Official Kronos recipe: pickles → FT tokenizer → FT predictor → TopkDropout."""
+    import shutil
+    from pathlib import Path as P
+
+    from kronos_signal.download_cmc_kucoin import download_universe
+    from kronos_signal.official_pipeline import run_official_pipeline
+
+    csv_candidates = [
+        P("/root/kronos_signal_data/historical_data.csv"),
+        P("/data/crypto/historical_data.csv"),
+    ]
+    csv_path = next((p for p in csv_candidates if p.exists()), None)
+    if csv_path is None:
+        if verbose:
+            print("No panel CSV found — downloading top-60 KuCoin/CMC…", flush=True)
+        csv_path = P("/data/crypto/historical_data.csv")
+        download_universe(csv_path, max_coins=60, skip_stables=True)
+    elif str(csv_path) != "/data/crypto/historical_data.csv":
+        P("/data/crypto").mkdir(parents=True, exist_ok=True)
+        shutil.copy(csv_path, "/data/crypto/historical_data.csv")
+        csv_path = P("/data/crypto/historical_data.csv")
+
+    root = P("/data/crypto/official_runs")
+    if verbose:
+        print(
+            f"Official FT start={predictor_size} epochs={epochs} csv={csv_path} root={root}",
+            flush=True,
+        )
+    summary = run_official_pipeline(
+        csv_path=csv_path,
+        root=root,
+        predictor_size=predictor_size,
+        epochs=epochs,
+        device="cuda",
+        kronos_root="/opt/Kronos",
+        skip_train=skip_train,
+        skip_tokenizer=skip_tokenizer,
+        skip_predictor=skip_predictor,
+    )
+    crypto_data.commit()
+    hf_cache.commit()
+    return summary
+
+
 @app.local_entrypoint()
 def main(
     mode: str = "signal",
@@ -706,6 +777,8 @@ def main(
     supervised_epochs: int = 8,
     start_asof: str = "2021-01-01",
     end_asof: str = "",
+    predictor_size: str = "small",
+    official_epochs: int = 30,
 ):
     def _print_bt(title: str, result: dict):
         print(f"\n=== {title} ===")
@@ -871,9 +944,28 @@ def main(
         print(f"Wrote {out}")
         return
 
+    if mode == "official":
+        result = run_official_ft_pipeline.remote(
+            predictor_size=predictor_size,
+            epochs=official_epochs,
+            skip_train=False,
+            verbose=True,
+        )
+        out = Path("kronos_signal") / "last_official.json"
+        out.write_text(json.dumps(result, indent=2, default=str))
+        print("\n=== OFFICIAL KRONOS RECIPE ===")
+        print(json.dumps(result.get("notes", {}), indent=2))
+        print(json.dumps(result.get("dataset_meta", {}), indent=2))
+        if result.get("train"):
+            print("train:", json.dumps(result["train"], indent=2, default=str))
+        print("topk ROC baseline:", json.dumps(result.get("topk_roc_baseline", {}), indent=2))
+        print(f"Wrote {out}")
+        return
+
     if mode != "signal":
         raise SystemExit(
-            f"Unknown mode={mode!r}; use 'signal', 'backtest', 'long_annual', 'improve', or 'improve_v2'"
+            f"Unknown mode={mode!r}; use 'signal', 'backtest', 'long_annual', "
+            f"'improve', 'improve_v2', or 'official'"
         )
 
     n_paths = 30 if n_paths <= 0 else n_paths
