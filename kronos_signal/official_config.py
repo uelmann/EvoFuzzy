@@ -28,9 +28,10 @@ class OfficialConfig:
         self.time_feature_list = ["minute", "hour", "weekday", "day", "month"]
 
         # Crypto calendar splits mirroring their train/val/test structure
-        self.dataset_begin_time = "2017-01-01"
+        # Extended to 2016 to match full KuCoin/CMC history download.
+        self.dataset_begin_time = "2016-01-01"
         self.dataset_end_time = "2026-08-08"
-        self.train_time_range = ["2017-01-01", "2022-12-31"]
+        self.train_time_range = ["2016-01-01", "2022-12-31"]
         self.val_time_range = ["2022-09-01", "2024-06-30"]
         self.test_time_range = ["2024-04-01", "2026-08-08"]
         self.backtest_time_range = ["2024-07-01", "2026-08-08"]
@@ -56,8 +57,14 @@ class OfficialConfig:
         self.num_workers = 0
 
         self.save_path = str(root / "models")
-        self.tokenizer_save_folder_name = "finetune_tokenizer_official"
-        self.predictor_save_folder_name = "finetune_predictor_official"
+        # Keep legacy folder names for small so existing ckpts still resolve;
+        # base (and others) get a size suffix to avoid overwriting.
+        if predictor_size == "small":
+            self.tokenizer_save_folder_name = "finetune_tokenizer_official"
+            self.predictor_save_folder_name = "finetune_predictor_official"
+        else:
+            self.tokenizer_save_folder_name = f"finetune_tokenizer_official_{predictor_size}"
+            self.predictor_save_folder_name = f"finetune_predictor_official_{predictor_size}"
 
         self.pretrained_tokenizer_path = "NeoQuasar/Kronos-Tokenizer-base"
         if predictor_size == "base":

@@ -136,17 +136,22 @@ class CoinMarketCapAPI:
         return mcap
 
     def fetch_historical_data(
-        self, crypto_id: int, convert_id: int = 2781, max_years: float = 12.0
+        self,
+        crypto_id: int,
+        convert_id: int = 2781,
+        start_date: str = "2016-01-01",
     ) -> pd.DataFrame:
+        """Daily OHLCV+mcap from start_date (default 2016) through today."""
         today = datetime.now(timezone.utc).replace(tzinfo=None)
-        oldest = today - timedelta(days=int(365.25 * max_years))
+        oldest = datetime.fromisoformat(start_date)
         processed: list[dict] = []
         cursor = today
         period_days = 180
 
         while cursor > oldest:
             end_time = int(cursor.timestamp())
-            start_time = int((cursor - timedelta(days=period_days)).timestamp())
+            start_dt = max(cursor - timedelta(days=period_days), oldest)
+            start_time = int(start_dt.timestamp())
             data = self._get(
                 f"{self.base_url}/historical",
                 {
@@ -174,13 +179,19 @@ class CoinMarketCapAPI:
                         "marketCap": q["marketCap"],
                     }
                 )
-            cursor = cursor - timedelta(days=period_days)
+            cursor = start_dt
+            if start_dt <= oldest:
+                break
 
         if not processed:
             return pd.DataFrame()
         df = pd.DataFrame(processed)
         df = df.drop_duplicates(subset=["timestamp"]).sort_values("timestamp")
-        return df.reset_index(drop=True)
+        # Keep only bars on/after start_date
+        ts = pd.to_datetime(df["timestamp"], utc=True)
+        df = df.loc[ts >= pd.Timestamp(start_date, tz="UTC")].reset_index(drop=True)
+        return df
+
 
 
 STABLE_SYMBOLS = {
@@ -210,23 +221,30 @@ def download_universe(
     skip_stables: bool = True,
     sleep_s: float = 0.12,
     save_every: int = 10,
+    start_date: str = "2016-01-01",
 ) -> pd.DataFrame:
+    """Download KuCoin-listed bases (notebook recipe). max_coins=None → all."""
     api = CoinMarketCapAPI(sleep_s=sleep_s)
     currencies = api.get_kucoin_currencies()
-    mcap = api.fetch_listings_mcap(max_pages=25)
+    mcap = api.fetch_listings_mcap(max_pages=40)
 
     df_cur = pd.DataFrame(currencies)
     df_cur["market_cap"] = df_cur["id"].map(mcap)
     df_cur = df_cur.sort_values("market_cap", ascending=False, na_position="last")
     if skip_stables:
-        df_cur = df_cur[~df_cur["symbol"].isin(STABLE_SYMBOLS)]
+        df_cur = df_cur[~df_cur["symbol"].astype(str).str.upper().isin(STABLE_SYMBOLS)]
     if max_coins is not None:
         df_cur = df_cur.head(max_coins)
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     meta_path = out_path.with_name("universe_meta.csv")
     df_cur.to_csv(meta_path, index=False)
-    log.info("Universe size=%s → %s", len(df_cur), meta_path)
+    log.info(
+        "Universe size=%s start_date=%s → %s",
+        len(df_cur),
+        start_date,
+        meta_path,
+    )
 
     chunks: list[pd.DataFrame] = []
     total = len(df_cur)
@@ -235,7 +253,7 @@ def download_universe(
         name = row["name"]
         log.info("[%s/%s] %s (%s) id=%s", i, total, name, row["symbol"], cid)
         try:
-            hist = api.fetch_historical_data(cid)
+            hist = api.fetch_historical_data(cid, start_date=start_date)
             if hist.empty:
                 log.warning("No history for %s", name)
                 continue
@@ -258,9 +276,11 @@ def download_universe(
     historical_df = pd.concat(chunks, ignore_index=True)
     historical_df.to_csv(out_path, index=False)
     log.info(
-        "Done: %s rows, %s symbols → %s",
+        "Done: %s rows, %s symbols, %s→%s → %s",
         len(historical_df),
         historical_df["currency_symbol"].nunique(),
+        historical_df["timestamp"].min(),
+        historical_df["timestamp"].max(),
         out_path,
     )
     return historical_df
@@ -273,7 +293,13 @@ def main() -> None:
         "--max-coins",
         type=int,
         default=60,
-        help="Download top-N by market cap among KuCoin listings (default 60). Use 0 for all.",
+        help="Top-N by market cap among KuCoin listings. Use 0 for ALL (notebook default).",
+    )
+    p.add_argument(
+        "--start-date",
+        type=str,
+        default="2016-01-01",
+        help="Earliest daily bar to keep (UTC ISO date).",
     )
     p.add_argument("--include-stables", action="store_true")
     p.add_argument("--sleep", type=float, default=0.12)
@@ -288,6 +314,7 @@ def main() -> None:
         skip_stables=not args.include_stables,
         sleep_s=args.sleep,
         save_every=args.save_every,
+        start_date=args.start_date,
     )
     if args.also_artifact:
         ARTIFACT_OUT.parent.mkdir(parents=True, exist_ok=True)

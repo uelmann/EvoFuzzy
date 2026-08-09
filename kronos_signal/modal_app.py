@@ -13,6 +13,8 @@ Usage (from repo root, with Modal CLI authenticated):
     modal run kronos_signal/modal_app.py --mode official --predictor-size small --official-epochs 30
     modal run kronos_signal/modal_app.py --mode official_bt --predictor-size small --signal mean
     modal run kronos_signal/modal_app.py --mode zs_scores --predictor-size small --lookback 90 --pred-len 10
+    modal run kronos_signal/modal_app.py --mode download --max-coins 0 --start-date 2016-01-01
+    modal run kronos_signal/modal_app.py --mode official --predictor-size base --official-epochs 30 --max-coins 0
 """
 
 from __future__ import annotations
@@ -706,6 +708,54 @@ def run_improve_v2_pipeline(
 
 
 @app.function(
+    timeout=60 * 60 * 4,
+    volumes={"/data/crypto": crypto_data},
+    memory=16384,
+    cpu=4,
+)
+def download_crypto_panel_job(
+    max_coins: int = 0,
+    start_date: str = "2016-01-01",
+    sleep_s: float = 0.1,
+    verbose: bool = True,
+) -> dict:
+    """Download KuCoin/CMC daily history (notebook recipe) onto the crypto volume."""
+    from pathlib import Path as P
+
+    from kronos_signal.download_cmc_kucoin import download_universe
+
+    out = P("/data/crypto/historical_data_full.csv")
+    if verbose:
+        print(
+            f"Downloading KuCoin universe max_coins={max_coins or 'ALL'} "
+            f"start_date={start_date} → {out}",
+            flush=True,
+        )
+    df = download_universe(
+        out_path=out,
+        max_coins=None if max_coins == 0 else max_coins,
+        skip_stables=True,
+        sleep_s=sleep_s,
+        save_every=25,
+        start_date=start_date,
+    )
+    # Also refresh the default alias used by FT pipeline.
+    alias = P("/data/crypto/historical_data.csv")
+    df.to_csv(alias, index=False)
+    crypto_data.commit()
+    return {
+        "out": str(out),
+        "alias": str(alias),
+        "n_rows": int(len(df)),
+        "n_symbols": int(df["currency_symbol"].nunique()),
+        "timestamp_min": str(df["timestamp"].min()),
+        "timestamp_max": str(df["timestamp"].max()),
+        "start_date": start_date,
+        "max_coins": max_coins,
+    }
+
+
+@app.function(
     gpu="H100",
     timeout=60 * 60 * 12,
     volumes={
@@ -720,6 +770,9 @@ def run_official_ft_pipeline(
     skip_train: bool = False,
     skip_tokenizer: bool = False,
     skip_predictor: bool = False,
+    max_coins: int = 60,
+    start_date: str = "2016-01-01",
+    force_download: bool = False,
     verbose: bool = True,
 ) -> dict:
     """Official Kronos recipe: pickles → FT tokenizer → FT predictor → TopkDropout."""
@@ -729,22 +782,42 @@ def run_official_ft_pipeline(
     from kronos_signal.download_cmc_kucoin import download_universe
     from kronos_signal.official_pipeline import run_official_pipeline
 
+    # Prefer full panel when present (all-KuCoin from 2016); else legacy/top-N CSV.
     csv_candidates = [
+        P("/data/crypto/historical_data_full.csv"),
         P("/root/kronos_signal_data/historical_data.csv"),
         P("/data/crypto/historical_data.csv"),
     ]
     csv_path = next((p for p in csv_candidates if p.exists()), None)
-    if csv_path is None:
+    if force_download or csv_path is None:
         if verbose:
-            print("No panel CSV found — downloading top-60 KuCoin/CMC…", flush=True)
-        csv_path = P("/data/crypto/historical_data.csv")
-        download_universe(csv_path, max_coins=60, skip_stables=True)
+            print(
+                f"Downloading panel max_coins={max_coins or 'ALL'} start={start_date}…",
+                flush=True,
+            )
+        csv_path = P("/data/crypto/historical_data_full.csv")
+        download_universe(
+            csv_path,
+            max_coins=None if max_coins == 0 else max_coins,
+            skip_stables=True,
+            start_date=start_date,
+        )
+        shutil.copy(csv_path, "/data/crypto/historical_data.csv")
     elif str(csv_path) != "/data/crypto/historical_data.csv":
         P("/data/crypto").mkdir(parents=True, exist_ok=True)
-        shutil.copy(csv_path, "/data/crypto/historical_data.csv")
-        csv_path = P("/data/crypto/historical_data.csv")
+        # Keep a working alias without overwriting a richer full panel.
+        if csv_path.name == "historical_data_full.csv":
+            shutil.copy(csv_path, "/data/crypto/historical_data.csv")
+        else:
+            shutil.copy(csv_path, "/data/crypto/historical_data.csv")
+            csv_path = P("/data/crypto/historical_data.csv")
 
-    root = P("/data/crypto/official_runs")
+    # Separate root for base so small ckpts / pickles are preserved.
+    root = (
+        P("/data/crypto/official_runs_base")
+        if predictor_size == "base"
+        else P("/data/crypto/official_runs")
+    )
     if verbose:
         print(
             f"Official FT start={predictor_size} epochs={epochs} csv={csv_path} root={root}",
@@ -788,7 +861,11 @@ def run_official_ft_backtest_job(
 
     from kronos_signal.official_infer_bt import run_official_ft_backtest
 
-    root = P("/data/crypto/official_runs")
+    root = (
+        P("/data/crypto/official_runs_base")
+        if predictor_size == "base"
+        else P("/data/crypto/official_runs")
+    )
     if verbose:
         print(
             f"Official FT backtest root={root} signal={signal} "
@@ -831,7 +908,11 @@ def run_zero_shot_scores_job(
     from kronos_signal.official_config import OfficialConfig
     from kronos_signal.official_infer_bt import generate_zero_shot_scores
 
-    root = P("/data/crypto/official_runs")
+    root = (
+        P("/data/crypto/official_runs_base")
+        if predictor_size == "base"
+        else P("/data/crypto/official_runs")
+    )
     cfg = OfficialConfig(root=root, predictor_size=predictor_size, epochs=30)
     cfg.lookback_window = int(lookback_window)
     cfg.predict_window = int(predict_window)
@@ -883,6 +964,9 @@ def main(
     predictor_size: str = "small",
     official_epochs: int = 30,
     signal: str = "mean",
+    max_coins: int = 60,
+    start_date: str = "2016-01-01",
+    force_download: bool = False,
 ):
     def _print_bt(title: str, result: dict):
         print(f"\n=== {title} ===")
@@ -1048,15 +1132,35 @@ def main(
         print(f"Wrote {out}")
         return
 
+    if mode == "download":
+        result = download_crypto_panel_job.remote(
+            max_coins=max_coins,
+            start_date=start_date,
+            verbose=True,
+        )
+        out = Path("kronos_signal") / "last_download.json"
+        out.write_text(json.dumps(result, indent=2, default=str))
+        print("\n=== CRYPTO PANEL DOWNLOAD ===")
+        print(json.dumps(result, indent=2, default=str))
+        print(f"Wrote {out}")
+        return
+
     if mode == "official":
         result = run_official_ft_pipeline.remote(
             predictor_size=predictor_size,
             epochs=official_epochs,
             skip_train=False,
+            max_coins=max_coins,
+            start_date=start_date,
+            force_download=force_download,
             verbose=True,
         )
-        out = Path("kronos_signal") / "last_official.json"
+        tag = f"{predictor_size}"
+        out = Path("kronos_signal") / f"last_official_{tag}.json"
         out.write_text(json.dumps(result, indent=2, default=str))
+        (Path("kronos_signal") / "last_official.json").write_text(
+            json.dumps(result, indent=2, default=str)
+        )
         print("\n=== OFFICIAL KRONOS RECIPE ===")
         print(json.dumps(result.get("notes", {}), indent=2))
         print(json.dumps(result.get("dataset_meta", {}), indent=2))
@@ -1113,7 +1217,7 @@ def main(
     if mode != "signal":
         raise SystemExit(
             f"Unknown mode={mode!r}; use 'signal', 'backtest', 'long_annual', "
-            f"'improve', 'improve_v2', 'official', 'official_bt', or 'zs_scores'"
+            f"'improve', 'improve_v2', 'download', 'official', 'official_bt', or 'zs_scores'"
         )
 
     n_paths = 30 if n_paths <= 0 else n_paths
