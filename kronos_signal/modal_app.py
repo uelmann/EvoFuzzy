@@ -11,6 +11,7 @@ Usage (from repo root, with Modal CLI authenticated):
     modal run kronos_signal/modal_app.py --mode long_annual --n-paths 10 --start-asof 2021-01-01
     modal run kronos_signal/modal_app.py --mode long_annual --pred-len 1 --n-paths 10 --start-asof 2021-01-01
     modal run kronos_signal/modal_app.py --mode official --predictor-size small --official-epochs 30
+    modal run kronos_signal/modal_app.py --mode official_bt --predictor-size small --signal mean
 """
 
 from __future__ import annotations
@@ -764,6 +765,39 @@ def run_official_ft_pipeline(
     return summary
 
 
+@app.function(
+    gpu="H100",
+    timeout=60 * 60 * 6,
+    volumes={
+        "/root/.cache/huggingface": hf_cache,
+        "/data/crypto": crypto_data,
+    },
+    memory=65536,
+)
+def run_official_ft_backtest_job(
+    predictor_size: str = "small",
+    signal: str = "mean",
+    verbose: bool = True,
+) -> dict:
+    """Infer with fine-tuned Kronos and run TopkDropout vs ROC/BTC."""
+    from pathlib import Path as P
+
+    from kronos_signal.official_infer_bt import run_official_ft_backtest
+
+    root = P("/data/crypto/official_runs")
+    if verbose:
+        print(f"Official FT backtest root={root} signal={signal}", flush=True)
+    out = run_official_ft_backtest(
+        root=root,
+        device="cuda",
+        kronos_root="/opt/Kronos",
+        predictor_size=predictor_size,
+        signal=signal,
+    )
+    crypto_data.commit()
+    return out
+
+
 @app.local_entrypoint()
 def main(
     mode: str = "signal",
@@ -779,6 +813,7 @@ def main(
     end_asof: str = "",
     predictor_size: str = "small",
     official_epochs: int = 30,
+    signal: str = "mean",
 ):
     def _print_bt(title: str, result: dict):
         print(f"\n=== {title} ===")
@@ -962,10 +997,24 @@ def main(
         print(f"Wrote {out}")
         return
 
+    if mode == "official_bt":
+        result = run_official_ft_backtest_job.remote(
+            predictor_size=predictor_size,
+            signal=signal,
+            verbose=True,
+        )
+        out = Path("kronos_signal") / "last_official_ft_bt.json"
+        out.write_text(json.dumps(result, indent=2, default=str))
+        print("\n=== OFFICIAL FT TOPK BACKTEST ===")
+        print(json.dumps(result.get("primary"), indent=2))
+        print("all signals:", json.dumps(result.get("all_signals"), indent=2))
+        print(f"Wrote {out}")
+        return
+
     if mode != "signal":
         raise SystemExit(
             f"Unknown mode={mode!r}; use 'signal', 'backtest', 'long_annual', "
-            f"'improve', 'improve_v2', or 'official'"
+            f"'improve', 'improve_v2', 'official', or 'official_bt'"
         )
 
     n_paths = 30 if n_paths <= 0 else n_paths

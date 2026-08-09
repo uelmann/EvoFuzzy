@@ -12,6 +12,7 @@ last_compare_zeroshot.json
 last_compare_v2_meta.json
 last_cross_asset_roc.json
 last_official.json
+last_official_ft_bt.json
 .pytest_cache/
 # regenerated locally; committed snapshots optional
 # backtest_equity.png
