@@ -1,0 +1,10 @@
+{
+  "out": "/data/crypto/historical_data_full.csv",
+  "alias": "/data/crypto/historical_data.csv",
+  "n_rows": 1026057,
+  "n_symbols": 828,
+  "timestamp_min": "2016-01-01T00:00:00.000Z",
+  "timestamp_max": "2026-08-08T00:00:00.000Z",
+  "start_date": "2016-01-01",
+  "max_coins": 0
+}
