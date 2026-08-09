@@ -1,5 +1,10 @@
 """Daily BTC Kronos → long/hold/short defaults."""
 
+# Market data: Binance public klines (NOT Yahoo).
+# Primary: https://data-api.binance.vision/api/v3/klines
+# Fallback: api.binance.us, api.binance.com
+# Interval is true daily UTC candles (open time 00:00 UTC).
+DATA_PROVIDER = "binance"
 SYMBOL = "BTCUSDT"
 INTERVAL = "1d"
 

@@ -8,6 +8,7 @@ Usage (from repo root, with Modal CLI authenticated):
     modal run kronos_signal/modal_app.py --mode backtest --n-paths 10 --max-steps 150
     modal run kronos_signal/modal_app.py --mode improve --n-paths 10 --max-steps 150
     modal run kronos_signal/modal_app.py --mode improve_v2
+    modal run kronos_signal/modal_app.py --mode long_annual --n-paths 10 --start-asof 2022-01-01
 """
 
 from __future__ import annotations
@@ -129,26 +130,33 @@ def run_walk_forward_backtest(
     lookback: int = 400,
     tau: float = 0.005,
     step: int | None = None,
-    max_steps: int = 150,
+    max_steps: int | None = 150,
     min_bars: int = 2000,
+    start_asof: str | None = None,
+    end_asof: str | None = None,
     verbose: bool = True,
 ) -> dict:
-    """Non-overlapping walk-forward backtest on BTCUSDT daily."""
+    """Non-overlapping walk-forward backtest on BTCUSDT daily (Binance)."""
     from kronos_signal.backtest import run_walk_forward
     from kronos_signal.data import fetch_binance_klines_history
     from kronos_signal.forecast import forecast_close_paths, load_predictor
 
     step = pred_len if step is None else step
-    need = lookback + max_steps * step + pred_len + 5
+    # Enough history for lookback before start_asof and the full test span.
+    need = lookback + (max_steps or 400) * step + pred_len + 5
+    if start_asof is not None:
+        need = max(need, 3000)
     df = fetch_binance_klines_history(min_bars=max(min_bars, need))
     if verbose:
         print(
-            f"History bars={len(df)}  range={df['timestamps'].iloc[0]} → {df['timestamps'].iloc[-1]}",
+            f"Data: Binance {df.shape[0]} daily BTCUSDT bars "
+            f"{df['timestamps'].iloc[0]} → {df['timestamps'].iloc[-1]}",
             flush=True,
         )
         print(
             f"Backtest: lookback={lookback} pred_len={pred_len} "
-            f"n_paths={n_paths} step={step} max_steps={max_steps}",
+            f"n_paths={n_paths} step={step} max_steps={max_steps} "
+            f"start_asof={start_asof} end_asof={end_asof}",
             flush=True,
         )
 
@@ -174,6 +182,8 @@ def run_walk_forward_backtest(
         step=step,
         tau=tau,
         max_steps=max_steps,
+        start_asof=start_asof,
+        end_asof=end_asof,
         verbose=verbose,
     )
     hf_cache.commit()
@@ -398,6 +408,102 @@ def run_improve_pipeline(
 
 @app.function(
     gpu="T4",
+    timeout=5 * 60 * 60,
+    volumes={"/root/.cache/huggingface": hf_cache},
+    memory=8192,
+)
+def run_long_annual_pipeline(
+    n_paths: int = 10,
+    pred_len: int = 5,
+    lookback: int = 400,
+    tau: float = 0.005,
+    start_asof: str = "2022-01-01",
+    end_asof: str | None = None,
+    verbose: bool = True,
+) -> dict:
+    """
+    Long Binance daily Kronos feature backtest from start_asof, then
+    annual retrain/test of the logistic meta-model.
+    """
+    from kronos_signal.annual_meta import annual_retrain_meta
+    from kronos_signal.backtest import run_walk_forward
+    from kronos_signal.data import fetch_binance_klines_history
+    from kronos_signal.forecast import forecast_close_paths, load_predictor
+    from kronos_signal.meta_model import raw_rule_on_frame
+    from kronos_signal.features import steps_to_frame
+
+    df = fetch_binance_klines_history(min_bars=3200)
+    if verbose:
+        print(
+            f"Binance daily BTCUSDT: {len(df)} bars "
+            f"{df['timestamps'].iloc[0].date()} → {df['timestamps'].iloc[-1].date()}",
+            flush=True,
+        )
+        print(
+            f"Kronos feature gen from {start_asof} (lookback={lookback}, n_paths={n_paths})",
+            flush=True,
+        )
+
+    predictor = load_predictor(kronos_root="/opt/Kronos")
+
+    def forecast_fn(x_df, x_ts, y_ts, pl):
+        return forecast_close_paths(
+            predictor, x_df, x_ts, y_ts, pred_len=pl, n_paths=n_paths, verbose=False
+        )
+
+    kronos_bt = run_walk_forward(
+        df,
+        forecast_fn,
+        lookback=lookback,
+        pred_len=pred_len,
+        n_paths=n_paths,
+        step=pred_len,
+        tau=tau,
+        max_steps=None,
+        start_asof=start_asof,
+        end_asof=end_asof,
+        verbose=verbose,
+    )
+    steps = kronos_bt.to_dict()["steps"]
+    if verbose:
+        print(f"Generated {len(steps)} Kronos steps; running annual meta retrain...", flush=True)
+
+    annual = annual_retrain_meta(
+        steps,
+        df,
+        # Train on prior calendar years, test each year from 2022 onward.
+        test_years=[2022, 2023, 2024, 2025, 2026],
+        min_train=30,
+        model_type="logistic",
+    )
+    frame = steps_to_frame(steps, df)
+    raw = raw_rule_on_frame(frame).to_dict()
+    annual["raw_full_period"] = {k: raw[k] for k in raw if k != "steps"}
+    annual["kronos_raw_summary"] = {
+        k: kronos_bt.to_dict().get(k)
+        for k in (
+            "n_steps",
+            "n_long",
+            "n_short",
+            "n_hold",
+            "hit_rate",
+            "total_return",
+            "buy_hold_return",
+            "max_drawdown",
+            "start",
+            "end",
+            "diagnostics",
+        )
+    }
+    annual["kronos_steps"] = steps
+    hf_cache.commit()
+    if verbose:
+        print(json.dumps({"by_year": annual["by_year"], "overall": annual["overall"]}, indent=2))
+    return annual
+
+
+@app.function(
+    gpu="T4",
     timeout=3 * 60 * 60,
     volumes={"/root/.cache/huggingface": hf_cache},
     memory=8192,
@@ -575,6 +681,8 @@ def main(
     step: int = 5,
     finetune_epochs: int = 5,
     supervised_epochs: int = 8,
+    start_asof: str = "2021-01-01",
+    end_asof: str = "",
 ):
     def _print_bt(title: str, result: dict):
         print(f"\n=== {title} ===")
@@ -600,11 +708,48 @@ def main(
             tau=tau,
             step=step,
             max_steps=max_steps,
+            start_asof=start_asof or None,
+            end_asof=end_asof or None,
             verbose=True,
         )
         out = Path("kronos_signal") / "last_backtest.json"
         out.write_text(json.dumps(result, indent=2))
         _print_bt("BACKTEST", result)
+        print(f"Wrote {out}")
+        return
+
+    if mode == "long_annual":
+        n_paths = 10 if n_paths <= 0 else n_paths
+        result = run_long_annual_pipeline.remote(
+            n_paths=n_paths,
+            pred_len=pred_len,
+            lookback=lookback,
+            tau=tau,
+            start_asof=start_asof or "2021-01-01",
+            end_asof=end_asof or None,
+            verbose=True,
+        )
+        out = Path("kronos_signal") / "last_long_annual.json"
+        out.write_text(json.dumps(result, indent=2))
+        print("\n=== LONG ANNUAL META ===")
+        print(f"data: {result.get('data_source')}")
+        print(
+            f"overall: {result['overall']['start']} → {result['overall']['end']}  "
+            f"steps={result['overall']['n_steps']}  "
+            f"ret={result['overall']['total_return']:.2%}  "
+            f"B&H={result['overall']['buy_hold_return']:.2%}  "
+            f"hit={result['overall']['hit_rate']}"
+        )
+        for y in result["by_year"]:
+            print(
+                f"  {y['year']}: train={y['n_train']:3d} test={y['n_test']:3d}  "
+                f"ret={y['total_return']:+.1%}  B&H={y['buy_hold_return']:+.1%}  "
+                f"hit={y['hit_rate']}  L/S/H={y['n_long']}/{y['n_short']}/{y['n_hold']}"
+            )
+        raw = result.get("kronos_raw_summary") or {}
+        print(
+            f"raw Kronos full window: ret={raw.get('total_return')} hit={raw.get('hit_rate')}"
+        )
         print(f"Wrote {out}")
         return
 
@@ -686,7 +831,7 @@ def main(
 
     if mode != "signal":
         raise SystemExit(
-            f"Unknown mode={mode!r}; use 'signal', 'backtest', 'improve', or 'improve_v2'"
+            f"Unknown mode={mode!r}; use 'signal', 'backtest', 'long_annual', 'improve', or 'improve_v2'"
         )
 
     n_paths = 30 if n_paths <= 0 else n_paths

@@ -167,17 +167,33 @@ def run_walk_forward(
     step: int | None = None,
     tau: float = config.TAU,
     max_steps: int | None = None,
+    start_asof: str | None = None,
+    end_asof: str | None = None,
     verbose: bool = True,
 ) -> BacktestSummary:
     """
     Non-overlapping walk-forward:
     at each decision bar t, forecast t+1..t+pred_len, take signal, realize
     close[t+pred_len] / close[t] - 1, then advance by `step` (default=pred_len).
+
+    Optional start_asof/end_asof (UTC dates) select the decision window.
+    If only max_steps is set (no start_asof), keeps the most recent max_steps.
     """
     step = pred_len if step is None else step
     end_indices = list(range(lookback - 1, len(df) - pred_len, step))
-    if max_steps is not None:
+    ts = pd.to_datetime(df["timestamps"], utc=True)
+
+    if start_asof is not None:
+        start_ts = pd.Timestamp(start_asof, tz="UTC")
+        end_indices = [i for i in end_indices if ts.iloc[i] >= start_ts]
+    if end_asof is not None:
+        end_ts = pd.Timestamp(end_asof, tz="UTC")
+        end_indices = [i for i in end_indices if ts.iloc[i] <= end_ts]
+    if max_steps is not None and start_asof is None:
+        # legacy behavior: most recent window
         end_indices = end_indices[-max_steps:]
+    elif max_steps is not None and len(end_indices) > max_steps:
+        end_indices = end_indices[:max_steps]
 
     if not end_indices:
         raise ValueError("No backtest steps available with current settings")

@@ -2,6 +2,12 @@
 
 Zero-shot **Kronos-base** on **BTCUSDT daily** bars, converted into a trading stance.
 
+## Data source
+- **Provider:** Binance public klines (not Yahoo Finance)
+- **Endpoint:** `data-api.binance.vision` (fallbacks: `api.binance.us`, `api.binance.com`)
+- **Symbol / interval:** `BTCUSDT` / `1d` (UTC daily candles)
+- History available from ~2017; earlier short backtests used only the **most recent N steps**
+
 ## Defaults (v1)
 
 | Knob | Value |
@@ -43,7 +49,10 @@ modal run kronos_signal/modal_app.py --mode improve --n-paths 10 --max-steps 150
 
 # v2: LightGBM meta (purge/embargo) + supervised direction head
 modal run kronos_signal/modal_app.py --mode improve_v2
-python -m kronos_signal.plot_compare
+
+# Long history from 2021 + annual meta retrain/test (2022–2026)
+modal run kronos_signal/modal_app.py --mode long_annual --n-paths 10 --start-asof 2021-01-01
+python -m kronos_signal.plot_annual
 ```
 
 v2 compares raw rule vs LightGBM meta vs market-only ablation vs supervised head vs meta+sup.
