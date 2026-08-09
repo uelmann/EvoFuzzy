@@ -1,0 +1,20 @@
+{
+  "recipe": "zero_shot_scores",
+  "predictor": "NeoQuasar/Kronos-small",
+  "tokenizer": "NeoQuasar/Kronos-Tokenizer-base",
+  "lookback": 90,
+  "predict_window": 10,
+  "scores_path": "/data/crypto/official_runs/zs_prediction_scores_lb90_h10.pkl",
+  "n_dates": {
+    "last": 854,
+    "mean": 854,
+    "max": 854,
+    "min": 854
+  },
+  "n_symbols": {
+    "last": 54,
+    "mean": 54,
+    "max": 54,
+    "min": 54
+  }
+}

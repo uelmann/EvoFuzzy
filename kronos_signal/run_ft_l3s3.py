@@ -145,8 +145,8 @@ def main() -> None:
     colors = {
         "kronos_ft_last": "#116329",
         "kronos_ft_mean": "#1f6feb",
-        "kronos_zs_last": "#8250df",
-        "kronos_zs_mean": "#bf3989",
+        "kronos_zs_last": "#cf222e",
+        "kronos_zs_mean": "#bc4c00",
         "roc_baseline": "#bf8700",
     }
     plot_order = [
