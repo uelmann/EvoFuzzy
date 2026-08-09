@@ -12,7 +12,27 @@ python -m kronos_signal.download_cmc_kucoin --max-coins 60
 # full KuCoin universe (~800 bases): --max-coins 0
 ```
 
-## Defaults (v1)
+## Cross-asset long/short (top-30 crypto)
+
+CSI300-style **relative ranking**, not BTC timing:
+
+| Knob | Value |
+|------|-------|
+| Universe | Point-in-time top **30** by market cap (KuCoin/CMC panel) |
+| Portfolio | **Long top 3** + **short worst 3** (equal-weight, dollar-neutral) |
+| Horizon | Rebalance every **10** days (like Kronos A-share `predict_window`) |
+| Baseline | ROC(30) ranks (no GPU) |
+| Kronos | Zero-shot / FT from **`Kronos-base`** (not mini) |
+
+```bash
+# ROC baseline (CPU)
+python -m kronos_signal.test_cross_asset
+python -m kronos_signal.run_cross_asset_roc --start 2021-01-01
+```
+
+Next: Modal GPU zero-shot Kronos-base scores on the same Top3/Worst3 engine, then tokenizer+predictor fine-tune from **base**.
+
+## Defaults (v1 BTC timing)
 
 | Knob | Value |
 |------|-------|
