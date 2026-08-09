@@ -1,0 +1,129 @@
+{
+  "recipe": "official_ft_topk_backtest",
+  "signal_primary": "mean",
+  "primary": {
+    "total_return": -0.2452219263318035,
+    "max_drawdown": -0.7692080690735416,
+    "sharpe": 0.17771039271150627,
+    "btc_total_return": 0.03265937728126911,
+    "n_days": 769,
+    "turnover_mean": 0.13420026007802338,
+    "pure_topk": false
+  },
+  "primary_pure": {
+    "total_return": -0.5428124468578903,
+    "max_drawdown": -0.7706550766705274,
+    "sharpe": -0.2214148952435845,
+    "btc_total_return": 0.03265937728126911,
+    "n_days": 769,
+    "turnover_mean": 0.5851755526657998,
+    "pure_topk": true
+  },
+  "all_signals": {
+    "kronos_ft_last": {
+      "total_return": 0.22938931097488702,
+      "max_drawdown": -0.6149628984831614,
+      "sharpe": 0.48880056403023053,
+      "btc_total_return": 0.03265937728126911,
+      "n_days": 769,
+      "turnover_mean": 0.13498049414824445,
+      "pure_topk": false
+    },
+    "kronos_ft_last_pure": {
+      "total_return": -0.5200102187380233,
+      "max_drawdown": -0.7785530045048761,
+      "sharpe": -0.16727606719889937,
+      "btc_total_return": 0.03265937728126911,
+      "n_days": 769,
+      "turnover_mean": 0.5570871261378413,
+      "pure_topk": true
+    },
+    "kronos_ft_mean": {
+      "total_return": -0.2452219263318035,
+      "max_drawdown": -0.7692080690735416,
+      "sharpe": 0.17771039271150627,
+      "btc_total_return": 0.03265937728126911,
+      "n_days": 769,
+      "turnover_mean": 0.13420026007802338,
+      "pure_topk": false
+    },
+    "kronos_ft_mean_pure": {
+      "total_return": -0.5428124468578903,
+      "max_drawdown": -0.7706550766705274,
+      "sharpe": -0.2214148952435845,
+      "btc_total_return": 0.03265937728126911,
+      "n_days": 769,
+      "turnover_mean": 0.5851755526657998,
+      "pure_topk": true
+    },
+    "kronos_ft_max": {
+      "total_return": -0.2725977278502134,
+      "max_drawdown": -0.7571490675765631,
+      "sharpe": 0.12146298783962281,
+      "btc_total_return": 0.03265937728126911,
+      "n_days": 769,
+      "turnover_mean": 0.1518855656697009,
+      "pure_topk": false
+    },
+    "kronos_ft_max_pure": {
+      "total_return": -0.2564909154157494,
+      "max_drawdown": -0.7145359193676791,
+      "sharpe": 0.12914622429909503,
+      "btc_total_return": 0.03265937728126911,
+      "n_days": 769,
+      "turnover_mean": 0.5778933680104031,
+      "pure_topk": true
+    },
+    "kronos_ft_min": {
+      "total_return": -0.3141056536235416,
+      "max_drawdown": -0.8113794710331321,
+      "sharpe": 0.14011176629375544,
+      "btc_total_return": 0.03265937728126911,
+      "n_days": 769,
+      "turnover_mean": 0.13342002600780234,
+      "pure_topk": false
+    },
+    "kronos_ft_min_pure": {
+      "total_return": -0.5817597988259927,
+      "max_drawdown": -0.7948087027929434,
+      "sharpe": -0.27106136134106534,
+      "btc_total_return": 0.03265937728126911,
+      "n_days": 769,
+      "turnover_mean": 0.6104031209362809,
+      "pure_topk": true
+    },
+    "roc_baseline": {
+      "total_return": 0.0712643232067307,
+      "max_drawdown": -0.7249079559078997,
+      "sharpe": 0.4453699299729536,
+      "btc_total_return": 0.03265937728126911,
+      "n_days": 769,
+      "turnover_mean": 0.12158647594278284,
+      "pure_topk": false
+    },
+    "roc_baseline_pure": {
+      "total_return": 1.0594308942676673,
+      "max_drawdown": -0.6144611682358804,
+      "sharpe": 0.8253053829304632,
+      "btc_total_return": 0.03265937728126911,
+      "n_days": 769,
+      "turnover_mean": 0.4505851755526658,
+      "pure_topk": true
+    }
+  },
+  "config": {
+    "lookback": 90,
+    "predict_window": 3,
+    "topk": 5,
+    "n_drop": 1,
+    "backtest_range": [
+      "2024-07-01",
+      "2026-08-08"
+    ],
+    "tokenizer": "/data/crypto/official_runs/models/finetune_tokenizer_official/checkpoints/best_model",
+    "predictor": "/data/crypto/official_runs/models/finetune_predictor_official/checkpoints/best_model",
+    "inference_T": 0.6,
+    "sample_count": 5,
+    "note": "FT checkpoints were trained at 90/10; this run only changes inference windows"
+  }
+}
