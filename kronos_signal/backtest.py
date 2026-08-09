@@ -69,7 +69,10 @@ def compute_diagnostics(steps: list[StepResult]) -> dict:
     pred = np.array([s.mean_return for s in steps], dtype=float)
     real = np.array([s.realized_return for s in steps], dtype=float)
     p_up = np.array([s.p_up for s in steps], dtype=float)
-    corr = float(np.corrcoef(pred, real)[0, 1]) if len(steps) > 1 else float("nan")
+    if len(steps) > 1 and np.std(pred) > 1e-12 and np.std(real) > 1e-12:
+        corr = float(np.corrcoef(pred, real)[0, 1])
+    else:
+        corr = float("nan")
     abs_pred = float(np.mean(np.abs(pred)))
     abs_real = float(np.mean(np.abs(real)))
     return {

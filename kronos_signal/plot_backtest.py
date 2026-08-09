@@ -122,7 +122,7 @@ def plot_diagnostics(
     ax2.grid(True, axis="y", alpha=0.3)
     ax2.legend(frameon=False)
 
-    fig.suptitle("Why the signal fails: optimistic bias + weak ranking", y=1.02)
+    fig.suptitle("Why the signal fails: overconfident paths + ~zero ranking power", y=1.02)
     fig.tight_layout()
     fig.savefig(out, dpi=160, bbox_inches="tight")
     plt.close(fig)
