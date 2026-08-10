@@ -20,7 +20,15 @@ from .official_topk_bt import load_full_panel, panels_from_full, roc_scores, top
 class OfficialTestDataset(Dataset):
     """Sliding windows like Kronos QlibTestDataset."""
 
-    def __init__(self, data: dict, config: OfficialConfig, start: str | None = None, end: str | None = None):
+    def __init__(
+        self,
+        data: dict,
+        config: OfficialConfig,
+        start: str | None = None,
+        end: str | None = None,
+        score_stride: int = 1,
+        stride_anchor: str | None = None,
+    ):
         self.config = config
         self.window_size = config.lookback_window + config.predict_window
         self.feature_list = config.feature_list
@@ -30,6 +38,11 @@ class OfficialTestDataset(Dataset):
 
         start_ts = pd.Timestamp(start, tz="UTC") if start else None
         end_ts = pd.Timestamp(end, tz="UTC") if end else None
+        anchor_ts = (
+            pd.Timestamp(stride_anchor, tz="UTC")
+            if stride_anchor
+            else start_ts
+        )
 
         print("Building inference indices...", flush=True)
         for symbol, sdf in data.items():
@@ -58,6 +71,10 @@ class OfficialTestDataset(Dataset):
                     continue
                 if end_ts is not None and ts > end_ts:
                     continue
+                if score_stride > 1 and anchor_ts is not None:
+                    day_offset = (ts.normalize() - anchor_ts.normalize()).days
+                    if day_offset % score_stride:
+                        continue
                 self.indices.append((symbol, i, ts))
         print(f"Inference windows: {len(self.indices)}", flush=True)
 
@@ -99,6 +116,8 @@ def generate_ft_scores(
     tokenizer_path: str | None = None,
     predictor_path: str | None = None,
     max_symbols: int | None = None,
+    pit_universe_n: int | None = None,
+    score_stride: int = 1,
 ) -> dict[str, pd.DataFrame]:
     """Return dict of score DataFrames (last/mean/max/min) like upstream qlib_test.
 
@@ -116,10 +135,37 @@ def generate_ft_scores(
     test_path = Path(cfg.dataset_path) / "test_data.pkl"
     with open(full_path if full_path.exists() else test_path, "rb") as f:
         raw = pickle.load(f)
+    # Restrict inference to the union of point-in-time top-N names used by the
+    # downstream strategy. Training still used every eligible symbol.
+    pit_keep: set[str] | None = None
+    if pit_universe_n is not None:
+        mcap_panel = pd.DataFrame(
+            {
+                sym: df["marketCap"]
+                for sym, df in raw.items()
+                if "marketCap" in df.columns
+            }
+        ).sort_index()
+        bt_start, bt_end = cfg.backtest_time_range
+        mcap_panel = mcap_panel.loc[
+            (mcap_panel.index >= pd.Timestamp(bt_start, tz="UTC"))
+            & (mcap_panel.index <= pd.Timestamp(bt_end, tz="UTC"))
+        ]
+        pit_keep = set()
+        for _, row in mcap_panel.iterrows():
+            pit_keep.update(row.dropna().nlargest(pit_universe_n).index)
+        print(
+            f"PIT universe union: {len(pit_keep)} symbols "
+            f"(daily top-{pit_universe_n})",
+            flush=True,
+        )
+
     # Drop marketCap for model features if present
     data = {}
     mcaps = {}
     for sym, df in raw.items():
+        if pit_keep is not None and sym not in pit_keep:
+            continue
         cols = [c for c in cfg.feature_list if c in df.columns]
         data[sym] = df[cols].dropna()
         if "marketCap" in df.columns:
@@ -142,7 +188,14 @@ def generate_ft_scores(
     bt_start, bt_end = cfg.backtest_time_range
     # Include lookback warm-up before backtest start for scoring continuity
     warm = (pd.Timestamp(bt_start, tz="UTC") - pd.Timedelta(days=cfg.lookback_window + 5)).strftime("%Y-%m-%d")
-    dataset = OfficialTestDataset(data, cfg, start=warm, end=bt_end)
+    dataset = OfficialTestDataset(
+        data,
+        cfg,
+        start=warm,
+        end=bt_end,
+        score_stride=score_stride,
+        stride_anchor=cfg.backtest_time_range[0],
+    )
     bs = max(1, cfg.backtest_batch_size // max(cfg.inference_sample_count, 1))
     loader = DataLoader(
         dataset,

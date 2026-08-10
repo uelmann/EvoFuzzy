@@ -828,6 +828,62 @@ def run_robust_base_epoch_job(
 
 @app.function(
     gpu="H100",
+    timeout=60 * 30,
+    volumes={
+        "/root/.cache/huggingface": hf_cache,
+        "/data/crypto": crypto_data,
+    },
+    memory=65536,
+)
+def run_robust_base_scores_job(
+    lookback_window: int = 90,
+    predict_window: int = 10,
+    universe_n: int = 30,
+    score_stride: int = 10,
+) -> dict:
+    """Generate robust FT scores only for PIT universe/rebalance dates."""
+    import pickle
+    from pathlib import Path as P
+
+    from kronos_signal.official_infer_bt import generate_ft_scores
+    from kronos_signal.robust_finetune import robust_config
+
+    root = P("/data/crypto/official_runs_base_robust")
+    cfg = robust_config(root, predictor_size="base")
+    cfg.lookback_window = int(lookback_window)
+    cfg.predict_window = int(predict_window)
+    scores = generate_ft_scores(
+        cfg,
+        device="cuda",
+        kronos_root="/opt/Kronos",
+        pit_universe_n=universe_n,
+        score_stride=score_stride,
+    )
+    tag = f"lb{lookback_window}_h{predict_window}_pit{universe_n}_s{score_stride}"
+    score_path = root / f"ft_prediction_scores_{tag}.pkl"
+    with open(score_path, "wb") as f:
+        pickle.dump(scores, f)
+    result = {
+        "recipe": "robust_base_scores",
+        "root": str(root),
+        "score_path": str(score_path),
+        "lookback": lookback_window,
+        "predict_window": predict_window,
+        "universe_n": universe_n,
+        "score_stride": score_stride,
+        "n_dates": {k: int(len(v)) for k, v in scores.items()},
+        "n_symbols": {k: int(v.shape[1]) for k, v in scores.items()},
+    }
+    (root / f"last_scores_{tag}.json").write_text(
+        __import__("json").dumps(result, indent=2)
+    )
+    crypto_data.commit()
+    hf_cache.commit()
+    return result
+
+
+@app.function(
+    gpu="H100",
     timeout=60 * 60 * 12,
     volumes={
         "/root/.cache/huggingface": hf_cache,
@@ -1331,6 +1387,19 @@ def main(
         out = Path("kronos_signal") / "last_robust_base_ft.json"
         out.write_text(json.dumps(summary, indent=2, default=str))
         print(json.dumps(summary, indent=2, default=str))
+        print(f"Wrote {out}")
+        return
+
+    if mode == "robust_scores":
+        result = run_robust_base_scores_job.remote(
+            lookback_window=90 if lookback == 400 else lookback,
+            predict_window=10 if (lookback == 400 and pred_len == 5) else pred_len,
+            universe_n=30,
+            score_stride=10,
+        )
+        out = Path("kronos_signal") / "last_robust_base_scores.json"
+        out.write_text(json.dumps(result, indent=2, default=str))
+        print(json.dumps(result, indent=2, default=str))
         print(f"Wrote {out}")
         return
 

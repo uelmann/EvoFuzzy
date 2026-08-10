@@ -1,0 +1,168 @@
+{
+  "recipe": "robust_resumable_base_ft",
+  "data": {
+    "root": "/data/crypto/official_runs_base_robust",
+    "csv": "/data/crypto/historical_data_full.csv",
+    "config": {
+      "root": "/data/crypto/official_runs_base_robust",
+      "lookback_window": 90,
+      "predict_window": 10,
+      "max_context": 512,
+      "feature_list": [
+        "open",
+        "high",
+        "low",
+        "close",
+        "vol",
+        "amt"
+      ],
+      "time_feature_list": [
+        "minute",
+        "hour",
+        "weekday",
+        "day",
+        "month"
+      ],
+      "dataset_begin_time": "2016-01-01",
+      "dataset_end_time": "2026-08-08",
+      "train_time_range": [
+        "2016-01-01",
+        "2022-12-31"
+      ],
+      "val_time_range": [
+        "2023-01-01",
+        "2024-06-30"
+      ],
+      "test_time_range": [
+        "2024-07-01",
+        "2026-08-08"
+      ],
+      "backtest_time_range": [
+        "2024-07-01",
+        "2026-08-08"
+      ],
+      "dataset_path": "/data/crypto/official_runs_base_robust/processed_datasets",
+      "universe_n": 30,
+      "clip": 5.0,
+      "epochs": 30,
+      "log_interval": 100,
+      "batch_size": 50,
+      "n_train_iter": 100000,
+      "n_val_iter": 20000,
+      "tokenizer_learning_rate": 0.0001,
+      "predictor_learning_rate": 1e-05,
+      "accumulation_steps": 1,
+      "adam_beta1": 0.9,
+      "adam_beta2": 0.95,
+      "adam_weight_decay": 0.05,
+      "seed": 100,
+      "use_comet": false,
+      "num_workers": 0,
+      "save_path": "/data/crypto/official_runs_base_robust/models",
+      "tokenizer_save_folder_name": "finetune_tokenizer_base_robust",
+      "predictor_save_folder_name": "finetune_predictor_base_robust",
+      "pretrained_tokenizer_path": "NeoQuasar/Kronos-Tokenizer-base",
+      "pretrained_predictor_path": "NeoQuasar/Kronos-base",
+      "finetuned_tokenizer_path": "/data/crypto/official_runs_base_robust/models/finetune_tokenizer_base_robust/checkpoints/best_model",
+      "finetuned_predictor_path": "/data/crypto/official_runs_base_robust/models/finetune_predictor_base_robust/checkpoints/best_model",
+      "backtest_n_symbol_hold": 5,
+      "backtest_n_symbol_drop": 1,
+      "backtest_hold_thresh": 5,
+      "inference_T": 0.6,
+      "inference_top_p": 0.9,
+      "inference_top_k": 0,
+      "inference_sample_count": 5,
+      "backtest_batch_size": 64,
+      "open_cost": 0.001,
+      "close_cost": 0.0015
+    },
+    "dataset_meta": {
+      "n_train_symbols": 311,
+      "n_val_symbols": 415,
+      "n_test_symbols": 802,
+      "n_full_symbols": 802,
+      "train_range": [
+        "2016-01-01",
+        "2022-12-31"
+      ],
+      "val_range": [
+        "2023-01-01",
+        "2024-06-30"
+      ],
+      "test_range": [
+        "2024-07-01",
+        "2026-08-08"
+      ],
+      "feature_list": [
+        "open",
+        "high",
+        "low",
+        "close",
+        "vol",
+        "amt"
+      ]
+    }
+  },
+  "phases": {
+    "predictor": {
+      "completed_epochs": 5,
+      "best_val_loss": 2.9442574352025987,
+      "bad_epochs": 4,
+      "history": [
+        {
+          "epoch": 1,
+          "train_loss": 2.992839131951332,
+          "val_loss": 2.9442574352025987,
+          "lr": 1e-05,
+          "improved": true
+        },
+        {
+          "epoch": 2,
+          "train_loss": 2.8064813393354417,
+          "val_loss": 2.9577012717723847,
+          "lr": 1e-05,
+          "improved": false
+        },
+        {
+          "epoch": 3,
+          "train_loss": 2.7068383122682573,
+          "val_loss": 2.974685572385788,
+          "lr": 5e-06,
+          "improved": false
+        },
+        {
+          "epoch": 4,
+          "train_loss": 2.6544433205127715,
+          "val_loss": 2.9831859451532363,
+          "lr": 5e-06,
+          "improved": false
+        },
+        {
+          "epoch": 5,
+          "train_loss": 2.6196516481637953,
+          "val_loss": 2.988800212740898,
+          "lr": 2.5e-06,
+          "improved": false
+        }
+      ],
+      "stopped_early": true,
+      "initial_val_loss": 3.4959382647275925,
+      "best_epoch": 1,
+      "source_model": "NeoQuasar/Kronos-base",
+      "phase": "predictor",
+      "status": "completed_epoch"
+    }
+  },
+  "train_range": [
+    "2016-01-01",
+    "2022-12-31"
+  ],
+  "val_range": [
+    "2023-01-01",
+    "2024-06-30"
+  ],
+  "test_range": [
+    "2024-07-01",
+    "2026-08-08"
+  ]
+}
