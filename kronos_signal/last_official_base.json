@@ -1,0 +1,59 @@
+{
+  "recipe": "official_kronos_mirror",
+  "notes": {
+    "market": "crypto_panel_not_csi300",
+    "ft_start": "NeoQuasar/Kronos-base",
+    "lookback": 90,
+    "predict_window": 10,
+    "topk": 5,
+    "n_drop": 1,
+    "hold_thresh": 5,
+    "long_only": true,
+    "not_long_short": true,
+    "root": "/data/crypto/official_runs_base"
+  },
+  "dataset_meta": {
+    "n_train_symbols": 311,
+    "n_val_symbols": 415,
+    "n_test_symbols": 802,
+    "n_full_symbols": 802,
+    "train_range": [
+      "2016-01-01",
+      "2022-12-31"
+    ],
+    "val_range": [
+      "2022-09-01",
+      "2024-06-30"
+    ],
+    "test_range": [
+      "2024-04-01",
+      "2026-08-08"
+    ],
+    "feature_list": [
+      "open",
+      "high",
+      "low",
+      "close",
+      "vol",
+      "amt"
+    ]
+  },
+  "train": {
+    "tokenizer": {
+      "skipped": true,
+      "path": "/data/crypto/official_runs_base/models/finetune_tokenizer_official_base/checkpoints/best_model"
+    }
+  },
+  "topk_roc_baseline": {
+    "total_return": -0.6388142726882036,
+    "max_drawdown": -0.8681587251617608,
+    "sharpe": 0.0918299472313754,
+    "btc_total_return": 0.03265937728126911,
+    "n_days": 769
+  },
+  "paths": {
+    "tokenizer": "/data/crypto/official_runs_base/models/finetune_tokenizer_official_base/checkpoints/best_model",
+    "predictor": "/data/crypto/official_runs_base/models/finetune_predictor_official_base/checkpoints/best_model",
+    "dataset": "/data/crypto/official_runs_base/processed_datasets"
+  }
+}

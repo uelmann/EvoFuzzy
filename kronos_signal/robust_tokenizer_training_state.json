@@ -1,0 +1,88 @@
+{
+  "completed_epochs": 11,
+  "best_val_loss": 0.007510668219765648,
+  "bad_epochs": 4,
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": -0.02472285927645862,
+      "val_loss": 0.007663482269272208,
+      "lr": 0.0001,
+      "improved": true
+    },
+    {
+      "epoch": 2,
+      "train_loss": -0.024754983769729733,
+      "val_loss": 0.007702705742558464,
+      "lr": 0.0001,
+      "improved": false
+    },
+    {
+      "epoch": 3,
+      "train_loss": -0.02480576483067125,
+      "val_loss": 0.007666792910313234,
+      "lr": 5e-05,
+      "improved": false
+    },
+    {
+      "epoch": 4,
+      "train_loss": -0.024899324201047422,
+      "val_loss": 0.007596195567166433,
+      "lr": 5e-05,
+      "improved": true
+    },
+    {
+      "epoch": 5,
+      "train_loss": -0.02502484711073339,
+      "val_loss": 0.007541488657006994,
+      "lr": 5e-05,
+      "improved": true
+    },
+    {
+      "epoch": 6,
+      "train_loss": -0.024994720393791796,
+      "val_loss": 0.007599198337411508,
+      "lr": 5e-05,
+      "improved": false
+    },
+    {
+      "epoch": 7,
+      "train_loss": -0.025066636588424444,
+      "val_loss": 0.007510668219765648,
+      "lr": 5e-05,
+      "improved": true
+    },
+    {
+      "epoch": 8,
+      "train_loss": -0.025048882133327423,
+      "val_loss": 0.007529087447328493,
+      "lr": 5e-05,
+      "improved": false
+    },
+    {
+      "epoch": 9,
+      "train_loss": -0.024957177698612214,
+      "val_loss": 0.007502788613783196,
+      "lr": 5e-05,
+      "improved": false
+    },
+    {
+      "epoch": 10,
+      "train_loss": -0.02502609882876277,
+      "val_loss": 0.00755339671857655,
+      "lr": 5e-05,
+      "improved": false
+    },
+    {
+      "epoch": 11,
+      "train_loss": -0.02508076374884695,
+      "val_loss": 0.007533755942713469,
+      "lr": 2.5e-05,
+      "improved": false
+    }
+  ],
+  "stopped_early": true,
+  "initial_val_loss": 0.007707458989461884,
+  "best_epoch": 7,
+  "source_model": "/data/crypto/official_runs_base/models/finetune_tokenizer_official_base/checkpoints/best_model"
+}

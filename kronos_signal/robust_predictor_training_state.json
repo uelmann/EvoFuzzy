@@ -1,0 +1,46 @@
+{
+  "completed_epochs": 5,
+  "best_val_loss": 2.9442574352025987,
+  "bad_epochs": 4,
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 2.992839131951332,
+      "val_loss": 2.9442574352025987,
+      "lr": 1e-05,
+      "improved": true
+    },
+    {
+      "epoch": 2,
+      "train_loss": 2.8064813393354417,
+      "val_loss": 2.9577012717723847,
+      "lr": 1e-05,
+      "improved": false
+    },
+    {
+      "epoch": 3,
+      "train_loss": 2.7068383122682573,
+      "val_loss": 2.974685572385788,
+      "lr": 5e-06,
+      "improved": false
+    },
+    {
+      "epoch": 4,
+      "train_loss": 2.6544433205127715,
+      "val_loss": 2.9831859451532363,
+      "lr": 5e-06,
+      "improved": false
+    },
+    {
+      "epoch": 5,
+      "train_loss": 2.6196516481637953,
+      "val_loss": 2.988800212740898,
+      "lr": 2.5e-06,
+      "improved": false
+    }
+  ],
+  "stopped_early": true,
+  "initial_val_loss": 3.4959382647275925,
+  "best_epoch": 1,
+  "source_model": "NeoQuasar/Kronos-base"
+}

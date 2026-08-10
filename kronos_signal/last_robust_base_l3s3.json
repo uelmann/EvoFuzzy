@@ -1,0 +1,80 @@
+{
+  "recipe": "ft_vs_zs_l3s3",
+  "note": "L3/S3 dollar-neutral; FT vs pretrained zero-shot Kronos scores",
+  "config": {
+    "universe_n": 30,
+    "long_n": 3,
+    "short_n": 3,
+    "lookback": 90,
+    "pred_len": 10,
+    "min_history_days": 90,
+    "cost_bps": 10.0,
+    "start": "2024-07-01",
+    "end": "2026-08-08"
+  },
+  "roc_window": 10,
+  "scores_path": "/opt/cursor/artifacts/crypto_data/robust_base_ft_scores.pkl",
+  "zs_scores_path": "/opt/cursor/artifacts/crypto_data/robust_base_zs_scores.pkl",
+  "signals": {
+    "kronos_ft_last": {
+      "n_rebalances": 68,
+      "total_return": 0.3768667685866953,
+      "max_drawdown": -0.5495080750606778,
+      "ann_vol": 0.5000122765925752,
+      "sharpe": 0.5557817963787913,
+      "btc_total_return": 0.03265937728126911,
+      "turnover_mean": 0.13394018205461636,
+      "n_days": 769
+    },
+    "kronos_ft_mean": {
+      "n_rebalances": 68,
+      "total_return": -0.3840870525695034,
+      "max_drawdown": -0.5919043672360857,
+      "ann_vol": 0.7006092976694511,
+      "sharpe": 0.008818797460527208,
+      "btc_total_return": 0.03265937728126911,
+      "turnover_mean": 0.13957520589510186,
+      "n_days": 769
+    },
+    "kronos_zs_last": {
+      "n_rebalances": 68,
+      "total_return": -0.792657962670702,
+      "max_drawdown": -0.8881250811550514,
+      "ann_vol": 0.863957017616069,
+      "sharpe": -0.4113788200553697,
+      "btc_total_return": 0.03265937728126911,
+      "turnover_mean": 0.11443433029908973,
+      "n_days": 769
+    },
+    "kronos_zs_mean": {
+      "n_rebalances": 68,
+      "total_return": -0.7928697641815255,
+      "max_drawdown": -0.9030761190962315,
+      "ann_vol": 0.8665963335012655,
+      "sharpe": -0.4063781415034323,
+      "btc_total_return": 0.03265937728126911,
+      "turnover_mean": 0.12483745123537059,
+      "n_days": 769
+    },
+    "roc_baseline": {
+      "n_rebalances": 68,
+      "total_return": -0.8902139731142289,
+      "max_drawdown": -0.9656573049217057,
+      "ann_vol": 0.9949127741468692,
+      "sharpe": -0.5137491640908771,
+      "btc_total_return": 0.03265937728126911,
+      "turnover_mean": 0.15387949718248808,
+      "n_days": 769
+    }
+  },
+  "primary": {
+    "n_rebalances": 68,
+    "total_return": 0.3768667685866953,
+    "max_drawdown": -0.5495080750606778,
+    "ann_vol": 0.5000122765925752,
+    "sharpe": 0.5557817963787913,
+    "btc_total_return": 0.03265937728126911,
+    "turnover_mean": 0.13394018205461636,
+    "n_days": 769
+  }
+}
