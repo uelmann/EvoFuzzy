@@ -1,22 +1,24 @@
 {
   "recipe": "robust_base_zero_shot_scores",
   "root": "/data/crypto/official_runs_base_robust",
-  "score_path": "/data/crypto/official_runs_base_robust/zs_prediction_scores_lb90_h10_pit30_s10.pkl",
+  "score_path": "/data/crypto/official_runs_base_robust/zs_prediction_scores_lb90_h10_pit30_s1_c1of2.pkl",
   "lookback": 90,
   "predict_window": 10,
   "universe_n": 30,
-  "score_stride": 10,
+  "score_stride": 1,
   "zero_shot": true,
+  "symbol_chunk_index": 1,
+  "symbol_chunk_count": 2,
   "n_dates": {
-    "last": 85,
-    "mean": 85,
-    "max": 85,
-    "min": 85
+    "last": 854,
+    "mean": 854,
+    "max": 854,
+    "min": 854
   },
   "n_symbols": {
-    "last": 62,
-    "mean": 62,
-    "max": 62,
-    "min": 62
+    "last": 31,
+    "mean": 31,
+    "max": 31,
+    "min": 31
   }
 }
