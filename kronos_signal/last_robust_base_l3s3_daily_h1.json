@@ -1,0 +1,60 @@
+{
+  "recipe": "ft_vs_zs_l3s3",
+  "note": "L3/S3 dollar-neutral; FT vs pretrained zero-shot Kronos scores",
+  "config": {
+    "universe_n": 30,
+    "long_n": 3,
+    "short_n": 3,
+    "lookback": 90,
+    "pred_len": 1,
+    "min_history_days": 90,
+    "cost_bps": 10.0,
+    "start": "2024-07-01",
+    "end": "2026-08-08"
+  },
+  "roc_window": 1,
+  "scores_path": "/opt/cursor/artifacts/crypto_data/robust_base_daily_h1_ft_scores.pkl",
+  "zs_scores_path": "/opt/cursor/artifacts/crypto_data/robust_base_daily_h1_zs_scores.pkl",
+  "signals": {
+    "kronos_ft_last": {
+      "n_rebalances": 678,
+      "total_return": -0.973231070087513,
+      "max_drawdown": -0.9740156502758268,
+      "ann_vol": 0.8243324877484083,
+      "sharpe": -1.6004356602924765,
+      "btc_total_return": 0.03265937728126911,
+      "turnover_mean": 1.3853489380147377,
+      "n_days": 769
+    },
+    "kronos_zs_last": {
+      "n_rebalances": 678,
+      "total_return": -0.9545699653479206,
+      "max_drawdown": -0.9552150730018161,
+      "ann_vol": 0.7997300838488144,
+      "sharpe": -1.4232877501022994,
+      "btc_total_return": 0.03265937728126911,
+      "turnover_mean": 1.2860858257477241,
+      "n_days": 769
+    },
+    "roc_baseline": {
+      "n_rebalances": 678,
+      "total_return": -0.32559504792083294,
+      "max_drawdown": -0.855593256962697,
+      "ann_vol": 1.0038276921637443,
+      "sharpe": 0.3465412296130192,
+      "btc_total_return": 0.03265937728126911,
+      "turnover_mean": 1.4438664932813177,
+      "n_days": 769
+    }
+  },
+  "primary": {
+    "n_rebalances": 678,
+    "total_return": -0.973231070087513,
+    "max_drawdown": -0.9740156502758268,
+    "ann_vol": 0.8243324877484083,
+    "sharpe": -1.6004356602924765,
+    "btc_total_return": 0.03265937728126911,
+    "turnover_mean": 1.3853489380147377,
+    "n_days": 769
+  }
+}
