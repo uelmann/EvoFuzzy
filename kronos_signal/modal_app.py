@@ -756,6 +756,77 @@ def download_crypto_panel_job(
 
 
 @app.function(
+    timeout=60 * 30,
+    volumes={"/data/crypto": crypto_data},
+    memory=32768,
+    cpu=8,
+)
+def prepare_robust_base_ft_job(verbose: bool = True) -> dict:
+    """Create leakage-free train/val/test pickles for robust Kronos-base FT."""
+    from pathlib import Path as P
+
+    from kronos_signal.prepare_official_pickles import prepare_pickles
+    from kronos_signal.robust_finetune import robust_config
+
+    csv_path = P("/data/crypto/historical_data_full.csv")
+    if not csv_path.exists():
+        raise FileNotFoundError(f"Missing full panel: {csv_path}")
+    root = P("/data/crypto/official_runs_base_robust")
+    cfg = robust_config(root, predictor_size="base")
+    meta = prepare_pickles(csv_path, cfg)
+    crypto_data.commit()
+    result = {
+        "root": str(root),
+        "csv": str(csv_path),
+        "config": cfg.as_dict(),
+        "dataset_meta": meta,
+    }
+    (root / "prepare_summary.json").write_text(
+        __import__("json").dumps(result, indent=2, default=str)
+    )
+    crypto_data.commit()
+    if verbose:
+        print(__import__("json").dumps(result, indent=2, default=str), flush=True)
+    return result
+
+
+@app.function(
+    gpu="H100",
+    timeout=60 * 30,
+    volumes={
+        "/root/.cache/huggingface": hf_cache,
+        "/data/crypto": crypto_data,
+    },
+    memory=65536,
+)
+def run_robust_base_epoch_job(
+    phase: str,
+    patience: int = 4,
+    min_delta: float = 1e-4,
+) -> dict:
+    """Run one resumable FT epoch and persist all state before returning."""
+    from pathlib import Path as P
+
+    from kronos_signal.robust_finetune import robust_config, train_one_epoch
+
+    if phase not in ("tokenizer", "predictor"):
+        raise ValueError("phase must be tokenizer or predictor")
+    root = P("/data/crypto/official_runs_base_robust")
+    cfg = robust_config(root, predictor_size="base")
+    result = train_one_epoch(
+        cfg,
+        phase=phase,
+        device="cuda",
+        kronos_root="/opt/Kronos",
+        patience=patience,
+        min_delta=min_delta,
+    )
+    crypto_data.commit()
+    hf_cache.commit()
+    return result
+
+
+@app.function(
     gpu="H100",
     timeout=60 * 60 * 12,
     volumes={
@@ -1036,6 +1107,10 @@ def main(
     force_download: bool = False,
     skip_tokenizer: bool = False,
     skip_predictor: bool = False,
+    robust_phase: str = "",
+    robust_max_tokenizer_epochs: int = 20,
+    robust_max_predictor_epochs: int = 30,
+    robust_patience: int = 4,
 ):
     def _print_bt(title: str, result: dict):
         print(f"\n=== {title} ===")
@@ -1211,6 +1286,51 @@ def main(
         out.write_text(json.dumps(result, indent=2, default=str))
         print("\n=== CRYPTO PANEL DOWNLOAD ===")
         print(json.dumps(result, indent=2, default=str))
+        print(f"Wrote {out}")
+        return
+
+    if mode == "robust_ft":
+        prep = prepare_robust_base_ft_job.remote(verbose=True)
+        phases = (
+            [robust_phase]
+            if robust_phase in ("tokenizer", "predictor")
+            else ["tokenizer", "predictor"]
+        )
+        phase_results = {}
+        for phase in phases:
+            max_epochs = (
+                robust_max_tokenizer_epochs
+                if phase == "tokenizer"
+                else robust_max_predictor_epochs
+            )
+            while True:
+                result = run_robust_base_epoch_job.remote(
+                    phase=phase,
+                    patience=robust_patience,
+                    min_delta=1e-5 if phase == "tokenizer" else 1e-3,
+                )
+                phase_results[phase] = result
+                print(
+                    f"[robust loop] {phase} epoch={result.get('completed_epochs')} "
+                    f"best={result.get('best_val_loss')} "
+                    f"bad={result.get('bad_epochs')} stopped={result.get('stopped_early')}",
+                    flush=True,
+                )
+                if result.get("stopped_early"):
+                    break
+                if int(result.get("completed_epochs", 0)) >= max_epochs:
+                    break
+        summary = {
+            "recipe": "robust_resumable_base_ft",
+            "data": prep,
+            "phases": phase_results,
+            "train_range": ["2016-01-01", "2022-12-31"],
+            "val_range": ["2023-01-01", "2024-06-30"],
+            "test_range": ["2024-07-01", "2026-08-08"],
+        }
+        out = Path("kronos_signal") / "last_robust_base_ft.json"
+        out.write_text(json.dumps(summary, indent=2, default=str))
+        print(json.dumps(summary, indent=2, default=str))
         print(f"Wrote {out}")
         return
 
