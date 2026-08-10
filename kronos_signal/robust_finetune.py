@@ -135,15 +135,26 @@ def train_one_epoch(
 
     epoch = int(meta["completed_epochs"])
     train_ds, train_loader = _loader(cfg, "train")
-    _, val_loader = _loader(cfg, "val")
+    val_ds, val_loader = _loader(cfg, "val")
     train_ds.set_epoch_seed(epoch * 10_000)
 
     if phase == "tokenizer":
-        source = (
-            str(paths["latest"])
-            if paths["latest"].exists()
-            else cfg.pretrained_tokenizer_path
+        legacy_crypto_tokenizer = (
+            Path("/data/crypto/official_runs_base")
+            / "models"
+            / "finetune_tokenizer_official_base"
+            / "checkpoints"
+            / "best_model"
         )
+        if paths["latest"].exists():
+            source = str(paths["latest"])
+        elif legacy_crypto_tokenizer.exists():
+            # Preserve the useful first-stage work: it only saw train data in
+            # gradient updates.  Re-evaluate it on the new disjoint validation
+            # set before accepting it as the robust baseline.
+            source = str(legacy_crypto_tokenizer)
+        else:
+            source = cfg.pretrained_tokenizer_path
         model = KronosTokenizer.from_pretrained(source).to(device)
         tokenizer = None
     else:
@@ -166,6 +177,57 @@ def train_one_epoch(
         state = torch.load(paths["state"], map_location="cpu", weights_only=False)
         opt.load_state_dict(state["optimizer"])
         scheduler.load_state_dict(state["scheduler"])
+
+    def validate() -> float:
+        # OfficialKronosDataset samples windows with an internal RNG. Reset it
+        # so epoch-0 and every later epoch use the identical validation windows.
+        val_ds.set_epoch_seed(0)
+        model.eval()
+        val_sum = 0.0
+        val_n = 0
+        with torch.no_grad():
+            for batch_x, batch_stamp in val_loader:
+                batch_x = batch_x.to(device, non_blocking=True)
+                batch_stamp = batch_stamp.to(device, non_blocking=True)
+                if phase == "tokenizer":
+                    zs, _, _, _ = model(batch_x)
+                    _, z = zs
+                    val_loss = F.mse_loss(z, batch_x)
+                else:
+                    assert tokenizer is not None
+                    token_seq_0, token_seq_1 = tokenizer.encode(batch_x, half=True)
+                    logits = model(
+                        token_seq_0[:, :-1],
+                        token_seq_1[:, :-1],
+                        batch_stamp[:, :-1, :],
+                    )
+                    val_loss, _, _ = model.head.compute_loss(
+                        logits[0],
+                        logits[1],
+                        token_seq_0[:, 1:],
+                        token_seq_1[:, 1:],
+                    )
+                val_sum += float(val_loss.item())
+                val_n += 1
+        return val_sum / max(val_n, 1)
+
+    # Establish a deterministic epoch-0 control.  Fine-tuning is accepted only
+    # when it beats this exact pretrained/warm-start model on the same fixed
+    # disjoint validation samples.
+    if int(meta["completed_epochs"]) == 0 and "initial_val_loss" not in meta:
+        initial_val = validate()
+        meta["initial_val_loss"] = initial_val
+        meta["best_val_loss"] = initial_val
+        meta["best_epoch"] = 0
+        meta["source_model"] = source
+        paths["best"].mkdir(parents=True, exist_ok=True)
+        model.save_pretrained(str(paths["best"]))
+        paths["meta"].write_text(json.dumps(meta, indent=2))
+        print(
+            f"[robust-{phase}] epoch=0 baseline_val={initial_val:.5f} "
+            f"source={source}",
+            flush=True,
+        )
 
     model.train()
     train_sum = 0.0
@@ -214,36 +276,8 @@ def train_one_epoch(
                 flush=True,
             )
 
-    model.eval()
-    val_sum = 0.0
-    val_n = 0
-    with torch.no_grad():
-        for batch_x, batch_stamp in val_loader:
-            batch_x = batch_x.to(device, non_blocking=True)
-            batch_stamp = batch_stamp.to(device, non_blocking=True)
-            if phase == "tokenizer":
-                zs, _, _, _ = model(batch_x)
-                _, z = zs
-                val_loss = F.mse_loss(z, batch_x)
-            else:
-                assert tokenizer is not None
-                token_seq_0, token_seq_1 = tokenizer.encode(batch_x, half=True)
-                logits = model(
-                    token_seq_0[:, :-1],
-                    token_seq_1[:, :-1],
-                    batch_stamp[:, :-1, :],
-                )
-                val_loss, _, _ = model.head.compute_loss(
-                    logits[0],
-                    logits[1],
-                    token_seq_0[:, 1:],
-                    token_seq_1[:, 1:],
-                )
-            val_sum += float(val_loss.item())
-            val_n += 1
-
     train_loss = train_sum / max(train_n, 1)
-    val_loss = val_sum / max(val_n, 1)
+    val_loss = validate()
     scheduler.step(val_loss)
 
     # Always persist latest for exact optimizer/model resume.
