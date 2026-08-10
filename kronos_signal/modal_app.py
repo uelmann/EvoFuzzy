@@ -919,6 +919,7 @@ def run_official_ft_backtest_job(
     lookback_window: int = 90,
     predict_window: int = 10,
     also_pure_topk: bool = True,
+    max_infer_symbols: int = 48,
     verbose: bool = True,
 ) -> dict:
     """Infer with fine-tuned Kronos and run TopkDropout vs ROC/BTC."""
@@ -934,7 +935,7 @@ def run_official_ft_backtest_job(
     if verbose:
         print(
             f"Official FT backtest root={root} signal={signal} "
-            f"lb={lookback_window} pred={predict_window}",
+            f"lb={lookback_window} pred={predict_window} max_symbols={max_infer_symbols}",
             flush=True,
         )
     out = run_official_ft_backtest(
@@ -946,6 +947,7 @@ def run_official_ft_backtest_job(
         lookback_window=lookback_window,
         predict_window=predict_window,
         also_pure_topk=also_pure_topk,
+        max_infer_symbols=max_infer_symbols,
     )
     crypto_data.commit()
     return out

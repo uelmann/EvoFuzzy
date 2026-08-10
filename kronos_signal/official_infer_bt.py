@@ -233,7 +233,7 @@ def run_official_ft_backtest(
     lookback_window: int | None = None,
     predict_window: int | None = None,
     also_pure_topk: bool = True,
-    max_infer_symbols: int | None = 120,
+    max_infer_symbols: int | None = 48,
 ) -> dict:
     cfg = OfficialConfig(root=root, predictor_size=predictor_size, epochs=30)
     if lookback_window is not None:
