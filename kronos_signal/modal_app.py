@@ -780,7 +780,6 @@ def run_official_ft_pipeline(
     from pathlib import Path as P
 
     from kronos_signal.download_cmc_kucoin import download_universe
-    from kronos_signal.official_pipeline import run_official_pipeline
 
     # Prefer full panel when present (all-KuCoin from 2016); else legacy/top-N CSV.
     csv_candidates = [
@@ -1033,6 +1032,8 @@ def main(
     max_coins: int = 60,
     start_date: str = "2016-01-01",
     force_download: bool = False,
+    skip_tokenizer: bool = False,
+    skip_predictor: bool = False,
 ):
     def _print_bt(title: str, result: dict):
         print(f"\n=== {title} ===")
@@ -1216,6 +1217,8 @@ def main(
             predictor_size=predictor_size,
             epochs=official_epochs,
             skip_train=False,
+            skip_tokenizer=skip_tokenizer,
+            skip_predictor=skip_predictor,
             max_coins=max_coins,
             start_date=start_date,
             force_download=force_download,

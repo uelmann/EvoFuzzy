@@ -190,6 +190,10 @@ def train_predictor(cfg: OfficialConfig, device: str = "cuda", kronos_root: str 
             ckpt_dir.mkdir(parents=True, exist_ok=True)
             model.save_pretrained(str(ckpt_dir))
             print(f"[pred] saved best → {ckpt_dir}", flush=True)
+        # Persist progress marker each epoch (Modal volume commit is done by caller)
+        (save_dir / "last_epoch.json").write_text(
+            json.dumps({"epoch": epoch + 1, "val": avg, "best": best}, indent=2)
+        )
 
     summary = {"best_val_loss": best, "epochs": cfg.epochs, "path": str(ckpt_dir)}
     (save_dir / "summary.json").write_text(json.dumps(summary, indent=2))

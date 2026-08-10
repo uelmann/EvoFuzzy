@@ -98,11 +98,15 @@ def generate_ft_scores(
     signal: str = "mean",
     tokenizer_path: str | None = None,
     predictor_path: str | None = None,
+    max_symbols: int | None = None,
 ) -> dict[str, pd.DataFrame]:
     """Return dict of score DataFrames (last/mean/max/min) like upstream qlib_test.
 
     By default loads fine-tuned checkpoints. Pass HuggingFace ids / paths to
     compare zero-shot pretrained Kronos (e.g. NeoQuasar/Kronos-small).
+
+    If max_symbols is set, keep the top-N by median marketCap (when available)
+    so large panels remain inferable in shorter Modal jobs.
     """
     _ensure_kronos_on_path(kronos_root)
     from model.kronos import Kronos, KronosTokenizer, auto_regressive_inference
@@ -114,9 +118,20 @@ def generate_ft_scores(
         raw = pickle.load(f)
     # Drop marketCap for model features if present
     data = {}
+    mcaps = {}
     for sym, df in raw.items():
         cols = [c for c in cfg.feature_list if c in df.columns]
         data[sym] = df[cols].dropna()
+        if "marketCap" in df.columns:
+            mcaps[sym] = float(df["marketCap"].median())
+
+    if max_symbols is not None and len(data) > max_symbols:
+        if mcaps:
+            keep = sorted(mcaps, key=mcaps.get, reverse=True)[:max_symbols]
+        else:
+            keep = sorted(data.keys())[:max_symbols]
+        data = {s: data[s] for s in keep}
+        print(f"Inference symbol cap: using {len(data)}/{len(raw)} symbols", flush=True)
 
     tok_path = tokenizer_path or cfg.finetuned_tokenizer_path
     pred_path = predictor_path or cfg.finetuned_predictor_path
@@ -218,6 +233,7 @@ def run_official_ft_backtest(
     lookback_window: int | None = None,
     predict_window: int | None = None,
     also_pure_topk: bool = True,
+    max_infer_symbols: int | None = 120,
 ) -> dict:
     cfg = OfficialConfig(root=root, predictor_size=predictor_size, epochs=30)
     if lookback_window is not None:
@@ -232,10 +248,16 @@ def run_official_ft_backtest(
 
     print(
         f"Loading FT models from {tok} / {pred} "
-        f"(infer lookback={cfg.lookback_window} pred={cfg.predict_window})",
+        f"(infer lookback={cfg.lookback_window} pred={cfg.predict_window} "
+        f"max_symbols={max_infer_symbols})",
         flush=True,
     )
-    scores_map = generate_ft_scores(cfg, device=device, kronos_root=kronos_root)
+    scores_map = generate_ft_scores(
+        cfg,
+        device=device,
+        kronos_root=kronos_root,
+        max_symbols=max_infer_symbols,
+    )
 
     data = load_full_panel(cfg)
     panels = panels_from_full(data)
@@ -278,6 +300,7 @@ def run_official_ft_backtest(
             "predictor": cfg.finetuned_predictor_path,
             "inference_T": cfg.inference_T,
             "sample_count": cfg.inference_sample_count,
+            "max_infer_symbols": max_infer_symbols,
             "note": "FT checkpoints were trained at 90/10; this run only changes inference windows",
         },
     }
