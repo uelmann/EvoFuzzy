@@ -1,0 +1,21 @@
+{
+  "recipe": "robust_base_scores",
+  "root": "/data/crypto/official_runs_base_robust",
+  "score_path": "/data/crypto/official_runs_base_robust/ft_prediction_scores_lb90_h10_pit30_s10.pkl",
+  "lookback": 90,
+  "predict_window": 10,
+  "universe_n": 30,
+  "score_stride": 10,
+  "n_dates": {
+    "last": 85,
+    "mean": 85,
+    "max": 85,
+    "min": 85
+  },
+  "n_symbols": {
+    "last": 62,
+    "mean": 62,
+    "max": 62,
+    "min": 62
+  }
+}

@@ -840,6 +840,7 @@ def run_robust_base_scores_job(
     predict_window: int = 10,
     universe_n: int = 30,
     score_stride: int = 10,
+    zero_shot: bool = False,
 ) -> dict:
     """Generate robust FT scores only for PIT universe/rebalance dates."""
     import pickle
@@ -856,25 +857,29 @@ def run_robust_base_scores_job(
         cfg,
         device="cuda",
         kronos_root="/opt/Kronos",
+        tokenizer_path=cfg.pretrained_tokenizer_path if zero_shot else None,
+        predictor_path=cfg.pretrained_predictor_path if zero_shot else None,
         pit_universe_n=universe_n,
         score_stride=score_stride,
     )
     tag = f"lb{lookback_window}_h{predict_window}_pit{universe_n}_s{score_stride}"
-    score_path = root / f"ft_prediction_scores_{tag}.pkl"
+    prefix = "zs" if zero_shot else "ft"
+    score_path = root / f"{prefix}_prediction_scores_{tag}.pkl"
     with open(score_path, "wb") as f:
         pickle.dump(scores, f)
     result = {
-        "recipe": "robust_base_scores",
+        "recipe": "robust_base_zero_shot_scores" if zero_shot else "robust_base_ft_scores",
         "root": str(root),
         "score_path": str(score_path),
         "lookback": lookback_window,
         "predict_window": predict_window,
         "universe_n": universe_n,
         "score_stride": score_stride,
+        "zero_shot": zero_shot,
         "n_dates": {k: int(len(v)) for k, v in scores.items()},
         "n_symbols": {k: int(v.shape[1]) for k, v in scores.items()},
     }
-    (root / f"last_scores_{tag}.json").write_text(
+    (root / f"last_{prefix}_scores_{tag}.json").write_text(
         __import__("json").dumps(result, indent=2)
     )
     crypto_data.commit()
@@ -1390,14 +1395,19 @@ def main(
         print(f"Wrote {out}")
         return
 
-    if mode == "robust_scores":
+    if mode in ("robust_scores", "robust_zs_scores"):
         result = run_robust_base_scores_job.remote(
             lookback_window=90 if lookback == 400 else lookback,
             predict_window=10 if (lookback == 400 and pred_len == 5) else pred_len,
             universe_n=30,
             score_stride=10,
+            zero_shot=(mode == "robust_zs_scores"),
         )
-        out = Path("kronos_signal") / "last_robust_base_scores.json"
+        out = Path("kronos_signal") / (
+            "last_robust_base_zs_scores.json"
+            if mode == "robust_zs_scores"
+            else "last_robust_base_scores.json"
+        )
         out.write_text(json.dumps(result, indent=2, default=str))
         print(json.dumps(result, indent=2, default=str))
         print(f"Wrote {out}")
