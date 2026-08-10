@@ -86,12 +86,19 @@ def run_long_short_backtest(
     cfg: CrossAssetConfig | None = None,
 ) -> dict:
     """
-    Dollar-neutral equal-weight: +1/long_n on top scores, -1/short_n on worst.
+    Equal-weight ranking backtest.
+
+    - short_n > 0: dollar-neutral (+1/long_n on top scores, -1/short_n on worst)
+    - short_n = 0: long-only (+1/long_n on top scores)
 
     Rebalances every `pred_len` calendar trading days present in the panel.
     Portfolio daily return = sum_i w_i * r_i(t) minus turnover costs on rebalance days.
     """
     cfg = cfg or CrossAssetConfig()
+    if cfg.long_n <= 0:
+        raise ValueError("long_n must be > 0")
+    if cfg.short_n < 0:
+        raise ValueError("short_n must be >= 0")
     close = panels["close"]
     mcap = panels["marketCap"]
     rets = close.pct_change()
@@ -120,15 +127,17 @@ def run_long_short_backtest(
             min_history_days=cfg.min_history_days,
             close=close,
         )
-        if len(univ) < cfg.long_n + cfg.short_n:
+        need = cfg.long_n + cfg.short_n
+        if len(univ) < max(need, cfg.long_n):
             continue
         scores = score_fn(rb, univ, panels)
         scores = scores.reindex(univ).dropna()
-        if len(scores) < cfg.long_n + cfg.short_n:
+        if len(scores) < max(need, cfg.long_n):
             continue
         ranked = scores.sort_values(ascending=False)
         longs = list(ranked.index[: cfg.long_n])
-        shorts = list(ranked.index[-cfg.short_n :])
+        # Important: ranked.index[-0:] == ranked.index[:] in Python; guard short_n==0.
+        shorts = list(ranked.index[-cfg.short_n :]) if cfg.short_n > 0 else []
         # Hold from next bar after signal through pred_len bars (execution delay=1).
         loc = dates.index(rb)
         hold_dates = dates[loc + 1 : loc + 1 + cfg.pred_len]
@@ -137,8 +146,9 @@ def run_long_short_backtest(
         w = {s: 0.0 for s in univ}
         for s in longs:
             w[s] = 1.0 / cfg.long_n
-        for s in shorts:
-            w[s] = -1.0 / cfg.short_n
+        if cfg.short_n > 0:
+            for s in shorts:
+                w[s] = -1.0 / cfg.short_n
         for d in hold_dates:
             for s, val in w.items():
                 if s in weights.columns:

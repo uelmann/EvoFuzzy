@@ -183,8 +183,13 @@ def main() -> None:
         )
     ax.axhline(1.0, color="#d0d7de", lw=1)
     title_cmp = "FT vs zero-shot" if zs_map is not None else "FT"
+    book = (
+        f"L{cfg.long_n} long-only"
+        if cfg.short_n == 0
+        else f"L{cfg.long_n}/S{cfg.short_n} dollar-neutral"
+    )
     ax.set_title(
-        f"L{cfg.long_n}/S{cfg.short_n} dollar-neutral ({title_cmp}) — "
+        f"{book} ({title_cmp}) — "
         f"lookback={cfg.lookback} / hold={cfg.pred_len}d\n"
         f"{cfg.start} → {cfg.end}  |  PIT top-{cfg.universe_n}"
     )
