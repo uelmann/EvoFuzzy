@@ -118,6 +118,8 @@ def generate_ft_scores(
     max_symbols: int | None = None,
     pit_universe_n: int | None = None,
     score_stride: int = 1,
+    symbol_chunk_index: int = 0,
+    symbol_chunk_count: int = 1,
 ) -> dict[str, pd.DataFrame]:
     """Return dict of score DataFrames (last/mean/max/min) like upstream qlib_test.
 
@@ -159,6 +161,14 @@ def generate_ft_scores(
             f"(daily top-{pit_universe_n})",
             flush=True,
         )
+        if symbol_chunk_count > 1:
+            ordered = sorted(pit_keep)
+            pit_keep = set(ordered[symbol_chunk_index::symbol_chunk_count])
+            print(
+                f"Symbol chunk {symbol_chunk_index + 1}/{symbol_chunk_count}: "
+                f"{len(pit_keep)} symbols",
+                flush=True,
+            )
 
     # Drop marketCap for model features if present
     data = {}

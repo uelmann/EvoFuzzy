@@ -841,6 +841,8 @@ def run_robust_base_scores_job(
     universe_n: int = 30,
     score_stride: int = 10,
     zero_shot: bool = False,
+    symbol_chunk_index: int = 0,
+    symbol_chunk_count: int = 1,
 ) -> dict:
     """Generate robust FT scores only for PIT universe/rebalance dates."""
     import pickle
@@ -861,8 +863,12 @@ def run_robust_base_scores_job(
         predictor_path=cfg.pretrained_predictor_path if zero_shot else None,
         pit_universe_n=universe_n,
         score_stride=score_stride,
+        symbol_chunk_index=symbol_chunk_index,
+        symbol_chunk_count=symbol_chunk_count,
     )
     tag = f"lb{lookback_window}_h{predict_window}_pit{universe_n}_s{score_stride}"
+    if symbol_chunk_count > 1:
+        tag += f"_c{symbol_chunk_index}of{symbol_chunk_count}"
     prefix = "zs" if zero_shot else "ft"
     score_path = root / f"{prefix}_prediction_scores_{tag}.pkl"
     with open(score_path, "wb") as f:
@@ -876,6 +882,8 @@ def run_robust_base_scores_job(
         "universe_n": universe_n,
         "score_stride": score_stride,
         "zero_shot": zero_shot,
+        "symbol_chunk_index": symbol_chunk_index,
+        "symbol_chunk_count": symbol_chunk_count,
         "n_dates": {k: int(len(v)) for k, v in scores.items()},
         "n_symbols": {k: int(v.shape[1]) for k, v in scores.items()},
     }
@@ -1172,6 +1180,9 @@ def main(
     robust_max_tokenizer_epochs: int = 20,
     robust_max_predictor_epochs: int = 30,
     robust_patience: int = 4,
+    robust_score_stride: int = 10,
+    robust_score_chunk_index: int = 0,
+    robust_score_chunk_count: int = 1,
 ):
     def _print_bt(title: str, result: dict):
         print(f"\n=== {title} ===")
@@ -1400,8 +1411,10 @@ def main(
             lookback_window=90 if lookback == 400 else lookback,
             predict_window=10 if (lookback == 400 and pred_len == 5) else pred_len,
             universe_n=30,
-            score_stride=10,
+            score_stride=robust_score_stride,
             zero_shot=(mode == "robust_zs_scores"),
+            symbol_chunk_index=robust_score_chunk_index,
+            symbol_chunk_count=robust_score_chunk_count,
         )
         out = Path("kronos_signal") / (
             "last_robust_base_zs_scores.json"
