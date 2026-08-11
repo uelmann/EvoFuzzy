@@ -33,10 +33,18 @@ def daily_rank_ic(pred: pd.DataFrame, ycol: str, score_col: str = "score") -> pd
         gg = g.dropna(subset=[score_col, ycol])
         if len(gg) < 5:
             continue
-        corr = stats.spearmanr(gg[score_col].values, gg[ycol].values).correlation
-        if corr is None or not np.isfinite(corr):
+        x = np.asarray(gg[score_col].values, dtype=float)
+        y = np.asarray(gg[ycol].values, dtype=float)
+        if np.unique(x).size < 2 or np.unique(y).size < 2:
             continue
-        rows.append((pd.Timestamp(dt), float(corr)))
+        res = stats.spearmanr(x, y)
+        corr = getattr(res, "correlation", None)
+        if corr is None:
+            corr = getattr(res, "statistic", np.nan)
+        corr_arr = np.asarray(corr, dtype=float).reshape(-1)
+        if corr_arr.size == 0 or not np.isfinite(corr_arr[0]):
+            continue
+        rows.append((pd.Timestamp(dt), float(corr_arr[0])))
     if not rows:
         return pd.Series(dtype=float)
     idx, vals = zip(*rows)
