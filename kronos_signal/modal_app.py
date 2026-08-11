@@ -896,6 +896,137 @@ def run_robust_base_scores_job(
 
 
 @app.function(
+    gpu="T4",
+    timeout=60 * 30,
+    volumes={
+        "/root/.cache/huggingface": hf_cache,
+        "/data/crypto": crypto_data,
+    },
+    memory=16384,
+)
+def run_asof_forecast_job(
+    symbols: str = "BTC,ETH",
+    asof: str = "2026-01-10",
+    lookback: int = 90,
+    pred_len: int = 60,
+    n_paths: int = 20,
+    use_finetuned: bool = True,
+    T: float = 0.6,
+    top_p: float = 0.9,
+) -> dict:
+    """Monte Carlo forecast for a few symbols from a fixed asof date."""
+    from datetime import timedelta
+    from pathlib import Path as P
+
+    import numpy as np
+    import pandas as pd
+
+    from kronos_signal.forecast import forecast_close_paths, load_predictor
+    from kronos_signal.robust_finetune import robust_config
+
+    csv_path = P("/data/crypto/historical_data_full.csv")
+    if not csv_path.exists():
+        csv_path = P("/data/crypto/historical_data.csv")
+    raw = pd.read_csv(csv_path)
+    raw["timestamps"] = pd.to_datetime(raw["timestamp"], utc=True)
+    raw["symbol"] = raw["currency_symbol"].astype(str).str.upper()
+    if "amount" not in raw.columns:
+        raw["amount"] = raw["volume"].astype(float) * raw[
+            ["open", "high", "low", "close"]
+        ].mean(axis=1)
+
+    asof_ts = pd.Timestamp(asof, tz="UTC")
+    root = P("/data/crypto/official_runs_base_robust")
+    cfg = robust_config(root, predictor_size="base")
+    if use_finetuned:
+        tok = cfg.finetuned_tokenizer_path
+        pred = cfg.finetuned_predictor_path
+        model_tag = "robust_ft_base"
+    else:
+        tok = cfg.pretrained_tokenizer_path
+        pred = cfg.pretrained_predictor_path
+        model_tag = "zero_shot_base"
+
+    predictor = load_predictor(
+        model_id=pred,
+        tokenizer_id=tok,
+        max_context=cfg.max_context,
+        device="cuda",
+        kronos_root="/opt/Kronos",
+    )
+
+    out_symbols: dict[str, dict] = {}
+    for sym in [s.strip().upper() for s in symbols.split(",") if s.strip()]:
+        sdf = raw.loc[raw["symbol"] == sym].sort_values("timestamps").reset_index(drop=True)
+        hist = sdf.loc[sdf["timestamps"] <= asof_ts].copy()
+        if len(hist) < lookback:
+            raise ValueError(f"{sym}: need {lookback} bars <= {asof}, got {len(hist)}")
+        hist = hist.iloc[-lookback:].reset_index(drop=True)
+        last_ts = hist["timestamps"].iloc[-1]
+        x_df = hist[["open", "high", "low", "close", "volume", "amount"]].copy()
+        x_ts = hist["timestamps"]
+        y_ts = pd.Series(
+            [last_ts + timedelta(days=i) for i in range(1, pred_len + 1)],
+            name="timestamps",
+        )
+        paths = forecast_close_paths(
+            predictor,
+            x_df,
+            x_ts,
+            y_ts,
+            pred_len=pred_len,
+            n_paths=n_paths,
+            T=T,
+            top_p=top_p,
+            verbose=True,
+        )
+        # realized future closes if available in CSV
+        future = sdf.loc[sdf["timestamps"] > last_ts].head(pred_len)
+        actual = {
+            "timestamps": [t.isoformat() for t in future["timestamps"]],
+            "close": future["close"].astype(float).tolist(),
+        }
+        q10, q50, q90 = np.quantile(paths, [0.1, 0.5, 0.9], axis=0)
+        mean_path = paths.mean(axis=0)
+        last_close = float(hist["close"].iloc[-1])
+        out_symbols[sym] = {
+            "asof_used": last_ts.isoformat(),
+            "last_close": last_close,
+            "pred_timestamps": [t.isoformat() for t in y_ts],
+            "path_closes": paths.astype(float).tolist(),
+            "mean": mean_path.astype(float).tolist(),
+            "q10": q10.astype(float).tolist(),
+            "q50": q50.astype(float).tolist(),
+            "q90": q90.astype(float).tolist(),
+            "mean_horizon_return": float(mean_path[-1] / last_close - 1.0),
+            "median_horizon_return": float(q50[-1] / last_close - 1.0),
+            "actual": actual,
+        }
+        print(
+            f"[{sym}] asof={last_ts.date()} close={last_close:.2f} "
+            f"mean_r60={out_symbols[sym]['mean_horizon_return']:+.2%} "
+            f"med_r60={out_symbols[sym]['median_horizon_return']:+.2%}",
+            flush=True,
+        )
+
+    result = {
+        "recipe": "asof_forecast",
+        "model": model_tag,
+        "asof": asof,
+        "lookback": lookback,
+        "pred_len": pred_len,
+        "n_paths": n_paths,
+        "T": T,
+        "top_p": top_p,
+        "symbols": out_symbols,
+    }
+    out_path = root / f"asof_forecast_{asof}_{model_tag}_h{pred_len}.json"
+    out_path.write_text(json.dumps(result, indent=2))
+    crypto_data.commit()
+    return result
+
+
+@app.function(
     gpu="H100",
     timeout=60 * 60 * 12,
     volumes={
@@ -1183,6 +1314,9 @@ def main(
     robust_score_stride: int = 10,
     robust_score_chunk_index: int = 0,
     robust_score_chunk_count: int = 1,
+    symbols: str = "BTC,ETH",
+    asof: str = "",
+    use_finetuned: bool = True,
 ):
     def _print_bt(title: str, result: dict):
         print(f"\n=== {title} ===")
@@ -1497,10 +1631,42 @@ def main(
         print(f"Wrote {out}")
         return
 
+    if mode == "forecast_asof":
+        lb = 90 if lookback == 400 else lookback
+        pl = 60 if pred_len == 5 else pred_len
+        n_paths = 20 if n_paths <= 0 else n_paths
+        result = run_asof_forecast_job.remote(
+            symbols=symbols or "BTC,ETH",
+            asof=asof or "2026-01-10",
+            lookback=lb,
+            pred_len=pl,
+            n_paths=n_paths,
+            use_finetuned=use_finetuned,
+        )
+        tag = result.get("model", "model")
+        out = Path("kronos_signal") / f"last_asof_forecast_{result['asof']}_{tag}_h{pl}.json"
+        # Drop bulky path matrix from local copy summary? keep full for plotting.
+        out.write_text(json.dumps(result, indent=2))
+        print("\n=== ASOF FORECAST ===")
+        print(
+            f"model={tag} asof={result['asof']} lookback={result['lookback']} "
+            f"pred_len={result['pred_len']} n_paths={result['n_paths']}"
+        )
+        for sym, payload in result["symbols"].items():
+            print(
+                f"  {sym}: close={payload['last_close']:.4g} "
+                f"mean_r={payload['mean_horizon_return']:+.2%} "
+                f"med_r={payload['median_horizon_return']:+.2%} "
+                f"asof_used={payload['asof_used'][:10]}"
+            )
+        print(f"Wrote {out}")
+        return
+
     if mode != "signal":
         raise SystemExit(
             f"Unknown mode={mode!r}; use 'signal', 'backtest', 'long_annual', "
-            f"'improve', 'improve_v2', 'download', 'official', 'official_bt', or 'zs_scores'"
+            f"'improve', 'improve_v2', 'download', 'official', 'official_bt', "
+            f"'zs_scores', or 'forecast_asof'"
         )
 
     n_paths = 30 if n_paths <= 0 else n_paths
