@@ -67,11 +67,17 @@ def list_um_symbols(quote: str = "USDT") -> list[str]:
 
 
 def should_exclude(symbol: str, exclude_bases: Iterable[str]) -> bool:
-    base = symbol.replace("USDT", "").replace("BUSD", "").replace("USDC", "")
-    if base.upper() in {b.upper() for b in exclude_bases}:
-        return True
-    # exclude quote-only / stable-like bases already handled; also skip non-USDT quote leftovers
     if not symbol.endswith("USDT"):
+        return True
+    base = symbol[: -len("USDT")]
+    exclude = {b.upper() for b in exclude_bases}
+    if base.upper() in exclude:
+        return True
+    # heuristic: wrapped / stable-like names
+    up = base.upper()
+    if up.startswith("1000") and up.endswith(("USDC",)):
+        return True
+    if up in {"USDC", "BUSD", "TUSD", "FDUSD", "DAI", "USDP", "USDD"}:
         return True
     return False
 
