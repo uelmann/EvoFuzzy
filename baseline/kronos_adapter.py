@@ -18,6 +18,7 @@ def try_export_kronos_ft(
     Non-blocking: returns status dict; never raises to caller pipeline.
     """
     search_paths = search_paths or [
+        Path("/kronos_import"),
         Path("/data/quant/kronos_import"),
         Path("/opt/cursor/artifacts/crypto_data"),
         Path("kronos_signal"),

@@ -41,7 +41,7 @@ image = (
 # Optional: mount local kronos artifacts for adapter if present
 _local_crypto = Path("/opt/cursor/artifacts/crypto_data")
 if _local_crypto.exists():
-    image = image.add_local_dir(str(_local_crypto), remote_path="/data/quant/kronos_import")
+    image = image.add_local_dir(str(_local_crypto), remote_path="/kronos_import")
 
 app = modal.App(APP_NAME, image=image)
 
