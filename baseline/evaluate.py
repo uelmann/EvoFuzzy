@@ -28,12 +28,19 @@ def newey_west_t(x: np.ndarray, lag: int) -> float:
 
 
 def daily_rank_ic(pred: pd.DataFrame, ycol: str, score_col: str = "score") -> pd.Series:
-    def _ic(g: pd.DataFrame) -> float:
-        if len(g) < 5:
-            return np.nan
-        return stats.spearmanr(g[score_col], g[ycol], nan_policy="omit").correlation
-
-    return pred.groupby("date", sort=True).apply(_ic).dropna()
+    rows: list[tuple[pd.Timestamp, float]] = []
+    for dt, g in pred.groupby("date", sort=True):
+        gg = g.dropna(subset=[score_col, ycol])
+        if len(gg) < 5:
+            continue
+        corr = stats.spearmanr(gg[score_col].values, gg[ycol].values).correlation
+        if corr is None or not np.isfinite(corr):
+            continue
+        rows.append((pd.Timestamp(dt), float(corr)))
+    if not rows:
+        return pd.Series(dtype=float)
+    idx, vals = zip(*rows)
+    return pd.Series(list(vals), index=pd.DatetimeIndex(list(idx)), dtype=float)
 
 
 def summarize_ic(ic: pd.Series, horizon: int) -> dict:
