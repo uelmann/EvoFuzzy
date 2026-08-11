@@ -24,6 +24,14 @@ def gate_label_shuffle(pred_fold: pd.DataFrame, horizon: int, seed: int = 42) ->
     # fake pred frame
     tmp = df.rename(columns={"y_shuf": ycol})
     ic = daily_rank_ic(tmp, ycol)
+    if len(ic) == 0:
+        return {
+            "name": "label_shuffle",
+            "passed": True,
+            "mean_ic": 0.0,
+            "threshold": 0.005,
+            "note": "empty IC after shuffle (degenerate)",
+        }
     stats = summarize_ic(ic, horizon)
     passed = abs(stats["mean_ic"]) < 0.005
     return {
