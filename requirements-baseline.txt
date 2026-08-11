@@ -1,0 +1,9 @@
+# Phase A0 baseline local helpers (Modal image installs its own deps)
+pyyaml>=6.0
+pandas>=2.2
+numpy
+pyarrow
+scipy
+lightgbm
+matplotlib
+httpx
