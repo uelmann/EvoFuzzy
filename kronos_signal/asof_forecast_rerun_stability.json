@@ -1,0 +1,102 @@
+{
+  "recipe": "asof_forecast_rerun_stability",
+  "n_paths": 20,
+  "rows": [
+    {
+      "asof": "2025-04-08",
+      "model": "ft",
+      "symbol": "BTC",
+      "mean_run1": -0.08797097206115723,
+      "mean_run2": -0.10313445329666138,
+      "mean_delta": -0.01516348123550415,
+      "median_run1": -0.09137201859595157,
+      "median_run2": -0.0981041482330437,
+      "sign_stable": true,
+      "actual": 0.3847243458117158
+    },
+    {
+      "asof": "2025-04-08",
+      "model": "ft",
+      "symbol": "ETH",
+      "mean_run1": -0.3442269563674927,
+      "mean_run2": -0.37877345085144043,
+      "mean_delta": -0.034546494483947754,
+      "median_run1": -0.396653499310874,
+      "median_run2": -0.36905653206331124,
+      "sign_stable": true,
+      "actual": 0.7157312309064574
+    },
+    {
+      "asof": "2025-04-08",
+      "model": "zs",
+      "symbol": "BTC",
+      "mean_run1": 0.20724332332611084,
+      "mean_run2": 0.1775599718093872,
+      "mean_delta": -0.029683351516723633,
+      "median_run1": 0.2287210305240126,
+      "median_run2": 0.15971318072872864,
+      "sign_stable": true,
+      "actual": 0.3847243458117158
+    },
+    {
+      "asof": "2025-04-08",
+      "model": "zs",
+      "symbol": "ETH",
+      "mean_run1": 0.6013963222503662,
+      "mean_run2": 0.5122554302215576,
+      "mean_delta": -0.0891408920288086,
+      "median_run1": 0.6218874427382641,
+      "median_run2": 0.48557866053452536,
+      "sign_stable": true,
+      "actual": 0.7157312309064574
+    },
+    {
+      "asof": "2026-01-10",
+      "model": "ft",
+      "symbol": "BTC",
+      "mean_run1": 0.05004727840423584,
+      "mean_run2": 0.1619429588317871,
+      "mean_delta": 0.11189568042755127,
+      "median_run1": 0.11426281560838447,
+      "median_run2": 0.18561422384777426,
+      "sign_stable": true,
+      "actual": -0.22328260574952596
+    },
+    {
+      "asof": "2026-01-10",
+      "model": "ft",
+      "symbol": "ETH",
+      "mean_run1": 0.28048741817474365,
+      "mean_run2": 0.19030165672302246,
+      "mean_delta": -0.09018576145172119,
+      "median_run1": 0.30922394574839585,
+      "median_run2": 0.2161623618170272,
+      "sign_stable": true,
+      "actual": -0.334422580422035
+    },
+    {
+      "asof": "2026-01-10",
+      "model": "zs",
+      "symbol": "BTC",
+      "mean_run1": -0.0021516084671020508,
+      "mean_run2": 0.010981917381286621,
+      "mean_delta": 0.013133525848388672,
+      "median_run1": -0.010208041164457504,
+      "median_run2": 0.015636396686122822,
+      "sign_stable": false,
+      "actual": -0.22328260574952596
+    },
+    {
+      "asof": "2026-01-10",
+      "model": "zs",
+      "symbol": "ETH",
+      "mean_run1": -0.0350569486618042,
+      "mean_run2": -0.04636085033416748,
+      "mean_delta": -0.011303901672363281,
+      "median_run1": -0.058570999913150845,
+      "median_run2": -0.06299138129022208,
+      "sign_stable": true,
+      "actual": -0.334422580422035
+    }
+  ]
+}
