@@ -337,9 +337,9 @@ def run_pipeline() -> dict:
                 caveats.append(f"Kronos eval skipped: {e}")
         ic_tables[f"h={h}"] = rows
 
-        # gates on first fold preds for primary horizon
+        # gates on ALL OOS preds for primary horizon (more days → quieter null IC)
         if h == cfg["labels"]["primary_horizon"]:
-            sample = pred_all[pred_all["fold_id"] == pred_all["fold_id"].min()].copy()
+            sample = pred_all.copy()
             gates = run_all_gates(
                 panel_train,
                 feat,
