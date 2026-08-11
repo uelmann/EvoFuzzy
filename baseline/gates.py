@@ -14,17 +14,25 @@ from .seedutil import seed_everything
 
 
 def gate_label_shuffle(pred_fold: pd.DataFrame, horizon: int, seed: int = 42) -> dict:
-    """Shuffle y within fold → |mean RankIC| must be < 0.005."""
+    """Within-date shuffle of y → |mean RankIC| must be < 0.005."""
     ycol = f"y_h{horizon}"
     df = pred_fold.dropna(subset=["score", ycol]).copy()
     if len(df) < 100:
         return {"name": "label_shuffle", "passed": False, "reason": "too few rows"}
-    rng = np.random.default_rng(seed)
-    df["y_shuf"] = rng.permutation(df[ycol].values)
-    # fake pred frame
-    tmp = df.rename(columns={"y_shuf": ycol})
-    ic = daily_rank_ic(tmp, ycol)
-    if len(ic) == 0:
+
+    ics = []
+    for k in range(5):
+        rng = np.random.default_rng(seed + k)
+        tmp = df[["date", "symbol", "score", ycol]].copy()
+
+        def _shuf(s: pd.Series) -> pd.Series:
+            return pd.Series(rng.permutation(s.to_numpy()), index=s.index)
+
+        tmp[ycol] = tmp.groupby("date", sort=False)[ycol].transform(_shuf)
+        ic = daily_rank_ic(tmp, ycol)
+        if len(ic):
+            ics.append(float(ic.mean()))
+    if not ics:
         return {
             "name": "label_shuffle",
             "passed": True,
@@ -32,13 +40,15 @@ def gate_label_shuffle(pred_fold: pd.DataFrame, horizon: int, seed: int = 42) ->
             "threshold": 0.005,
             "note": "empty IC after shuffle (degenerate)",
         }
-    stats = summarize_ic(ic, horizon)
-    passed = abs(stats["mean_ic"]) < 0.005
+    mean_ic = float(np.mean(ics))
+    passed = abs(mean_ic) < 0.005
     return {
         "name": "label_shuffle",
         "passed": bool(passed),
-        "mean_ic": stats["mean_ic"],
+        "mean_ic": mean_ic,
         "threshold": 0.005,
+        "n_shuffles": len(ics),
+        "per_shuffle_mean_ic": ics,
     }
 
 
