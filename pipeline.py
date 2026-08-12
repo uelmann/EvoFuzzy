@@ -351,9 +351,15 @@ def run_pipeline() -> dict:
                 p_s, m_s = _run_folds(h, mcfg, tag=f"sens{nt}")
                 if p_s.empty:
                     continue
-                tmp = p_s.merge(
-                    feat[["date", "symbol", f"y_h{h}"]], on=["date", "symbol"], how="left"
-                )
+                tmp = p_s.copy()
+                ycol = f"y_h{h}"
+                if ycol not in tmp.columns:
+                    tmp = tmp.merge(
+                        feat[["date", "symbol", ycol]], on=["date", "symbol"], how="left"
+                    )
+                # drop merge suffixes if present
+                if f"{ycol}_x" in tmp.columns:
+                    tmp[ycol] = tmp[f"{ycol}_y"].fillna(tmp[f"{ycol}_x"])
                 ev = evaluate_predictions(tmp, h, universe=pit20, label=f"top20_trees{nt}")
                 sens[str(nt)] = {
                     "mean_ic": ev.get("mean_ic"),
