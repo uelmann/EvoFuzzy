@@ -146,7 +146,12 @@ def run_ft_reference_safe(
         uni["date"] = pd.to_datetime(uni["date"], utc=True)
         keys["date"] = pd.to_datetime(keys["date"], utc=True)
         keys = keys.merge(uni[["date", "symbol"]], on=["date", "symbol"], how="inner")
-        print(f"[ft-ref] regenerating for {len(keys)} top20 OOS rows (CONTAMINATED)", flush=True)
+        # Bound cost: post-cutoff window only (still CONTAMINATED reference)
+        cutoff = pd.Timestamp("2025-08-17", tz="UTC")
+        keys = keys[keys["date"] >= cutoff].copy()
+        if len(keys) > 5000:
+            keys = keys.sample(n=5000, random_state=42)
+        print(f"[ft-ref] regenerating for {len(keys)} top20 post-cutoff OOS rows (CONTAMINATED)", flush=True)
         ft_preds = regenerate_ft_scores(panel, keys, extractor, batch_size=4)
         if ft_preds.empty:
             return {"status": "unavailable", "reason": "regeneration produced empty frame"}

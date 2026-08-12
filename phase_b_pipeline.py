@@ -534,7 +534,7 @@ def run_phase_b() -> dict:
         raise RuntimeError(f"Sanity gates failed: {gates}")
     print(f"[phaseB] gates OK: {gates}", flush=True)
 
-    # Train Model B
+    # Train Model B (reuse cached preds when present)
     ablation_blobs = {}
     delta_by_h = {}
     for h in cfg["labels"]["horizons"]:
@@ -547,40 +547,48 @@ def run_phase_b() -> dict:
             step_days=cfg["cv"]["step_days"],
         )
         out_h = phase_dir / f"preds_b_h{h}"
-        out_h.mkdir(parents=True, exist_ok=True)
-        payloads = [
-            {
-                "cfg": cfg,
-                "feat_path": str(feat_b_path),
-                "out_dir": str(out_h),
-                "fold_id": fr.fold_id,
-                "train_start": str(fr.train_start),
-                "train_end": str(fr.train_end),
-                "purge_end": str(fr.purge_end),
-                "embargo_end": str(fr.embargo_end),
-                "val_start": str(fr.val_start),
-                "val_end": str(fr.val_end),
-                "horizon": h,
-                "feature_cols": feature_cols_b,
-            }
-            for fr in folds
-        ]
-        metas = list(train_b_fold_job.map(payloads))
-        volume.reload()
-        preds = [
-            pd.read_parquet(m["pred_path"])
-            for m in metas
-            if m.get("pred_path") and Path(m["pred_path"]).exists()
-        ]
-        pred_b = pd.concat(preds, ignore_index=True) if preds else pd.DataFrame()
-        if not pred_b.empty:
-            pred_b = pred_b.sort_values(["date", "symbol", "fold_id"]).drop_duplicates(
-                ["date", "symbol"], keep="first"
-            )
-            pred_b.to_parquet(phase_dir / f"lgbm_a0_plus_kronos_h{h}.parquet", index=False)
+        canon_b = phase_dir / f"lgbm_a0_plus_kronos_h{h}.parquet"
+        meta_path = out_h / f"fold_meta_h{h}.json"
+        if canon_b.exists() and meta_path.exists():
+            print(f"[phaseB] reusing cached Model B preds {canon_b}", flush=True)
+            pred_b = pd.read_parquet(canon_b)
+            metas = json.loads(meta_path.read_text())
+        else:
+            out_h.mkdir(parents=True, exist_ok=True)
+            payloads = [
+                {
+                    "cfg": cfg,
+                    "feat_path": str(feat_b_path),
+                    "out_dir": str(out_h),
+                    "fold_id": fr.fold_id,
+                    "train_start": str(fr.train_start),
+                    "train_end": str(fr.train_end),
+                    "purge_end": str(fr.purge_end),
+                    "embargo_end": str(fr.embargo_end),
+                    "val_start": str(fr.val_start),
+                    "val_end": str(fr.val_end),
+                    "horizon": h,
+                    "feature_cols": feature_cols_b,
+                }
+                for fr in folds
+            ]
+            metas = list(train_b_fold_job.map(payloads))
+            volume.reload()
+            preds = [
+                pd.read_parquet(m["pred_path"])
+                for m in metas
+                if m.get("pred_path") and Path(m["pred_path"]).exists()
+            ]
+            pred_b = pd.concat(preds, ignore_index=True) if preds else pd.DataFrame()
+            if not pred_b.empty:
+                pred_b = pred_b.sort_values(["date", "symbol", "fold_id"]).drop_duplicates(
+                    ["date", "symbol"], keep="first"
+                )
+                pred_b.to_parquet(canon_b, index=False)
+            (out_h / f"fold_meta_h{h}.json").write_text(json.dumps(metas, indent=2, default=str))
+            volume.commit()
         pred_a = pd.read_parquet(pred_dir / f"lgbm_price_only_h{h}.parquet")
         blob = run_ablation_for_horizon(pred_a, pred_b, feat, pit120, pit20, h, folds, metas)
-        # drop heavy series from JSON later
         ablation_blobs[h] = blob
         delta_by_h[h] = blob["delta_daily_ic"]
         print(
