@@ -146,6 +146,8 @@ def _pack_metrics(
     to_rs,
     to_hg,
     n_pos,
+    n_long,
+    n_short,
     flat,
     eq_dates,
     hold_days,
@@ -171,6 +173,7 @@ def _pack_metrics(
     fund_s = pd.Series(daily_funding, index=rets_s.index)
     # identity check on summed simple returns
     identity_gap = float(np.sum(daily_net) - (np.sum(daily_gross) + np.sum(daily_hedge) - np.sum(daily_cost) + np.sum(daily_funding)))
+    n_flat = int(np.sum(flat)) if flat else n
     return {
         "tau_pct": tau_pct,
         "tau": tau,
@@ -184,6 +187,10 @@ def _pack_metrics(
         "max_drawdown": float((simple_eq / simple_eq.cummax() - 1.0).min()) if n else 0.0,
         "total_return": float(simple_eq.iloc[-1] - 1.0) if n else 0.0,
         "avg_n_positions": float(np.mean(n_pos)) if n_pos else 0.0,
+        "avg_n_long": float(np.mean(n_long)) if n_long else 0.0,
+        "avg_n_short": float(np.mean(n_short)) if n_short else 0.0,
+        "n_flat_days": n_flat,
+        "n_days": int(n),
         "pct_flat_days": float(np.mean(flat)) if flat else 1.0,
         "ann_turnover": float(np.mean(measured_to) * 365) if measured_to else 0.0,
         # cumulative simple-return units (sum of daily contributions)
@@ -263,7 +270,7 @@ def run_portfolio_backtest(
 
     daily_net, daily_gross, daily_hedge, daily_cost, daily_funding = [], [], [], [], []
     to_ee, to_rs, to_hg = [], [], []
-    n_pos, flat, eq_dates = [], [], []
+    n_pos, n_long, n_short, flat, eq_dates = [], [], [], [], []
 
     for i, dt in enumerate(dates[:-1]):
         day = df[df["date"] == dt]
@@ -359,8 +366,12 @@ def run_portfolio_backtest(
         to_ee.append(0.5 * ee)
         to_rs.append(0.5 * rs)
         to_hg.append(0.5 * hg)
-        n_pos.append(len(state) if lag == 0 else int((applied_alpha != 0).sum()) if len(applied_alpha) else 0)
-        flat.append(1 if applied_alpha.empty or float(applied_alpha.abs().sum()) < 1e-12 else 0)
+        nl = int((applied_alpha > 0).sum()) if len(applied_alpha) else 0
+        ns = int((applied_alpha < 0).sum()) if len(applied_alpha) else 0
+        n_long.append(nl)
+        n_short.append(ns)
+        n_pos.append(nl + ns)
+        flat.append(1 if nl + ns == 0 else 0)
         eq_dates.append(nxt)
         prev_full, prev_hedge = applied_full, applied_hedge
 
@@ -373,7 +384,7 @@ def run_portfolio_backtest(
 
     return _pack_metrics(
         daily_net, daily_gross, daily_hedge, daily_cost, daily_funding,
-        to_ee, to_rs, to_hg, n_pos, flat, eq_dates, hold_days, trade_pnls,
+        to_ee, to_rs, to_hg, n_pos, n_long, n_short, flat, eq_dates, hold_days, trade_pnls,
         tau_pct, tau, variant, horizon, lag, apply_funding, dict(sym_contrib), dict(side_days),
     )
 
@@ -425,7 +436,7 @@ def run_tranche_portfolio(
 
     daily_net, daily_gross, daily_hedge, daily_cost, daily_funding = [], [], [], [], []
     to_ee, to_rs, to_hg = [], [], []
-    n_pos, flat, eq_dates = [], [], []
+    n_pos, n_long, n_short, flat, eq_dates = [], [], [], [], []
 
     for i, dt in enumerate(dates[:-1]):
         day = df[df["date"] == dt]
@@ -524,21 +535,24 @@ def run_tranche_portfolio(
         to_ee.append(ee)
         to_rs.append(rs)
         to_hg.append(hg)
-        n_active = int((applied_alpha != 0).sum()) if len(applied_alpha) else 0
-        n_pos.append(n_active)
-        flat.append(1 if n_active == 0 else 0)
+        nl = int((applied_alpha > 0).sum()) if len(applied_alpha) else 0
+        ns = int((applied_alpha < 0).sum()) if len(applied_alpha) else 0
+        n_long.append(nl)
+        n_short.append(ns)
+        n_pos.append(nl + ns)
+        flat.append(1 if nl + ns == 0 else 0)
         eq_dates.append(nxt)
         prev_full, prev_hedge = applied_full, applied_hedge
 
         if i % 60 == 0:
             print(
                 f"[portfolio tranche h={h} τ={tau_pct} lag={lag} fund={apply_funding}] "
-                f"day {i}/{len(dates)} npos={n_active} to={turnover:.3f}",
+                f"day {i}/{len(dates)} L={nl} S={ns} to={turnover:.3f}",
                 flush=True,
             )
 
     return _pack_metrics(
         daily_net, daily_gross, daily_hedge, daily_cost, daily_funding,
-        to_ee, to_rs, to_hg, n_pos, flat, eq_dates, hold_days, trade_pnls,
+        to_ee, to_rs, to_hg, n_pos, n_long, n_short, flat, eq_dates, hold_days, trade_pnls,
         tau_pct, tau, "tranche", horizon, lag, apply_funding, dict(sym_contrib), dict(side_days),
     )
