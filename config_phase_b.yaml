@@ -1,0 +1,42 @@
+# Phase B — Kronos frozen-feature ablation (adds columns only; A0 frozen)
+kronos_cutoff: "2025-08-17"
+kill_criterion: >
+  Kronos features are KEPT only if post-cutoff top-20 ΔRankIC ≥ +0.005 at h=7 or h=10
+  AND Δ is positive in ≥60% of post-cutoff folds. Otherwise the verdict is KILL.
+
+kronos:
+  model_id: NeoQuasar/Kronos-small
+  tokenizer_id: NeoQuasar/Kronos-Tokenizer-base
+  # Prefer released pretrained weights (not local FT) for §1/§2/§3
+  context: 400
+  min_context: 200
+  n_paths: 20
+  # fallbacks if budget guard trips
+  context_fallback: 300
+  n_paths_fallback: 10
+  temperature: 1.0
+  top_p: 0.9
+  top_k: 0
+  pred_len: 10
+  nll_last_bars: 30
+  max_gpu_hours: 30.0
+  batch_size: 8
+  bf16: true
+  gpu: A10G
+
+gate:
+  # Frozen A0 headline: tranche h=7, median-τ, funding on, lag 0
+  horizon: 7
+  variant: tranche
+  tau_pct: 60
+  lag: 0
+  funding_on: true
+  sigma_top_pcts: [10, 20, 30]
+
+ft_reference:
+  # CONTAMINATED — full-sample fine-tune; reference only
+  predictor_dir: /data/crypto/official_runs_base_robust/models/finetune_predictor_base_robust/checkpoints/best_model
+  tokenizer_dir: /data/crypto/official_runs_base_robust/models/finetune_tokenizer_base_robust/checkpoints/best_model
+  n_paths: 1
+  context: 90
+  pred_len: 10

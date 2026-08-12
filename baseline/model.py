@@ -134,10 +134,12 @@ def _fit_predict_fold(
     model_cfg: dict,
     inner_holdout_days: int,
     log_eval_curve: bool = False,
+    feature_cols: list[str] | None = None,
+    model_name: str = "lgbm_price_only",
 ) -> tuple[pd.DataFrame, dict]:
     seed_everything(seed + fold.fold_id)
     ycol = f"y_h{fold.horizon}"
-    feats = FEATURE_COLS
+    feats = list(feature_cols) if feature_cols is not None else list(FEATURE_COLS)
     t0 = time.time()
 
     train_mask = (df["date"] >= fold.train_start) & (df["date"] <= fold.train_end)
@@ -243,9 +245,12 @@ def _fit_predict_fold(
     pred_df = valid[["date", "symbol"]].copy()
     pred_df["score"] = pred
     pred_df["horizon"] = fold.horizon
-    pred_df["model_name"] = "lgbm_price_only"
+    pred_df["model_name"] = model_name
     pred_df["fold_id"] = fold.fold_id
     pred_df[ycol] = valid[ycol].values
+
+    gain = booster.feature_importance(importance_type="gain")
+    gain_map = {f: float(g) for f, g in zip(feats, gain)}
 
     elapsed = time.time() - t0
     meta = {
@@ -261,6 +266,8 @@ def _fit_predict_fold(
         "val_start": str(fold.val_start.date()),
         "val_end": str(fold.val_end.date()),
         "eval_curve_head": curve,
+        "feature_importance_gain": gain_map,
+        "feature_cols": feats,
     }
     return pred_df, meta
 

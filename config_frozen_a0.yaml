@@ -1,0 +1,80 @@
+# Phase A0 — price-only baseline (LightGBM)
+seed: 42
+
+data:
+  quote: USDT
+  interval: 1d
+  # Earliest month to attempt for monthly vision dumps
+  start_month: "2019-09"
+  exclude_bases:
+    - USDT
+    - USDC
+    - BUSD
+    - DAI
+    - TUSD
+    - FDUSD
+    - USDP
+    - USDD
+    - EUR
+    - AEUR
+    - WBTC
+    - WETH
+    - STETH
+    - WBETH
+    - BTCB
+    - RENBTC
+  # Point-in-time training universe size (30d median DV ≤ t)
+  train_universe_n: 120
+  # Execution / portfolio universe (PIT)
+  exec_universe_n: 20
+  exec_dv_window: 30
+
+labels:
+  horizons: [7, 10]
+  primary_horizon: 7
+  winsorize_pct: [1.0, 99.0]
+
+features:
+  zscore_clip: 5.0
+  min_history_days: 100
+
+model:
+  objective: huber
+  num_leaves: 31
+  learning_rate: 0.03
+  n_estimators: 3000
+  min_data_in_leaf: 200
+  feature_fraction: 0.8
+  bagging_fraction: 0.8
+  bagging_freq: 1
+  lambda_l2: 1.0
+  early_stopping_rounds: 100
+  # Early-stop on mean daily RankIC (maximize); set fixed_n_estimators to bypass
+  early_stop_metric: rank_ic
+  fixed_n_estimators: null
+  sensitivity_trees: [200, 500, 1000]
+  verbosity: -1
+
+cv:
+  min_train_days: 730
+  val_days: 90
+  step_days: 90
+  # purge last h days of train; embargo h+3 before val
+  inner_holdout_days: 90
+  fold_warn_seconds: 1200
+
+portfolio:
+  tau_percentiles: [60, 70, 80, 90]
+  exit_hysteresis: 0.6
+  gross_limit: 1.0
+  taker_fee_bps: 5.0
+  slippage_bps: 3.0
+  # Real funding from Vision fundingRate dumps (accrued when funding_on=true)
+  funding_bps: 0.0
+  execution_lags: [0, 1]
+  # Reuse cached OOS predictions on the Volume when present
+  reuse_predictions: true
+
+paths:
+  volume_root: /data/quant
+  local_artifacts: ./artifacts
