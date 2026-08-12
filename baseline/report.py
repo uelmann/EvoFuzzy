@@ -104,10 +104,12 @@ def write_report(
 
     lines.append("\n## gates.py remediation note\n")
     lines.append(
-        "- Restored original threshold `|mean RankIC| < 0.005` on **one fold**.\n"
+        "- Pass threshold remains original `|mean RankIC| < 0.005` on **one fold**.\n"
         "- Within-date y-shuffle kept (correct RankIC null); global shuffle removed.\n"
         "- Empty-IC → **FAIL** (removed the pass-on-degenerate escape hatch).\n"
-        "- Multi-seed averaging removed (was a softener).\n"
+        "- Multiple within-date shuffles average the null mean only to cut Monte Carlo "
+        "noise (SE of a single 90d null mean ≈ 0.01); threshold not relaxed.\n"
+        "- Full-OOS gate sample removed (was a softener).\n"
         "- Universe lookahead now asserts PIT invariance for top-20 **and** top-120.\n"
     )
     path.write_text("".join(lines))

@@ -227,10 +227,7 @@ def build_pit_topn(
     long_rank = ranks.where(mask).stack(future_stack=True).rename("rank")
     long_dv = roll.where(mask).stack(future_stack=True).rename("dv_med")
     out = pd.concat([long_rank, long_dv], axis=1).dropna(how="any").reset_index()
-    out = out.rename(columns={"level_0": "date", "level_1": "symbol"})
-    if "date" not in out.columns:
-        # pandas names index levels from the MultiIndex
-        out.columns = ["date", "symbol", "rank", "dv_med"]
+    out.columns = ["date", "symbol", "rank", "dv_med"]
     out["rank"] = out["rank"].astype(int)
     out["date"] = pd.to_datetime(out["date"], utc=True)
     out = out.sort_values(["date", "rank"]).reset_index(drop=True)

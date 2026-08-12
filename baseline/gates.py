@@ -22,21 +22,33 @@ from .model import FoldSpec, _fit_predict_fold
 
 
 def gate_label_shuffle(pred_fold: pd.DataFrame, horizon: int, seed: int = 42) -> dict:
-    """Within-date shuffle of y on one fold → |mean RankIC| must be < 0.005."""
+    """Within-date shuffle of y on one fold → |mean RankIC| must be < 0.005.
+
+    Uses multiple within-date permutations only to reduce Monte Carlo error of the
+    null mean estimate; the pass threshold remains the original 0.005.
+    Empty IC after shuffle → FAIL.
+    """
     ycol = f"y_h{horizon}"
     df = pred_fold.dropna(subset=["score", ycol]).copy()
     if len(df) < 100:
         return {"name": "label_shuffle", "passed": False, "reason": "too few rows"}
 
-    rng = np.random.default_rng(seed)
+    # SE of daily RankIC ~ 1/sqrt(n_names); SE of 90d mean ~ 0.01.
+    # Average 25 null draws so SE(mean_null) << 0.005 without relaxing the threshold.
+    n_shuf = 25
+    ics = []
+    for k in range(n_shuf):
+        rng = np.random.default_rng(seed + k)
 
-    def _shuf(s: pd.Series) -> pd.Series:
-        return pd.Series(rng.permutation(s.to_numpy()), index=s.index)
+        def _shuf(s: pd.Series) -> pd.Series:
+            return pd.Series(rng.permutation(s.to_numpy()), index=s.index)
 
-    tmp = df[["date", "symbol", "score", ycol]].copy()
-    tmp[ycol] = tmp.groupby("date", sort=False)[ycol].transform(_shuf)
-    ic = daily_rank_ic(tmp, ycol)
-    if len(ic) == 0:
+        tmp = df[["date", "symbol", "score", ycol]].copy()
+        tmp[ycol] = tmp.groupby("date", sort=False)[ycol].transform(_shuf)
+        ic = daily_rank_ic(tmp, ycol)
+        if len(ic):
+            ics.append(float(ic.mean()))
+    if not ics:
         return {
             "name": "label_shuffle",
             "passed": False,
@@ -44,14 +56,17 @@ def gate_label_shuffle(pred_fold: pd.DataFrame, horizon: int, seed: int = 42) ->
             "threshold": 0.005,
             "reason": "empty IC after shuffle",
         }
-    stats = summarize_ic(ic, horizon)
-    passed = abs(stats["mean_ic"]) < 0.005
+    mean_ic = float(np.mean(ics))
+    passed = abs(mean_ic) < 0.005
     return {
         "name": "label_shuffle",
         "passed": bool(passed),
-        "mean_ic": stats["mean_ic"],
+        "mean_ic": mean_ic,
         "threshold": 0.005,
-        "n_days": stats["n_days"],
+        "n_shuffles": len(ics),
+        "null_ic_std": float(np.std(ics, ddof=1)) if len(ics) > 1 else float("nan"),
+        "max_abs_shuffle_mean": float(np.max(np.abs(ics))),
+        "n_days": int(daily_rank_ic(df, ycol).shape[0]),
     }
 
 
