@@ -440,7 +440,7 @@ def run_phase_b() -> dict:
         todo_syms.append(sym)
     print(f"[phaseB] symbols cached={len(cached)} todo={len(todo_syms)}", flush=True)
 
-    chunk_size = 8
+    chunk_size = 15
     payloads = []
     for i in range(0, len(todo_syms), chunk_size):
         payloads.append(
@@ -463,10 +463,10 @@ def run_phase_b() -> dict:
     extract_summaries = []
     if payloads:
         print(f"[phaseB] launching {len(payloads)} GPU extract workers...", flush=True)
-        # process in waves to avoid thundering herd on HF download
-        for w in range(0, len(payloads), 4):
-            wave = payloads[w : w + 4]
-            print(f"[phaseB] extract wave {w//4+1} n_workers={len(wave)}", flush=True)
+        # process in waves to bound concurrent A10G demand
+        for w in range(0, len(payloads), 12):
+            wave = payloads[w : w + 12]
+            print(f"[phaseB] extract wave {w//12+1} n_workers={len(wave)}", flush=True)
             extract_summaries.extend(list(extract_symbol_chunk.map(wave)))
             volume.reload()
     else:
