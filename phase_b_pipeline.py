@@ -253,7 +253,7 @@ def train_b_fold_job(payload: dict) -> dict:
 
 
 @app.function(
-    timeout=60 * 60 * 4,
+    timeout=60 * 45,
     retries=0,
     volumes={"/data/quant": volume, "/data/crypto": crypto_vol},
     gpu="A10G",
@@ -549,10 +549,16 @@ def run_phase_b() -> dict:
         out_h = phase_dir / f"preds_b_h{h}"
         canon_b = phase_dir / f"lgbm_a0_plus_kronos_h{h}.parquet"
         meta_path = out_h / f"fold_meta_h{h}.json"
-        if canon_b.exists() and meta_path.exists():
+        if canon_b.exists():
             print(f"[phaseB] reusing cached Model B preds {canon_b}", flush=True)
             pred_b = pd.read_parquet(canon_b)
-            metas = json.loads(meta_path.read_text())
+            if meta_path.exists():
+                metas = json.loads(meta_path.read_text())
+            else:
+                metas = []
+                for mp in sorted(out_h.glob(f"meta_h{h}_fold*.json")):
+                    metas.append(json.loads(mp.read_text()))
+                meta_path.write_text(json.dumps(metas, indent=2, default=str))
         else:
             out_h.mkdir(parents=True, exist_ok=True)
             payloads = [
