@@ -203,29 +203,24 @@ def run_phase_b1() -> dict:
                 flush=True,
             )
 
-    # Redundancy diagnostics on PIT-20 days aligned with preds
+    # Redundancy diagnostics on PIT-20 × OOS days
     print("[phaseB1] redundancy diagnostics...", flush=True)
-    diag = feat.merge(kronos, on=["date", "symbol"], how="inner")
-    # restrict to exec universe dates for relevance
-    diag = diag.merge(pit20[["date", "symbol"]], on=["date", "symbol"], how="inner")
-    # also restrict to OOS pred dates
+    import numpy as np
+
     oos = preds[["date", "symbol"]].drop_duplicates()
-    diag = diag.merge(oos, on=["date", "symbol"], how="inner")
+    diag = oos.merge(pit20[["date", "symbol"]], on=["date", "symbol"], how="inner")
+    diag = diag.merge(kronos[["date", "symbol", REF_GATE]], on=["date", "symbol"], how="left")
+    for _name, logical in CONTROL_GATES.items():
+        col = _resolve_gate_col(feat, logical)
+        piece = feat[["date", "symbol", col]].copy()
+        if col != logical:
+            piece = piece.rename(columns={col: logical})
+        diag = diag.merge(piece, on=["date", "symbol"], how="left")
 
     rank_corr = {}
     reasons = []
     presumed = False
     for name, logical in CONTROL_GATES.items():
-        col = _resolve_gate_col(feat, logical)
-        # use same names on diag
-        if col != logical and col in feat.columns:
-            # ensure diag has logical name
-            if logical not in diag.columns:
-                diag = diag.merge(
-                    feat[["date", "symbol", col]].rename(columns={col: logical}),
-                    on=["date", "symbol"],
-                    how="left",
-                )
         full = mean_daily_rank_corr(diag, REF_GATE, logical, "full")
         post = mean_daily_rank_corr(diag, REF_GATE, logical, "post")
         rank_corr[name] = {"full": full, "post": post}
