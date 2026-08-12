@@ -18,15 +18,43 @@ def write_report(
     gates: list[dict],
     caveats: list[str],
     kronos_status: dict,
+    best_iter_stats: dict | None = None,
+    luna_report: dict | None = None,
+    sensitivity: dict | None = None,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    lines = []
-    lines.append("# Phase A0 — Price-only LightGBM Baseline Report\n")
+    lines: list[str] = []
+    lines.append("# Phase A0 — Price-only LightGBM Baseline Report (remediation)\n")
     lines.append("## Config\n")
     lines.append("```yaml\n" + json.dumps(cfg, indent=2) + "\n```\n")
+
     lines.append("## Sanity gates\n")
     for g in gates:
         lines.append(f"- **{g['name']}**: `{'PASS' if g.get('passed') else 'FAIL'}` — `{g}`\n")
+
+    if luna_report is not None:
+        lines.append("\n## LUNA presence in PIT top-20 (2021–2022)\n")
+        lines.append(f"```json\n{json.dumps(luna_report, indent=2)}\n```\n")
+
+    if best_iter_stats is not None:
+        lines.append("\n## best_iteration distribution\n")
+        lines.append(f"```json\n{json.dumps(best_iter_stats, indent=2)}\n```\n")
+        gt1 = best_iter_stats.get("by_horizon", {})
+        lines.append(
+            f"- Acceptance (≥90% folds with best_iteration>1 or fixed-trees fallback): "
+            f"see `early_stop_mode` / sensitivity below.\n"
+        )
+        for hk, st in gt1.items():
+            lines.append(
+                f"- {hk}: n={st.get('n')} gt1_frac={st.get('gt1_frac', float('nan')):.2%} "
+                f"median={st.get('median')} mean={st.get('mean', float('nan')):.1f} "
+                f"mode={st.get('mode')}\n"
+            )
+
+    if sensitivity is not None:
+        lines.append("\n## Tree-count sensitivity (fallback)\n")
+        lines.append(f"```json\n{json.dumps(sensitivity, indent=2, default=str)}\n```\n")
+
     lines.append("\n## RankIC summary\n")
     for key, rows in ic_tables.items():
         lines.append(f"### {key}\n")
@@ -38,25 +66,50 @@ def write_report(
                 f"{r.get('nw_tstat', float('nan')):.2f} |\n"
             )
         lines.append("\n")
+
     lines.append("## Kronos-ft export\n")
     lines.append(f"```json\n{json.dumps(kronos_status, indent=2)}\n```\n")
-    lines.append("## Portfolio sweep (OOS)\n")
+
+    lines.append("## Portfolio sweep with PnL decomposition\n")
     lines.append(
-        "| τ pct | Sharpe | CAGR | MaxDD | avg #pos | % flat | ann turnover |\n"
-        "|---:|---:|---:|---:|---:|---:|---:|\n"
+        "| variant | h | τ | net Sharpe | gross Sharpe | CAGR | MaxDD | "
+        "gross PnL | cost drag | hedge PnL | net PnL | avg hold d | % flat | "
+        "ann TO | TO ee | TO resize | TO hedge |\n"
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n"
     )
     for r in portfolio_rows:
         if "error" in r:
-            lines.append(f"| {r.get('tau_pct')} | ERROR | | | | | |\n")
+            lines.append(
+                f"| {r.get('variant')} | {r.get('horizon')} | {r.get('tau_pct')} | ERROR | | | | | | | | | | | | | |\n"
+            )
             continue
         lines.append(
-            f"| {r['tau_pct']} | {r['net_sharpe']:.2f} | {r['net_cagr']:.2%} | "
-            f"{r['max_drawdown']:.2%} | {r['avg_n_positions']:.1f} | "
-            f"{r['pct_flat_days']:.1%} | {r['ann_turnover']:.1f} |\n"
+            f"| {r.get('variant')} | {r.get('horizon')} | {r['tau_pct']} | "
+            f"{r['net_sharpe']:.2f} | {r.get('gross_sharpe', float('nan')):.2f} | "
+            f"{r['net_cagr']:.2%} | {r['max_drawdown']:.2%} | "
+            f"{r.get('gross_total_pnl', float('nan')):.3f} | "
+            f"{r.get('cost_drag', float('nan')):.3f} | "
+            f"{r.get('hedge_total_pnl', float('nan')):.3f} | "
+            f"{r.get('net_total_pnl', float('nan')):.3f} | "
+            f"{r.get('avg_holding_days', float('nan')):.1f} | "
+            f"{r['pct_flat_days']:.1%} | {r['ann_turnover']:.1f} | "
+            f"{r.get('turnover_entry_exit_ann', float('nan')):.1f} | "
+            f"{r.get('turnover_resize_ann', float('nan')):.1f} | "
+            f"{r.get('turnover_hedge_ann', float('nan')):.1f} |\n"
         )
+
     lines.append("\n## Caveats / design choices\n")
     for c in caveats:
         lines.append(f"- {c}\n")
+
+    lines.append("\n## gates.py remediation note\n")
+    lines.append(
+        "- Restored original threshold `|mean RankIC| < 0.005` on **one fold**.\n"
+        "- Within-date y-shuffle kept (correct RankIC null); global shuffle removed.\n"
+        "- Empty-IC → **FAIL** (removed the pass-on-degenerate escape hatch).\n"
+        "- Multi-seed averaging removed (was a softener).\n"
+        "- Universe lookahead now asserts PIT invariance for top-20 **and** top-120.\n"
+    )
     path.write_text("".join(lines))
 
 
@@ -65,6 +118,7 @@ def plot_equity_curves(
     baseline_eq: pd.DataFrame,
     naive_eq: pd.DataFrame | None,
     btc_eq: pd.DataFrame,
+    tranche_eq: pd.DataFrame | None = None,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(11, 7), gridspec_kw={"height_ratios": [3, 1]}, sharex=True)
@@ -77,7 +131,9 @@ def plot_equity_curves(
         ax1.plot(e["date"], e["equity"], label=name, lw=1.8)
         return e
 
-    b = _prep(baseline_eq, "lgbm baseline (best τ)")
+    b = _prep(baseline_eq, "lgbm daily (best τ)")
+    if tranche_eq is not None and len(tranche_eq):
+        _prep(tranche_eq, "lgbm tranche (best τ)")
     if naive_eq is not None and len(naive_eq):
         _prep(naive_eq, "naive_mom28")
     _prep(btc_eq, "BTC buy&hold")
@@ -112,7 +168,7 @@ def plot_ic_analysis(path: Path, ic: pd.Series, quintiles: dict) -> None:
     if quintiles:
         qs = sorted(quintiles)
         vals = [quintiles[q] for q in qs]
-        ax2.bar([str(q) for q in qs], vals, color="#8250df")
+        ax2.bar([str(q) for q in qs], vals, color="#0969da")
         ax2.set_title("Quintile mean residual return")
         ax2.set_xlabel("Quintile (1=low score)")
         ax2.grid(True, axis="y", alpha=0.3)

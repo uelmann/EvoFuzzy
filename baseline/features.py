@@ -155,24 +155,14 @@ def features_for_symbol(df: pd.DataFrame, btc_close: pd.Series) -> pd.DataFrame:
     out["close"] = c
     out["dollar_volume"] = dv
     out["yz_vol_30_raw"] = out["yz_vol_30"]  # keep for sizing before CS z
+    out["beta_btc_60_raw"] = out["beta_btc_60"]  # keep for labels / hedge
     return out.reset_index()
 
 
-def build_feature_panel(panel: pd.DataFrame, clip: float = 5.0) -> pd.DataFrame:
-    btc = panel.loc[panel["symbol"] == "BTCUSDT"].set_index("date")["close"].sort_index()
-    if btc.empty:
-        raise RuntimeError("BTCUSDT required in panel")
-    parts = []
-    for sym, g in panel.groupby("symbol", sort=False):
-        if len(g) < 50:
-            continue
-        parts.append(features_for_symbol(g, btc))
-    feat = pd.concat(parts, ignore_index=True)
-    feat["date"] = pd.to_datetime(feat["date"], utc=True)
-
-    # Cross-sectional z-score per date across full feature universe
-    zcols = [c for c in FEATURE_COLS]
-    for col in zcols:
+def apply_cs_zscore(feat: pd.DataFrame, clip: float = 5.0) -> pd.DataFrame:
+    """Cross-sectional z-score per date; preserves *_raw columns."""
+    out = feat.copy()
+    for col in FEATURE_COLS:
         def _z(s: pd.Series) -> pd.Series:
             mu = s.mean()
             sd = s.std(ddof=0)
@@ -180,5 +170,28 @@ def build_feature_panel(panel: pd.DataFrame, clip: float = 5.0) -> pd.DataFrame:
                 return pd.Series(np.zeros(len(s)), index=s.index)
             return ((s - mu) / sd).clip(-clip, clip)
 
-        feat[col] = feat.groupby("date", sort=False)[col].transform(_z)
+        out[col] = out.groupby("date", sort=False)[col].transform(_z)
+    return out
+
+
+def build_feature_panel(
+    panel: pd.DataFrame,
+    clip: float = 5.0,
+    zscore: bool = True,
+) -> pd.DataFrame:
+    btc = panel.loc[panel["symbol"] == "BTCUSDT"].set_index("date")["close"].sort_index()
+    if btc.empty:
+        raise RuntimeError("BTCUSDT required in panel")
+    parts = []
+    n_sym = panel["symbol"].nunique()
+    for i, (sym, g) in enumerate(panel.groupby("symbol", sort=False), start=1):
+        if len(g) < 50:
+            continue
+        parts.append(features_for_symbol(g, btc))
+        if i % 25 == 0 or i == n_sym:
+            print(f"[features] {i}/{n_sym} symbols", flush=True)
+    feat = pd.concat(parts, ignore_index=True)
+    feat["date"] = pd.to_datetime(feat["date"], utc=True)
+    if zscore:
+        feat = apply_cs_zscore(feat, clip=clip)
     return feat

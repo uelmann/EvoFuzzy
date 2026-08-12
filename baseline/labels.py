@@ -22,9 +22,13 @@ def add_labels(
     out = feat.copy()
     out = out.sort_values(["symbol", "date"])
 
-    # attach beta if missing
-    if "beta_btc_60" not in out.columns:
-        raise ValueError("beta_btc_60 required on features")
+    # Use RAW beta for residualization (never the CS z-scored feature column).
+    if "beta_btc_60_raw" in out.columns:
+        beta_col = "beta_btc_60_raw"
+    elif "beta_btc_60" in out.columns:
+        beta_col = "beta_btc_60"
+    else:
+        raise ValueError("beta_btc_60_raw (or beta_btc_60) required on features")
 
     for h in horizons:
         # forward log return close[t+h]/close[t]
@@ -32,13 +36,12 @@ def add_labels(
         btc_fwd = np.log(btc.shift(-h) / btc)
         y = []
         for sym, g in out.groupby("symbol", sort=False):
-            dates = g["date"].values
             if sym not in fwd.columns:
                 y.append(pd.Series(np.nan, index=g.index))
                 continue
             fr = fwd[sym].reindex(g["date"]).values
             bf = btc_fwd.reindex(g["date"]).values
-            beta = g["beta_btc_60"].values
+            beta = g[beta_col].values
             resid = fr - beta * bf
             y.append(pd.Series(resid, index=g.index))
         out[f"y_h{h}"] = pd.concat(y).sort_index()

@@ -23,9 +23,9 @@ data:
     - WBETH
     - BTCB
     - RENBTC
-  # Training panel size (most liquid by median dollar volume)
+  # Point-in-time training universe size (30d median DV ≤ t)
   train_universe_n: 120
-  # Execution / portfolio universe
+  # Execution / portfolio universe (PIT)
   exec_universe_n: 20
   exec_dv_window: 30
 
@@ -49,6 +49,10 @@ model:
   bagging_freq: 1
   lambda_l2: 1.0
   early_stopping_rounds: 100
+  # Early-stop on mean daily RankIC (maximize); set fixed_n_estimators to bypass
+  early_stop_metric: rank_ic
+  fixed_n_estimators: null
+  sensitivity_trees: [200, 500, 1000]
   verbosity: -1
 
 cv:

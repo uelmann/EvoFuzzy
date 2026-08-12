@@ -209,16 +209,6 @@ def load_panel(raw_dir: Path, symbols: list[str]) -> pd.DataFrame:
     return panel.sort_values(["symbol", "date"]).reset_index(drop=True)
 
 
-def select_train_universe(panel: pd.DataFrame, n: int = 120) -> list[str]:
-    """Top-n by median dollar volume (documented full-sample liquidity screen)."""
-    med = panel.groupby("symbol")["dollar_volume"].median().sort_values(ascending=False)
-    # ensure BTCUSDT included
-    tops = list(med.head(n).index)
-    if "BTCUSDT" not in tops:
-        tops = ["BTCUSDT"] + [s for s in tops if s != "BTCUSDT"][: n - 1]
-    return tops
-
-
 def build_pit_topn(
     panel: pd.DataFrame,
     n: int = 20,
@@ -226,19 +216,50 @@ def build_pit_topn(
 ) -> pd.DataFrame:
     """
     Point-in-time top-n by rolling median dollar volume using data ≤ t.
-    Returns long df: date, symbol, rank, dv_med
+    Returns long df: date, symbol, rank, dv_med.
+
+    Uses only trailing window ending at t (pandas rolling is causal).
     """
     wide = panel.pivot(index="date", columns="symbol", values="dollar_volume").sort_index()
-    # rolling median with min_periods
     roll = wide.rolling(window=window, min_periods=max(5, window // 3)).median()
-    rows = []
-    for dt, row in roll.iterrows():
-        s = row.dropna().sort_values(ascending=False)
-        if s.empty:
-            continue
-        top = s.head(n)
-        for rank, (sym, val) in enumerate(top.items(), start=1):
-            rows.append({"date": dt, "symbol": sym, "rank": rank, "dv_med": float(val)})
-    out = pd.DataFrame(rows)
+    ranks = roll.rank(axis=1, ascending=False, method="first")
+    mask = ranks <= n
+    long_rank = ranks.where(mask).stack(future_stack=True).rename("rank")
+    long_dv = roll.where(mask).stack(future_stack=True).rename("dv_med")
+    out = pd.concat([long_rank, long_dv], axis=1).dropna(how="any").reset_index()
+    out = out.rename(columns={"level_0": "date", "level_1": "symbol"})
+    if "date" not in out.columns:
+        # pandas names index levels from the MultiIndex
+        out.columns = ["date", "symbol", "rank", "dv_med"]
+    out["rank"] = out["rank"].astype(int)
     out["date"] = pd.to_datetime(out["date"], utc=True)
+    out = out.sort_values(["date", "rank"]).reset_index(drop=True)
     return out
+
+
+def luna_presence_report(pit: pd.DataFrame, start: str = "2021-01-01", end: str = "2022-12-31") -> dict:
+    """Verify whether LUNA (or close tickers) appear in a PIT universe during 2021–2022."""
+    df = pit.copy()
+    df["date"] = pd.to_datetime(df["date"], utc=True)
+    mask = (df["date"] >= pd.Timestamp(start, tz="UTC")) & (df["date"] <= pd.Timestamp(end, tz="UTC"))
+    sub = df.loc[mask]
+    luna_like = sorted({s for s in sub["symbol"].unique() if "LUNA" in str(s).upper()})
+    days = []
+    for sym in luna_like:
+        dsub = sub.loc[sub["symbol"] == sym, "date"]
+        if len(dsub):
+            days.append(
+                {
+                    "symbol": sym,
+                    "n_days": int(len(dsub)),
+                    "first": str(dsub.min().date()),
+                    "last": str(dsub.max().date()),
+                    "median_rank": float(sub.loc[sub["symbol"] == sym, "rank"].median()),
+                }
+            )
+    return {
+        "window": [start, end],
+        "luna_like_symbols": luna_like,
+        "present": bool(luna_like),
+        "details": days,
+    }

@@ -8,7 +8,6 @@ Usage:
 from __future__ import annotations
 
 import json
-import shutil
 import time
 from pathlib import Path
 
@@ -38,7 +37,6 @@ image = (
     .add_local_file("config.yaml", remote_path="/root/config.yaml")
 )
 
-# Optional: mount local kronos artifacts for adapter if present
 _local_crypto = Path("/opt/cursor/artifacts/crypto_data")
 if _local_crypto.exists():
     image = image.add_local_dir(str(_local_crypto), remote_path="/kronos_import")
@@ -87,9 +85,10 @@ def train_one_fold_job(payload: dict) -> dict:
         horizon=int(payload["horizon"]),
     )
     t0 = time.time()
+    log_curve = bool(payload.get("log_eval_curve", False))
     print(
         f"[fold] start h={fold.horizon} id={fold.fold_id} "
-        f"val={fold.val_start.date()}→{fold.val_end.date()}",
+        f"val={fold.val_start.date()}→{fold.val_end.date()} log_curve={log_curve}",
         flush=True,
     )
     pred_df, meta = _fit_predict_fold(
@@ -98,6 +97,7 @@ def train_one_fold_job(payload: dict) -> dict:
         seed=cfg["seed"],
         model_cfg=cfg["model"],
         inner_holdout_days=cfg["cv"]["inner_holdout_days"],
+        log_eval_curve=log_curve,
     )
     out_dir = Path(payload["out_dir"])
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -108,31 +108,37 @@ def train_one_fold_job(payload: dict) -> dict:
     meta["wall_elapsed"] = time.time() - t0
     if meta["wall_elapsed"] > cfg["cv"].get("fold_warn_seconds", 1200):
         print(f"[WARN] fold {fold.fold_id} exceeded 20 min: {meta['wall_elapsed']:.0f}s", flush=True)
-    (out_dir / f"meta_h{fold.horizon}_fold{fold.fold_id}.json").write_text(json.dumps(meta, indent=2))
+    (out_dir / f"meta_h{fold.horizon}_fold{fold.fold_id}.json").write_text(
+        json.dumps(meta, indent=2, default=str)
+    )
     volume.commit()
-    print(f"[fold] done h={fold.horizon} id={fold.fold_id} elapsed={meta['wall_elapsed']:.1f}s", flush=True)
+    print(
+        f"[fold] done h={fold.horizon} id={fold.fold_id} "
+        f"elapsed={meta['wall_elapsed']:.1f}s best_iter={meta.get('best_iteration')} "
+        f"mode={meta.get('early_stop_mode')}",
+        flush=True,
+    )
     return meta
 
 
 @app.function(timeout=60 * 60 * 6, retries=0, volumes={"/data/quant": volume}, cpu=16, memory=65536)
 def run_pipeline() -> dict:
-    import numpy as np
     import pandas as pd
 
     from baseline.data import (
         build_pit_topn,
         list_um_symbols,
         load_panel,
-        select_train_universe,
+        luna_presence_report,
         should_exclude,
     )
     from baseline.evaluate import evaluate_predictions, naive_mom28_scores
-    from baseline.features import build_feature_panel
+    from baseline.features import apply_cs_zscore, build_feature_panel
     from baseline.gates import run_all_gates
     from baseline.kronos_adapter import try_export_kronos_ft
     from baseline.labels import add_labels
-    from baseline.model import make_folds
-    from baseline.portfolio import run_portfolio_backtest
+    from baseline.model import best_iteration_distribution, make_folds
+    from baseline.portfolio import run_portfolio_backtest, run_tranche_portfolio
     from baseline.report import plot_equity_curves, plot_ic_analysis, write_report
     from baseline.seedutil import seed_everything
 
@@ -152,12 +158,10 @@ def run_pipeline() -> dict:
     print("[pipeline] listing symbols...", flush=True)
     symbols = list_um_symbols(cfg["data"]["quote"])
     symbols = [s for s in symbols if not should_exclude(s, cfg["data"]["exclude_bases"])]
-    # always include BTC
     if "BTCUSDT" not in symbols:
         symbols.append("BTCUSDT")
     print(f"[pipeline] {len(symbols)} USDT perps after filters", flush=True)
 
-    # Download (skip cached parquet)
     todo = []
     for s in symbols:
         if not (raw_dir / f"{s}.parquet").exists():
@@ -170,12 +174,14 @@ def run_pipeline() -> dict:
             )
     print(f"[pipeline] downloading {len(todo)} / {len(symbols)} symbols...", flush=True)
     if todo:
-        # chunked map to avoid huge fanout
         results = []
         chunk = 80
         for i in range(0, len(todo), chunk):
             part = todo[i : i + chunk]
-            print(f"[pipeline] download chunk {i//chunk+1}/{(len(todo)-1)//chunk+1} n={len(part)}", flush=True)
+            print(
+                f"[pipeline] download chunk {i//chunk+1}/{(len(todo)-1)//chunk+1} n={len(part)}",
+                flush=True,
+            )
             results.extend(list(download_one_symbol.map(part)))
             volume.reload()
         print(f"[pipeline] download jobs finished: {len(results)}", flush=True)
@@ -183,50 +189,57 @@ def run_pipeline() -> dict:
 
     print("[pipeline] building panel...", flush=True)
     panel = load_panel(raw_dir, symbols)
-    # keep symbols with enough history
     counts = panel.groupby("symbol").size()
     keep = counts[counts >= cfg["features"]["min_history_days"]].index.tolist()
     if "BTCUSDT" not in keep:
         raise RuntimeError("BTCUSDT missing after load")
     panel = panel[panel["symbol"].isin(keep)].copy()
-    train_syms = select_train_universe(panel, n=cfg["data"]["train_universe_n"])
-    panel_train = panel[panel["symbol"].isin(train_syms)].copy()
     print(
         f"[pipeline] panel rows={len(panel)} symbols={panel['symbol'].nunique()} "
-        f"train_universe={len(train_syms)} span={panel['date'].min().date()}→{panel['date'].max().date()}",
+        f"span={panel['date'].min().date()}→{panel['date'].max().date()}",
         flush=True,
     )
-    panel_train.to_parquet(root / "panel_train.parquet", index=False)
 
-    print("[pipeline] PIT top-20 universe...", flush=True)
-    pit = build_pit_topn(
-        panel,  # full liquid history for DV ranks among all downloaded
-        n=cfg["data"]["exec_universe_n"],
-        window=cfg["data"]["exec_dv_window"],
-    )
-    # restrict ranks to train-universe symbols intersecting liquidity
-    pit = pit[pit["symbol"].isin(train_syms)].copy()
-    # re-rank within filtered set per date
-    pit = (
-        pit.sort_values(["date", "dv_med"], ascending=[True, False])
-        .groupby("date", sort=False)
-        .head(cfg["data"]["exec_universe_n"])
-        .copy()
-    )
-    pit["rank"] = pit.groupby("date").cumcount() + 1
-    pit_path = uni_dir / "top20_pit.parquet"
-    pit.to_parquet(pit_path, index=False)
-    print(f"[pipeline] wrote {pit_path} rows={len(pit)}", flush=True)
+    window = cfg["data"]["exec_dv_window"]
+    print("[pipeline] PIT top-120 / top-20 universes...", flush=True)
+    pit120 = build_pit_topn(panel, n=cfg["data"]["train_universe_n"], window=window)
+    pit20 = build_pit_topn(panel, n=cfg["data"]["exec_universe_n"], window=window)
+    pit120_path = uni_dir / "top120_pit.parquet"
+    pit20_path = uni_dir / "top20_pit.parquet"
+    pit120.to_parquet(pit120_path, index=False)
+    pit20.to_parquet(pit20_path, index=False)
+    print(f"[pipeline] wrote {pit120_path} rows={len(pit120)}; {pit20_path} rows={len(pit20)}", flush=True)
 
-    print("[pipeline] features...", flush=True)
+    luna_top20 = luna_presence_report(pit20)
+    luna_top120 = luna_presence_report(pit120)
+    print(f"[pipeline] LUNA top20: {luna_top20}", flush=True)
+    print(f"[pipeline] LUNA top120: {luna_top120}", flush=True)
+
+    # Feature panel: all symbols that ever appear in PIT-120 (+ BTC)
+    ever120 = set(pit120["symbol"].unique()) | {"BTCUSDT"}
+    panel_feat = panel[panel["symbol"].isin(ever120)].copy()
+    print(
+        f"[pipeline] feature symbols (ever in PIT-120)={panel_feat['symbol'].nunique()}",
+        flush=True,
+    )
+
+    print("[pipeline] features (raw)...", flush=True)
     t0 = time.time()
-    feat = build_feature_panel(panel_train, clip=cfg["features"]["zscore_clip"])
-    print(f"[pipeline] features done in {time.time()-t0:.1f}s rows={len(feat)}", flush=True)
+    feat_raw = build_feature_panel(panel_feat, clip=cfg["features"]["zscore_clip"], zscore=False)
+    print(f"[pipeline] raw features done in {time.time()-t0:.1f}s rows={len(feat_raw)}", flush=True)
+
+    # Restrict to PIT-120 membership, then CS z-score within that universe
+    pit120_keys = pit120[["date", "symbol"]].copy()
+    pit120_keys["date"] = pd.to_datetime(pit120_keys["date"], utc=True)
+    feat_raw["date"] = pd.to_datetime(feat_raw["date"], utc=True)
+    feat = feat_raw.merge(pit120_keys, on=["date", "symbol"], how="inner")
+    print(f"[pipeline] after PIT-120 filter rows={len(feat)}", flush=True)
+    feat = apply_cs_zscore(feat, clip=cfg["features"]["zscore_clip"])
 
     print("[pipeline] labels...", flush=True)
     feat = add_labels(
         feat,
-        panel_train,
+        panel_feat,
         horizons=cfg["labels"]["horizons"],
         winsorize_pct=tuple(cfg["labels"]["winsorize_pct"]),
     )
@@ -237,25 +250,31 @@ def run_pipeline() -> dict:
     caveats = [
         "Funding rate not available in Binance Vision kline dumps → funding PnL = 0.",
         "Execution assumed at close of signal day t; PnL uses next-day close-to-close returns.",
-        "Training universe = top 120 by full-sample median dollar volume (documented); execution uses PIT top-20 only.",
+        "Training universe = point-in-time top 120 by 30d rolling median dollar volume (data ≤ t).",
+        "Execution universe = point-in-time top 20 (same mechanism).",
+        "Cross-sectional feature z-scores computed within the PIT-120 membership each day.",
+        "Labels/hedge use raw beta_btc_60 (not the z-scored feature column).",
         "Delisted perps included when present on data.binance.vision monthly dumps.",
         "Spot pre-listing fallback for majors not applied (perps dumps start at listing).",
         "Beta hedge implemented as additive BTCUSDT weight = −Σ w_i β_i.",
+        "Tranche portfolio: h capital slices, rebalance offset k on day_index % h == k; hold ~h days.",
     ]
 
-    # Kronos adapter (best effort)
     kronos_status = try_export_kronos_ft(pred_dir / "kronos_ft.parquet", horizon=10)
 
     ic_tables: dict[str, list] = {}
-    all_gate_results = []
-    portfolio_summaries = []
+    all_gate_results: list = []
+    portfolio_summaries: list = []
     best_eq = None
+    tranche_eq = None
     naive_eq = None
     primary_ic = None
-    primary_quints = {}
+    primary_quints: dict = {}
+    best_iter_stats: dict = {"by_horizon": {}}
+    sensitivity: dict = {}
+    used_fixed_trees = False
 
-    for h in cfg["labels"]["horizons"]:
-        print(f"[pipeline] CV train horizon={h}", flush=True)
+    def _run_folds(h: int, model_cfg: dict, tag: str) -> tuple[pd.DataFrame, list[dict]]:
         folds = make_folds(
             pd.DatetimeIndex(feat["date"].unique()),
             horizon=h,
@@ -264,15 +283,17 @@ def run_pipeline() -> dict:
             step_days=cfg["cv"]["step_days"],
         )
         if not folds:
-            print(f"[pipeline] no folds for h={h}", flush=True)
-            continue
+            return pd.DataFrame(), []
         payloads = []
-        out_h = pred_dir / f"h{h}"
+        out_h = pred_dir / f"{tag}_h{h}"
         out_h.mkdir(parents=True, exist_ok=True)
+        diag_ids = {0, max(0, len(folds) // 2), len(folds) - 1}
+        cfg_job = dict(cfg)
+        cfg_job["model"] = model_cfg
         for fr in folds:
             payloads.append(
                 {
-                    "cfg": cfg,
+                    "cfg": cfg_job,
                     "feat_path": str(feat_path),
                     "out_dir": str(out_h),
                     "fold_id": fr.fold_id,
@@ -283,8 +304,10 @@ def run_pipeline() -> dict:
                     "val_start": str(fr.val_start),
                     "val_end": str(fr.val_end),
                     "horizon": h,
+                    "log_eval_curve": fr.fold_id in diag_ids,
                 }
             )
+        print(f"[pipeline] training {len(payloads)} folds h={h} tag={tag}", flush=True)
         metas = list(train_one_fold_job.map(payloads))
         volume.reload()
         preds = []
@@ -292,56 +315,113 @@ def run_pipeline() -> dict:
             if m.get("pred_path") and Path(m["pred_path"]).exists():
                 preds.append(pd.read_parquet(m["pred_path"]))
         if not preds:
-            print(f"[pipeline] no preds for h={h}", flush=True)
-            continue
+            return pd.DataFrame(), metas
         pred_all = pd.concat(preds, ignore_index=True)
-        # dedupe overlapping val windows: keep first fold prediction
         pred_all = pred_all.sort_values(["date", "symbol", "fold_id"]).drop_duplicates(
             ["date", "symbol"], keep="first"
         )
+        return pred_all, metas
+
+    for h in cfg["labels"]["horizons"]:
+        print(f"[pipeline] CV train horizon={h}", flush=True)
+        model_cfg = dict(cfg["model"])
+        pred_all, metas = _run_folds(h, model_cfg, tag="rankic")
+        dist = best_iteration_distribution(metas)
+        dist["mode"] = "rank_ic"
+        print(f"[pipeline] h={h} best_iteration dist: {dist}", flush=True)
+
+        # Fallback if RankIC early-stop still degenerate
+        if dist["n"] and dist["gt1_frac"] < 0.9:
+            print(
+                f"[pipeline] best_iteration>1 on only {dist['gt1_frac']:.0%} of folds — "
+                f"falling back to fixed n_estimators=500",
+                flush=True,
+            )
+            used_fixed_trees = True
+            model_cfg = dict(cfg["model"])
+            model_cfg["fixed_n_estimators"] = 500
+            model_cfg["early_stop_metric"] = "none"
+            pred_all, metas = _run_folds(h, model_cfg, tag="fixed500")
+            dist = best_iteration_distribution(metas)
+            dist["mode"] = "fixed_500"
+            # Sensitivity: full OOS IC for {200,500,1000} on primary horizon only
+            if h == cfg["labels"]["primary_horizon"]:
+                sens = {}
+                for nt in cfg["model"].get("sensitivity_trees", [200, 500, 1000]):
+                    mcfg = dict(cfg["model"])
+                    mcfg["fixed_n_estimators"] = int(nt)
+                    mcfg["early_stop_metric"] = "none"
+                    p_s, m_s = _run_folds(h, mcfg, tag=f"sens{nt}")
+                    if p_s.empty:
+                        continue
+                    tmp = p_s.merge(
+                        feat[["date", "symbol", f"y_h{h}"]], on=["date", "symbol"], how="left"
+                    )
+                    ev = evaluate_predictions(tmp, h, universe=pit20, label=f"top20_trees{nt}")
+                    sens[str(nt)] = {
+                        "mean_ic": ev.get("mean_ic"),
+                        "icir": ev.get("icir"),
+                        "nw_tstat": ev.get("nw_tstat"),
+                        "best_iter_dist": best_iteration_distribution(m_s),
+                    }
+                    if int(nt) == 500:
+                        pred_all, metas, dist = p_s, m_s, best_iteration_distribution(m_s)
+                        dist["mode"] = "fixed_500"
+                sensitivity[f"h={h}"] = sens
+
+        best_iter_stats["by_horizon"][f"h={h}"] = dist
+        if pred_all.empty:
+            print(f"[pipeline] no preds for h={h}", flush=True)
+            continue
+
         canon = pred_all[["date", "symbol", "score", "horizon"]].copy()
         canon["model_name"] = "lgbm_price_only"
-        canon_path = pred_dir / f"lgbm_price_only_h{h}.parquet"
-        # attach y for eval
         ycol = f"y_h{h}"
         canon = canon.merge(feat[["date", "symbol", ycol]], on=["date", "symbol"], how="left")
+        canon_path = pred_dir / f"lgbm_price_only_h{h}.parquet"
         canon.to_parquet(canon_path, index=False)
 
-        # naive benchmark aligned to same OOS dates
         naive = naive_mom28_scores(feat, h)
         oos_dates = set(pd.to_datetime(canon["date"], utc=True))
         naive = naive[pd.to_datetime(naive["date"], utc=True).isin(oos_dates)].copy()
-        naive_path = pred_dir / f"naive_mom28_h{h}.parquet"
-        naive.to_parquet(naive_path, index=False)
+        naive.to_parquet(pred_dir / f"naive_mom28_h{h}.parquet", index=False)
 
         rows = []
-        for label, uni in [("full", None), ("top20", pit)]:
+        for label, uni in [("pit120", pit120), ("top20", pit20)]:
             ev = evaluate_predictions(canon, h, universe=uni, label=label)
             rows.append({k: v for k, v in ev.items() if k != "ic_series"})
             if h == cfg["labels"]["primary_horizon"] and label == "top20":
                 primary_ic = ev["ic_series"]
                 primary_quints = ev.get("quintile_means") or {}
-        # naive IC top20
-        ev_n = evaluate_predictions(naive, h, universe=pit, label="top20_naive")
+        ev_n = evaluate_predictions(naive, h, universe=pit20, label="top20_naive")
         rows.append({k: v for k, v in ev_n.items() if k != "ic_series"})
         if kronos_status.get("exported") and h == 10:
             try:
                 kdf = pd.read_parquet(pred_dir / "kronos_ft.parquet")
-                # attach labels
                 kdf = kdf.merge(feat[["date", "symbol", "y_h10"]], on=["date", "symbol"], how="inner")
                 kdf = kdf[pd.to_datetime(kdf["date"], utc=True).isin(oos_dates)]
                 if len(kdf):
-                    ev_k = evaluate_predictions(kdf, 10, universe=pit, label="top20_kronos_ft")
+                    ev_k = evaluate_predictions(kdf, 10, universe=pit20, label="top20_kronos_ft")
                     rows.append({k: v for k, v in ev_k.items() if k != "ic_series"})
             except Exception as e:
                 caveats.append(f"Kronos eval skipped: {e}")
         ic_tables[f"h={h}"] = rows
 
-        # gates on ALL OOS preds for primary horizon (more days → quieter null IC)
+        # Gates on FIRST fold only (original strictness) for primary horizon
         if h == cfg["labels"]["primary_horizon"]:
-            sample = pred_all.copy()
+            folds = make_folds(
+                pd.DatetimeIndex(feat["date"].unique()),
+                horizon=h,
+                min_train_days=cfg["cv"]["min_train_days"],
+                val_days=cfg["cv"]["val_days"],
+                step_days=cfg["cv"]["step_days"],
+            )
+            sample = pred_all[pred_all["fold_id"] == pred_all["fold_id"].min()].copy()
+            # ensure y attached
+            if ycol not in sample.columns:
+                sample = sample.merge(feat[["date", "symbol", ycol]], on=["date", "symbol"], how="left")
             gates = run_all_gates(
-                panel_train,
+                panel_feat,
                 feat,
                 build_pit_topn,
                 folds[0],
@@ -352,66 +432,102 @@ def run_pipeline() -> dict:
             if not all(g.get("passed") for g in gates):
                 raise RuntimeError(f"Sanity gates failed: {gates}")
 
-            # portfolio sweep
-            print("[pipeline] portfolio sweep...", flush=True)
-            best = None
-            for tp in cfg["portfolio"]["tau_percentiles"]:
-                res = run_portfolio_backtest(
-                    canon,
-                    panel_train,
-                    feat,
-                    pit,
-                    horizon=h,
-                    tau_pct=tp,
-                    exit_hysteresis=cfg["portfolio"]["exit_hysteresis"],
-                    gross_limit=cfg["portfolio"]["gross_limit"],
-                    fee_bps=cfg["portfolio"]["taker_fee_bps"],
-                    slip_bps=cfg["portfolio"]["slippage_bps"],
-                )
-                slim = {k: v for k, v in res.items() if k not in ("equity", "daily_ret")}
-                portfolio_summaries.append(slim)
-                print(f"[pipeline] τ={tp} -> {slim}", flush=True)
-                if "net_sharpe" in res and (best is None or res["net_sharpe"] > best["net_sharpe"]):
-                    best = res
-            if best is not None:
-                best_eq = best["equity"]
-                best_eq.to_parquet(rep_dir / "best_equity.parquet", index=False)
+        # Portfolio sweeps for BOTH horizons, daily + tranche
+        print(f"[pipeline] portfolio sweeps h={h}...", flush=True)
+        best_daily = None
+        best_tranche = None
+        for tp in cfg["portfolio"]["tau_percentiles"]:
+            res = run_portfolio_backtest(
+                canon,
+                panel_feat,
+                feat,
+                pit20,
+                horizon=h,
+                tau_pct=tp,
+                exit_hysteresis=cfg["portfolio"]["exit_hysteresis"],
+                gross_limit=cfg["portfolio"]["gross_limit"],
+                fee_bps=cfg["portfolio"]["taker_fee_bps"],
+                slip_bps=cfg["portfolio"]["slippage_bps"],
+                variant="daily",
+            )
+            slim = {k: v for k, v in res.items() if k not in ("equity", "daily_ret")}
+            portfolio_summaries.append(slim)
+            print(f"[pipeline] daily h={h} τ={tp} -> sharpe={slim.get('net_sharpe')} cost={slim.get('cost_drag')}", flush=True)
+            if "net_sharpe" in res and (best_daily is None or res["net_sharpe"] > best_daily["net_sharpe"]):
+                best_daily = res
 
-            # naive portfolio at 70th pct as comparison
+            tres = run_tranche_portfolio(
+                canon,
+                panel_feat,
+                feat,
+                pit20,
+                horizon=h,
+                tau_pct=tp,
+                exit_hysteresis=cfg["portfolio"]["exit_hysteresis"],
+                gross_limit=cfg["portfolio"]["gross_limit"],
+                fee_bps=cfg["portfolio"]["taker_fee_bps"],
+                slip_bps=cfg["portfolio"]["slippage_bps"],
+            )
+            tslim = {k: v for k, v in tres.items() if k not in ("equity", "daily_ret")}
+            portfolio_summaries.append(tslim)
+            print(
+                f"[pipeline] tranche h={h} τ={tp} -> sharpe={tslim.get('net_sharpe')} "
+                f"to={tslim.get('ann_turnover')}",
+                flush=True,
+            )
+            if "net_sharpe" in tres and (best_tranche is None or tres["net_sharpe"] > best_tranche["net_sharpe"]):
+                best_tranche = tres
+
+        if h == cfg["labels"]["primary_horizon"]:
+            if best_daily is not None:
+                best_eq = best_daily["equity"]
+                best_eq.to_parquet(rep_dir / "best_equity_daily.parquet", index=False)
+            if best_tranche is not None:
+                tranche_eq = best_tranche["equity"]
+                tranche_eq.to_parquet(rep_dir / "best_equity_tranche.parquet", index=False)
             naive_bt = run_portfolio_backtest(
                 naive,
-                panel_train,
+                panel_feat,
                 feat,
-                pit,
+                pit20,
                 horizon=h,
                 tau_pct=70,
                 exit_hysteresis=cfg["portfolio"]["exit_hysteresis"],
                 gross_limit=cfg["portfolio"]["gross_limit"],
                 fee_bps=cfg["portfolio"]["taker_fee_bps"],
                 slip_bps=cfg["portfolio"]["slippage_bps"],
+                variant="daily_naive",
             )
             if "equity" in naive_bt:
                 naive_eq = naive_bt["equity"]
 
+    if used_fixed_trees:
+        caveats.append(
+            "Early-stopping on RankIC was unhealthy (best_iteration>1 on <90% of folds); "
+            "fell back to fixed n_estimators=500 with tree-count sensitivity rows in the report."
+        )
+    else:
+        caveats.append("Early-stopping metric = mean daily RankIC on inner holdout (maximize), patience 100.")
+
     # BTC buy & hold over OOS span
     if best_eq is not None and len(best_eq):
-        btc = panel_train[panel_train["symbol"] == "BTCUSDT"].set_index("date")["close"].sort_index()
+        btc = panel_feat[panel_feat["symbol"] == "BTCUSDT"].set_index("date")["close"].sort_index()
         idx = pd.to_datetime(best_eq["date"], utc=True)
         btc = btc.reindex(idx).dropna()
-        btc_eq = pd.DataFrame(
-            {
-                "date": btc.index,
-                "equity": (btc / btc.iloc[0]).values,
-            }
-        )
+        btc_eq = pd.DataFrame({"date": btc.index, "equity": (btc / btc.iloc[0]).values})
     else:
         btc_eq = pd.DataFrame({"date": [], "equity": []})
 
-    # charts + report
     if primary_ic is not None:
         plot_ic_analysis(chart_dir / "ic_analysis.png", primary_ic, primary_quints)
     if best_eq is not None and len(best_eq) and len(btc_eq):
-        plot_equity_curves(chart_dir / "equity_curves.png", best_eq, naive_eq, btc_eq)
+        plot_equity_curves(
+            chart_dir / "equity_curves.png",
+            best_eq,
+            naive_eq,
+            btc_eq,
+            tranche_eq=tranche_eq,
+        )
 
     write_report(
         rep_dir / "baseline_report.md",
@@ -421,13 +537,19 @@ def run_pipeline() -> dict:
         all_gate_results,
         caveats,
         kronos_status,
+        best_iter_stats=best_iter_stats,
+        luna_report={"top20": luna_top20, "top120": luna_top120},
+        sensitivity=sensitivity,
     )
 
     summary = {
         "elapsed_sec": time.time() - t_pipe,
-        "n_symbols_train": len(train_syms),
-        "span": [str(panel_train["date"].min().date()), str(panel_train["date"].max().date())],
+        "n_symbols_ever_pit120": int(panel_feat["symbol"].nunique()),
+        "span": [str(panel["date"].min().date()), str(panel["date"].max().date())],
         "gates": all_gate_results,
+        "luna": {"top20": luna_top20, "top120": luna_top120},
+        "best_iteration": best_iter_stats,
+        "sensitivity": sensitivity,
         "ic_tables": {
             k: [{kk: vv for kk, vv in r.items() if kk != "ic_series"} for r in rows]
             for k, rows in ic_tables.items()
@@ -439,20 +561,17 @@ def run_pipeline() -> dict:
     (rep_dir / "summary.json").write_text(json.dumps(summary, indent=2, default=str))
     volume.commit()
     print("[pipeline] DONE", flush=True)
-    print(json.dumps({k: summary[k] for k in summary if k != "ic_tables"}, indent=2, default=str), flush=True)
     return summary
 
 
 @app.local_entrypoint()
 def main():
-    print("Launching Phase A0 baseline on Modal...", flush=True)
+    print("Launching Phase A0 remediation pipeline on Modal...", flush=True)
     summary = run_pipeline.remote()
-    # copy reports/charts back
     local = Path("artifacts")
     (local / "reports").mkdir(parents=True, exist_ok=True)
     (local / "charts").mkdir(parents=True, exist_ok=True)
 
-    # pull via a small helper function reading volume files
     data = fetch_artifacts.remote()
     for rel, content in data.get("text", {}).items():
         p = local / rel
@@ -464,21 +583,7 @@ def main():
         p.write_bytes(bytes(raw))
 
     print("\n===== FINAL STDOUT SUMMARY =====", flush=True)
-    print("Portfolio sweep:", flush=True)
-    print(
-        f"{'τ':>4} {'Sharpe':>8} {'CAGR':>9} {'MaxDD':>9} {'%flat':>8} {'annTO':>8}",
-        flush=True,
-    )
-    for r in summary.get("portfolio", []):
-        if "error" in r:
-            print(f"{r.get('tau_pct'):>4} ERROR", flush=True)
-            continue
-        print(
-            f"{r['tau_pct']:>4} {r['net_sharpe']:>8.2f} {r['net_cagr']:>8.2%} "
-            f"{r['max_drawdown']:>8.2%} {r['pct_flat_days']:>7.1%} {r['ann_turnover']:>8.1f}",
-            flush=True,
-        )
-    print("\nRankIC:", flush=True)
+    print("RankIC:", flush=True)
     for hkey, rows in summary.get("ic_tables", {}).items():
         for r in rows:
             print(
@@ -486,7 +591,26 @@ def main():
                 f"ICIR={r.get('icir', float('nan')):.3f} NW_t={r.get('nw_tstat', float('nan')):.2f}",
                 flush=True,
             )
-    print(f"\nArtifacts copied to ./artifacts/  elapsed={summary.get('elapsed_sec', float('nan')):.0f}s", flush=True)
+    print("\nPortfolio (net/gross Sharpe, cost, hedge, hold, turnover):", flush=True)
+    print(
+        f"{'var':>8} {'h':>3} {'τ':>4} {'netSh':>7} {'grSh':>7} {'cost':>8} {'hedge':>8} "
+        f"{'hold':>6} {'annTO':>7}",
+        flush=True,
+    )
+    for r in summary.get("portfolio", []):
+        if "error" in r:
+            print(f"{r.get('variant'):>8} {r.get('horizon'):>3} {r.get('tau_pct'):>4} ERROR", flush=True)
+            continue
+        print(
+            f"{str(r.get('variant')):>8} {r.get('horizon'):>3} {r['tau_pct']:>4} "
+            f"{r['net_sharpe']:>7.2f} {r.get('gross_sharpe', float('nan')):>7.2f} "
+            f"{r.get('cost_drag', float('nan')):>8.3f} {r.get('hedge_total_pnl', float('nan')):>8.3f} "
+            f"{r.get('avg_holding_days', float('nan')):>6.1f} {r['ann_turnover']:>7.1f}",
+            flush=True,
+        )
+    print(f"\nbest_iteration: {json.dumps(summary.get('best_iteration'), default=str)}", flush=True)
+    print(f"LUNA: {json.dumps(summary.get('luna'), default=str)}", flush=True)
+    print(f"\nArtifacts → ./artifacts/  elapsed={summary.get('elapsed_sec', float('nan')):.0f}s", flush=True)
     gates_ok = all(g.get("passed") for g in summary.get("gates", []))
     print(f"Gates: {'ALL PASS' if gates_ok else 'FAILED'}", flush=True)
 
