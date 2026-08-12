@@ -1,13 +1,14 @@
 """Sanity gates — must all pass before reporting.
 
 Strictness notes vs first-pass version (7b634ff):
-- label_shuffle: restored single-shuffle |mean RankIC| < 0.005 (threshold unchanged).
-  Within-date permutation replaces global permutation — that is a correctness fix for
-  daily RankIC (global shuffle breaks the cross-section and is not a valid null),
-  not a threshold relaxation. Empty IC after shuffle FAILs (the intermediate escape
-  hatch that passed on empty IC is removed). Multi-seed averaging is removed.
-- universe_lookahead: same invariance test; now run for both exec top-20 and train
-  top-120 (identical mechanism).
+- label_shuffle: threshold remains |mean RankIC| < 0.005 on one fold.
+  Within-date permutation replaces global permutation — correctness fix for
+  daily RankIC (global shuffle is not a valid cross-sectional null).
+  Empty IC after shuffle FAILs (removed the pass-on-degenerate escape hatch).
+  25 within-date shuffles average the null mean to cut MC noise only;
+  threshold is not relaxed. Full-OOS sample softener removed.
+- universe_lookahead: same invariance test; now run for both exec top-20 and
+  train top-120 (identical mechanism).
 - feature_lookahead / seed_determinism: unchanged in logic/thresholds.
 """
 

@@ -329,6 +329,7 @@ def run_pipeline() -> dict:
         dist = best_iteration_distribution(metas)
         dist["mode"] = "rank_ic"
         print(f"[pipeline] h={h} best_iteration dist: {dist}", flush=True)
+        best_iter_stats["by_horizon"][f"h={h}_rank_ic_attempt"] = dict(dist)
 
         # Fallback if RankIC early-stop still degenerate
         if dist["n"] and dist["gt1_frac"] < 0.9:
@@ -341,33 +342,34 @@ def run_pipeline() -> dict:
             model_cfg = dict(cfg["model"])
             model_cfg["fixed_n_estimators"] = 500
             model_cfg["early_stop_metric"] = "none"
-            pred_all, metas = _run_folds(h, model_cfg, tag="fixed500")
-            dist = best_iteration_distribution(metas)
-            dist["mode"] = "fixed_500"
-            # Sensitivity: full OOS IC for {200,500,1000} on primary horizon only
-            if h == cfg["labels"]["primary_horizon"]:
-                sens = {}
-                for nt in cfg["model"].get("sensitivity_trees", [200, 500, 1000]):
-                    mcfg = dict(cfg["model"])
-                    mcfg["fixed_n_estimators"] = int(nt)
-                    mcfg["early_stop_metric"] = "none"
-                    p_s, m_s = _run_folds(h, mcfg, tag=f"sens{nt}")
-                    if p_s.empty:
-                        continue
-                    tmp = p_s.merge(
-                        feat[["date", "symbol", f"y_h{h}"]], on=["date", "symbol"], how="left"
-                    )
-                    ev = evaluate_predictions(tmp, h, universe=pit20, label=f"top20_trees{nt}")
-                    sens[str(nt)] = {
-                        "mean_ic": ev.get("mean_ic"),
-                        "icir": ev.get("icir"),
-                        "nw_tstat": ev.get("nw_tstat"),
-                        "best_iter_dist": best_iteration_distribution(m_s),
-                    }
-                    if int(nt) == 500:
-                        pred_all, metas, dist = p_s, m_s, best_iteration_distribution(m_s)
-                        dist["mode"] = "fixed_500"
-                sensitivity[f"h={h}"] = sens
+            # Sensitivity for {200,500,1000} on the horizon that needed fallback
+            sens = {}
+            for nt in cfg["model"].get("sensitivity_trees", [200, 500, 1000]):
+                mcfg = dict(cfg["model"])
+                mcfg["fixed_n_estimators"] = int(nt)
+                mcfg["early_stop_metric"] = "none"
+                p_s, m_s = _run_folds(h, mcfg, tag=f"sens{nt}")
+                if p_s.empty:
+                    continue
+                tmp = p_s.merge(
+                    feat[["date", "symbol", f"y_h{h}"]], on=["date", "symbol"], how="left"
+                )
+                ev = evaluate_predictions(tmp, h, universe=pit20, label=f"top20_trees{nt}")
+                sens[str(nt)] = {
+                    "mean_ic": ev.get("mean_ic"),
+                    "icir": ev.get("icir"),
+                    "nw_tstat": ev.get("nw_tstat"),
+                    "best_iter_dist": best_iteration_distribution(m_s),
+                }
+                if int(nt) == 500:
+                    pred_all, metas = p_s, m_s
+                    dist = best_iteration_distribution(m_s)
+                    dist["mode"] = "fixed_500"
+            sensitivity[f"h={h}"] = sens
+            if dist.get("mode") != "fixed_500":
+                pred_all, metas = _run_folds(h, model_cfg, tag="fixed500")
+                dist = best_iteration_distribution(metas)
+                dist["mode"] = "fixed_500"
 
         best_iter_stats["by_horizon"][f"h={h}"] = dist
         if pred_all.empty:
