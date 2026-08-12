@@ -126,6 +126,11 @@ def run_tranche_with_column_gate(
     df = _attach_aux(preds, feat, universe)
     g = gate_values[["date", "symbol", gate_col]].copy()
     g["date"] = pd.to_datetime(g["date"], utc=True)
+    g = g.rename(columns={gate_col: "_gate_val"})
+    # drop any pre-existing gate/feature cols that would collide on merge
+    drop_cols = [c for c in ("_gate_val", gate_col) if c in df.columns]
+    if drop_cols:
+        df = df.drop(columns=drop_cols)
     df = df.merge(g, on=["date", "symbol"], how="left")
 
     rets = _prepare_returns(panel)
@@ -166,7 +171,7 @@ def run_tranche_with_column_gate(
         prev_ak = alphas[kslot].copy()
         raw_state = _hard_threshold_state(day, tau)
 
-        sig = day.set_index("symbol")[gate_col]
+        sig = day.set_index("symbol")["_gate_val"]
         finite = sig[np.isfinite(sig)]
         blocked: set[str] = set()
         if len(finite) >= 5 and top_pct > 0:
