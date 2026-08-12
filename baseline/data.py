@@ -234,6 +234,110 @@ def build_pit_topn(
     return out
 
 
+def download_funding_symbol_months(
+    symbol: str,
+    months: list[str],
+    dest_dir: Path,
+) -> Path:
+    """Download and cache monthly fundingRate zips; return parquet path."""
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    out_pq = dest_dir / f"{symbol}.parquet"
+    if out_pq.exists():
+        return out_pq
+
+    frames: list[pd.DataFrame] = []
+    raw_dir = dest_dir / "raw" / symbol
+    raw_dir.mkdir(parents=True, exist_ok=True)
+
+    for ym in months:
+        zip_name = f"{symbol}-fundingRate-{ym}.zip"
+        zip_path = raw_dir / zip_name
+        url = (
+            f"{VISION_FILE}/data/futures/um/monthly/fundingRate/{symbol}/{zip_name}"
+        )
+        if not zip_path.exists():
+            try:
+                with httpx.stream("GET", url, timeout=120, follow_redirects=True) as r:
+                    if r.status_code == 404:
+                        continue
+                    r.raise_for_status()
+                    zip_path.write_bytes(r.read())
+            except Exception as e:
+                _log(f"funding {symbol} {ym} skip: {e}")
+                continue
+        try:
+            with zipfile.ZipFile(zip_path) as zf:
+                csv_name = zf.namelist()[0]
+                with zf.open(csv_name) as fh:
+                    df = pd.read_csv(fh)
+            # schema: calc_time, funding_interval_hours, last_funding_rate
+            cols = {c.lower(): c for c in df.columns}
+            tcol = cols.get("calc_time") or list(df.columns)[0]
+            rcol = cols.get("last_funding_rate") or list(df.columns)[-1]
+            part = pd.DataFrame(
+                {
+                    "funding_time": pd.to_numeric(df[tcol], errors="coerce"),
+                    "funding_rate": pd.to_numeric(df[rcol], errors="coerce"),
+                }
+            ).dropna()
+            part["symbol"] = symbol
+            frames.append(part)
+        except Exception as e:
+            _log(f"funding {symbol} {ym} parse skip: {e}")
+            continue
+
+    if not frames:
+        empty = pd.DataFrame(columns=["date", "symbol", "funding_rate", "n_events"])
+        empty.to_parquet(out_pq, index=False)
+        return out_pq
+
+    all_df = pd.concat(frames, ignore_index=True)
+    all_df["ts"] = pd.to_datetime(all_df["funding_time"], unit="ms", utc=True)
+    all_df["date"] = all_df["ts"].dt.normalize()
+    daily = (
+        all_df.groupby(["date", "symbol"], as_index=False)
+        .agg(funding_rate=("funding_rate", "sum"), n_events=("funding_rate", "size"))
+        .sort_values(["symbol", "date"])
+        .reset_index(drop=True)
+    )
+    daily.to_parquet(out_pq, index=False)
+    return out_pq
+
+
+def load_funding_panel(raw_dir: Path, symbols: list[str]) -> pd.DataFrame:
+    parts = []
+    for sym in symbols:
+        pq = raw_dir / f"{sym}.parquet"
+        if not pq.exists():
+            continue
+        df = pd.read_parquet(pq)
+        if df.empty:
+            continue
+        parts.append(df)
+    if not parts:
+        return pd.DataFrame(columns=["date", "symbol", "funding_rate", "n_events"])
+    panel = pd.concat(parts, ignore_index=True)
+    panel["date"] = pd.to_datetime(panel["date"], utc=True)
+    return panel.sort_values(["symbol", "date"]).reset_index(drop=True)
+
+
+def funding_coverage_report(funding: pd.DataFrame, symbols: list[str]) -> dict:
+    """Summarize which symbols/dates lack funding (treated as 0)."""
+    if funding.empty:
+        return {"n_symbols_with_funding": 0, "missing_note": "no funding files loaded"}
+    have = set(funding["symbol"].unique())
+    missing = sorted(set(symbols) - have)
+    by_sym = funding.groupby("symbol")["date"].agg(["min", "max", "count"])
+    return {
+        "n_symbols_with_funding": int(len(have)),
+        "n_symbols_requested": int(len(symbols)),
+        "n_missing_symbols": int(len(missing)),
+        "missing_symbols_sample": missing[:30],
+        "span": [str(funding["date"].min().date()), str(funding["date"].max().date())],
+        "median_days_per_symbol": float(by_sym["count"].median()) if len(by_sym) else 0.0,
+    }
+
+
 def luna_presence_report(pit: pd.DataFrame, start: str = "2021-01-01", end: str = "2022-12-31") -> dict:
     """Verify whether LUNA (or close tickers) appear in a PIT universe during 2021–2022."""
     df = pit.copy()

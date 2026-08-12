@@ -69,8 +69,11 @@ portfolio:
   gross_limit: 1.0
   taker_fee_bps: 5.0
   slippage_bps: 3.0
-  # funding not available from vision klines → 0 with caveat
+  # Real funding from Vision fundingRate dumps (accrued when funding_on=true)
   funding_bps: 0.0
+  execution_lags: [0, 1]
+  # Reuse cached OOS predictions on the Volume when present
+  reuse_predictions: true
 
 paths:
   volume_root: /data/quant
