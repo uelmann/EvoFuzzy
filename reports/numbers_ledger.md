@@ -4,7 +4,7 @@
 
 Source: Phase D.2 (`reports/phaseD2_report.md`), identical-days median-τ headlines. Frozen A0 hash: `e6b7407c8243ea49df3801ccaacedecd194315f45790e549a68c3368078b3faa`. Tranche, funding on, lag 0. Top-40 books use liquidity-tiered costs and the 0.5% ADV cap (nominal book USD 1,000,000).
 
-Status: **ADOPTED** = P1 (reference book, A0 top-20 h=7) and P2 (adopted execution universe, A0 top-40 h=10). P4 is a D.2 reference row only — micro was **not** adopted.
+Status: **ADOPTED P2 sleeve** remains **C0** (A0, top-40, h=10, τ=70). **Reference book** = **COMBO** = 50/50 P1+P2 (full 1.711 / trail 0.997, causal τ). P1 is the top-20 sleeve. P4 is a D.2 reference row only — micro was **not** adopted. Round F5 did not replace the P2 sleeve.
 
 | row | status | model | universe | h | median-τ | net Sharpe full | trail-18m | 2022 | 2023 | 2024 | 2025 | 2026 | gross | cost | funding | hedge | avg #pos | % flat | ann turnover |
 |-----|--------|-------|----------|---|----------|-----------------|-----------|------|------|------|------|------|-------|------|---------|-------|----------|--------|--------------|
@@ -27,3 +27,12 @@ These used τ from the **full OOS** `|score|` distribution (lookahead). Causal r
 | **B.1 / Phase D 2026 Sharpe −0.82** | **+0.72** | A0 top-20 h=7, P1 causal median-τ, calendar-2026 net Sharpe |
 
 The 1.401 figure is the Phase D published tranche number and the D.2 isolation re-run (identical). The 1.476 figure is pooled τ=80 (the pooled median-τ pick). The −0.82 figure is Phase D’s 2026 net Sharpe under lookahead τ=60 (−0.815).
+
+## Round F5 append (causal τ)
+
+| row | status | model | universe | h | median-τ | net Sharpe full | trail-18m | 2022 | 2023 | 2024 | 2025 | 2026 | gross | cost | funding | hedge | avg #pos | % flat | ann turnover |
+|-----|--------|-------|----------|---|----------|-----------------|-----------|------|------|------|------|------|-------|------|---------|-------|----------|--------|--------------|
+| P2-C0 | ADOPTED P2 sleeve (incumbent) | A0 | top-40 | 10 | 70.0 | 1.470 | 0.723 | 2.317 | 1.547 | 3.445 | 1.216 | 0.241 | 2.482 | 0.1677 | 0.2685 | 0.2344 | 16.41 | 0.00 | 32.23 |
+| COMBO′ | ADOPTED reference | 50/50 P1+C0 | mixed | 7+10 | causal | 1.711 | 0.997 | 1.097 | 2.544 | 2.843 | 1.444 | 0.441 | nan | nan | nan | nan | nan | nan | 26.48 |
+
+Changelog (2026-08-13): Round F5: P2 sleeve INCUMBENT → C0 (full=1.470 trail=0.723); COMBO′ ADOPTED → reference COMBO′ (full=1.711 trail=0.997).
