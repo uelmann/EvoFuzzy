@@ -6,6 +6,8 @@
 - Addendum (criteria frozen before results): `reports/roundF_addendum.md`
 - Hurst: single-scale R/S, H = log(R/S)/log(n) on the 90d residual window.
 
+**Mechanical verdicts:** F1 (context) KILL top-20 / **KEEP top-40**. F2 (complexity) KILL both universes. F3 (both) KILL both universes. F4 (pruning) KILL top-20 / **KEEP top-40**. **COMBO ADOPTED** as the reference book. Ledger: causal τ only.
+
 ## Pre-registered KEEP criterion (verbatim, before results)
 
 > Block X is KEPT on universe U only if trailing-18m ΔRankIC on U ≥ +0.005 at h=7 or h=10 AND full-OOS ΔRankIC on U ≥ 0 AND Δ positive in ≥60% of trailing-18m folds on U AND the corresponding portfolio trailing-18m net Sharpe Δ on U ≥ 0. F4 (pruning) uses the same criterion with thresholds ΔRankIC ≥ 0 (trailing) and ≥ −0.002 (full): pruning is KEPT if it does not hurt. Verdicts per-universe, mechanical, no post-hoc adjustment.
