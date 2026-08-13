@@ -200,7 +200,8 @@ def train_d_fold_job(payload: dict) -> dict:
     )
     volume.commit()
     print(
-        f"[D-fold] h={fold.horizon} id={fold.fold_id} elapsed={meta['wall_elapsed']:.1f}s "
+        f"[D-fold] h={fold.horizon} id={fold.fold_id} status={meta.get('status')} "
+        f"n_pred={len(pred_df)} elapsed={meta['wall_elapsed']:.1f}s "
         f"best_iter={meta.get('best_iteration')}",
         flush=True,
     )

@@ -75,13 +75,14 @@ def write_phaseD_report(
 
     lines.append("## 1. Decay diagnostic (frozen A0, tranche h=7, τ=60, funding on, no gate)\n")
     lines.append(f"Gross alpha proxy formula: `{decay.get('formula')}`\n")
-    lines.append("| year | RankIC | dispersion | score_disp | avg_npos | %nonempty | proxy | gross | cost | funding | net | Sharpe |")
-    lines.append("|------|--------|------------|------------|----------|-----------|-------|-------|------|---------|-----|--------|")
+    lines.append("| year | RankIC | dispersion | score_disp | avg_npos | %nonempty | proxy | gross | cost | cost_share | funding | fund_share | net | Sharpe |")
+    lines.append("|------|--------|------------|------------|----------|-----------|-------|-------|------|------------|---------|------------|-----|--------|")
     for r in decay.get("by_year") or []:
         lines.append(
             f"| {r['year']} | {_fmt(r['rank_ic'])} | {_fmt(r['dispersion'])} | {_fmt(r['score_dispersion'])} | "
             f"{_fmt(r['avg_n_positions'], 2)} | {_fmt(r['pct_nonempty_book'], 2)} | {_fmt(r['gross_proxy'], 5)} | "
-            f"{_fmt(r['gross_pnl'])} | {_fmt(r['cost_drag'])} | {_fmt(r['funding_pnl'])} | "
+            f"{_fmt(r['gross_pnl'])} | {_fmt(r['cost_drag'])} | {_fmt(r.get('cost_share_of_abs_gross'), 3)} | "
+            f"{_fmt(r['funding_pnl'])} | {_fmt(r.get('funding_share_of_abs_gross'), 3)} | "
             f"{_fmt(r['net_pnl'])} | {_fmt(r['net_sharpe'], 3)} |"
         )
     lines.append(f"\nProxy↔gross corr (years): **{_fmt(decay.get('proxy_vs_gross_corr'), 3)}**\n")
@@ -99,6 +100,14 @@ def write_phaseD_report(
             f"{blob.get('min_date')} | {blob.get('max_date')} | {blob.get('n_rows')} | {blob.get('note', '')} |"
         )
     lines.append("\nNaN handling: unavailable fields left as NaN (no zero-imputation); LightGBM native NaN.\n")
+
+    lines.append("## 3. Microstructure feature block (12 features)\n")
+    lines.append("Per (symbol, date), data ≤ close of t only, then cross-sectional z-score per date, clip ±5:\n")
+    lines.append("- `funding_now`, `funding_z_30`, `funding_cum_7`, `funding_cs_rank`")
+    lines.append("- `basis_z_30`")
+    lines.append("- `oi_chg_1`, `oi_chg_7`, `oi_turnover`")
+    lines.append("- `liq_imb_1`, `liq_imb_7` (always NaN — UM liquidationSnapshot absent on Vision)")
+    lines.append("- `taker_imb_z`, `ls_ratio_z`\n")
 
     lines.append("## 4. Ablation criterion (pre-registered)\n")
     lines.append(f"> {KEEP_CRITERION}\n")
