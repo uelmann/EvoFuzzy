@@ -21,12 +21,26 @@ def _funding_wide(funding: pd.DataFrame | None) -> pd.DataFrame:
     return f.pivot(index="date", columns="symbol", values="funding_rate").sort_index()
 
 
+def _utc_ts(ts) -> pd.Timestamp:
+    t = pd.Timestamp(ts)
+    if t.tzinfo is None:
+        return t.tz_localize("UTC")
+    return t.tz_convert("UTC")
+
+
 def _attach_aux(preds: pd.DataFrame, feat: pd.DataFrame, universe: pd.DataFrame) -> pd.DataFrame:
     df = preds.copy()
     df["date"] = pd.to_datetime(df["date"], utc=True)
+    for c in ("rank", "dv_med"):
+        if c in df.columns:
+            df = df.drop(columns=[c])
     uni = universe.copy()
     uni["date"] = pd.to_datetime(uni["date"], utc=True)
-    df = df.merge(uni[["date", "symbol"]], on=["date", "symbol"], how="inner")
+    uni_cols = ["date", "symbol"]
+    for c in ("rank", "dv_med"):
+        if c in uni.columns:
+            uni_cols.append(c)
+    df = df.merge(uni[uni_cols], on=["date", "symbol"], how="inner")
 
     keep = ["date", "symbol", "close"]
     for c in ["yz_vol_30_raw", "yz_vol_30", "beta_btc_60_raw", "beta_btc_60"]:
@@ -42,6 +56,18 @@ def _attach_aux(preds: pd.DataFrame, feat: pd.DataFrame, universe: pd.DataFrame)
     return df
 
 
+def _rank_lookup_frame(universe: pd.DataFrame) -> pd.DataFrame:
+    """Wide-enough date×symbol rank/dv table for cost tier and liquidity cap."""
+    uni = universe.copy()
+    uni["date"] = pd.to_datetime(uni["date"], utc=True)
+    cols = ["date", "symbol"]
+    if "rank" in uni.columns:
+        cols.append("rank")
+    if "dv_med" in uni.columns:
+        cols.append("dv_med")
+    return uni[cols].drop_duplicates(["date", "symbol"], keep="last")
+
+
 def _inv_vol(day: pd.DataFrame, sym: str) -> float:
     row = day[day["symbol"] == sym]
     if row.empty:
@@ -54,7 +80,34 @@ def _inv_vol(day: pd.DataFrame, sym: str) -> float:
     return 1.0 / v
 
 
-def _size_book(day: pd.DataFrame, state: dict[str, int], gross_limit: float) -> pd.Series:
+def _dv_med_of(day: pd.DataFrame, sym: str) -> float:
+    row = day[day["symbol"] == sym]
+    if row.empty or "dv_med" not in row.columns:
+        return float("nan")
+    v = float(row["dv_med"].iloc[0])
+    return v if np.isfinite(v) and v > 0 else float("nan")
+
+
+def _rank_of(day: pd.DataFrame, rank_day: pd.DataFrame | None, sym: str) -> float:
+    for src in (day, rank_day):
+        if src is None or src.empty or "rank" not in src.columns:
+            continue
+        row = src[src["symbol"] == sym] if "symbol" in src.columns else src.iloc[0:0]
+        if row.empty:
+            continue
+        r = float(row["rank"].iloc[0])
+        if np.isfinite(r) and r > 0:
+            return r
+    return float("nan")
+
+
+def _size_book(
+    day: pd.DataFrame,
+    state: dict[str, int],
+    gross_limit: float,
+    liq_cap_adv_frac: float | None = None,
+    nominal_book_usd: float = 1_000_000.0,
+) -> pd.Series:
     longs = [s for s, v in state.items() if v > 0]
     shorts = [s for s, v in state.items() if v < 0]
     w: dict[str, float] = {}
@@ -68,6 +121,16 @@ def _size_book(day: pd.DataFrame, state: dict[str, int], gross_limit: float) -> 
         ssum = sum(iv.values()) or 1.0
         for s, v in iv.items():
             w[s] = -0.5 * gross_limit * v / ssum
+    if liq_cap_adv_frac is not None and float(liq_cap_adv_frac) > 0 and float(nominal_book_usd) > 0:
+        cap_frac = float(liq_cap_adv_frac)
+        book = float(nominal_book_usd)
+        for s in list(w):
+            dv = _dv_med_of(day, s)
+            if not np.isfinite(dv) or dv <= 0:
+                continue
+            cap = cap_frac * dv / book
+            if abs(w[s]) > cap:
+                w[s] = float(np.sign(w[s]) * cap)
     return pd.Series(w, dtype=float)
 
 
@@ -79,15 +142,126 @@ def _beta_of(day: pd.DataFrame, sym: str) -> float:
     return b if np.isfinite(b) else 0.0
 
 
-def _apply_hedge(day: pd.DataFrame, alpha: pd.Series) -> tuple[pd.Series, float]:
+def _forward_beta_map(rets: pd.DataFrame, dt: pd.Timestamp, h: int, symbols: list[str]) -> dict[str, float]:
+    """LOOKAHEAD: beta on the forward window of the next h daily log-returns after dt."""
+    if rets.empty or "BTCUSDT" not in rets.columns:
+        return {}
+    loc = int(rets.index.searchsorted(_utc_ts(dt), side="right"))
+    fut = rets.iloc[loc : loc + int(h)]
+    if len(fut) < max(3, int(h) // 2):
+        return {}
+    rb = fut["BTCUSDT"].astype(float)
+    out: dict[str, float] = {}
+    varb = float(rb.var(ddof=1)) if rb.notna().sum() >= 3 else float("nan")
+    if not np.isfinite(varb) or varb <= 1e-18:
+        return {}
+    for s in symbols:
+        if s not in fut.columns:
+            continue
+        rs = fut[s].astype(float)
+        m = rs.notna() & rb.notna()
+        if int(m.sum()) < 3:
+            continue
+        cov = float(rs[m].cov(rb[m]))
+        if not np.isfinite(cov):
+            continue
+        out[s] = float(cov / varb)
+    return out
+
+
+def _apply_hedge(
+    day: pd.DataFrame,
+    alpha: pd.Series,
+    beta_override: dict[str, float] | None = None,
+) -> tuple[pd.Series, float]:
     if alpha.empty:
         return alpha.copy(), 0.0
-    port_beta = sum(float(wi) * _beta_of(day, s) for s, wi in alpha.items())
+    port_beta = 0.0
+    for s, wi in alpha.items():
+        if beta_override is not None and s in beta_override:
+            b = float(beta_override[s])
+        else:
+            b = _beta_of(day, s)
+        port_beta += float(wi) * (b if np.isfinite(b) else 0.0)
     w_btc = -port_beta
     full = alpha.copy()
     if abs(w_btc) > 1e-12:
         full.loc["BTCUSDT"] = float(full.get("BTCUSDT", 0.0)) + w_btc
     return full, w_btc
+
+
+def _cost_rate_for_rank(
+    rank: float,
+    fee_bps: float,
+    slip_bps: float,
+    tiered_costs: bool,
+    fee_bps_next: float,
+    slip_bps_next: float,
+) -> float:
+    top = (float(fee_bps) + float(slip_bps)) * 1e-4
+    nxt = (float(fee_bps_next) + float(slip_bps_next)) * 1e-4
+    if not tiered_costs:
+        return top
+    if not np.isfinite(rank) or rank <= 20:
+        return top
+    return nxt
+
+
+def tau_by_date_fold_train(
+    df: pd.DataFrame,
+    dates: list,
+    tau_pct: float,
+    folds: list | None,
+) -> dict:
+    """Causal τ: percentile of |score| on the expanding training window only.
+
+    For fold k, dates in the val window use |score| strictly before val_start
+    (prior OOS, which is in the expanding train by then). Fold 0 warms up
+    day-by-day from past scores; future OOS never enters τ.
+    """
+    by_d = df.groupby("date")["score"].apply(lambda s: s.abs().dropna().to_numpy())
+    tau_map: dict = {}
+    if folds:
+        ordered = sorted(folds, key=lambda fr: _utc_ts(fr.val_start))
+        acc: list[float] = []
+        used = set()
+        for fr in ordered:
+            vs, ve = _utc_ts(fr.val_start), _utc_ts(fr.val_end)
+            fold_dates = [dt for dt in dates if vs <= _utc_ts(dt) <= ve]
+            if len(acc) >= 50:
+                tau_f = float(np.percentile(np.asarray(acc, dtype=float), tau_pct))
+                for dt in fold_dates:
+                    tau_map[dt] = tau_f
+                    extra = by_d.get(dt)
+                    if extra is not None and len(extra):
+                        acc.extend(float(x) for x in extra)
+                    used.add(dt)
+            else:
+                for dt in fold_dates:
+                    if len(acc) >= 5:
+                        tau_map[dt] = float(np.percentile(np.asarray(acc, dtype=float), tau_pct))
+                    else:
+                        tau_map[dt] = 1e9
+                    extra = by_d.get(dt)
+                    if extra is not None and len(extra):
+                        acc.extend(float(x) for x in extra)
+                    used.add(dt)
+        rest = [dt for dt in dates if dt not in used]
+        for dt in rest:
+            if len(acc) >= 5:
+                tau_map[dt] = float(np.percentile(np.asarray(acc, dtype=float), tau_pct))
+            extra = by_d.get(dt)
+            if extra is not None and len(extra):
+                acc.extend(float(x) for x in extra)
+        return tau_map
+    acc = []
+    for dt in dates:
+        if len(acc) >= 5:
+            tau_map[dt] = float(np.percentile(np.asarray(acc, dtype=float), tau_pct))
+        extra = by_d.get(dt)
+        if extra is not None and len(extra):
+            acc.extend(float(x) for x in extra)
+    return tau_map
 
 
 def _update_state_hysteresis(state, day, tau, exit_thr):
@@ -404,12 +578,22 @@ def run_tranche_portfolio(
     apply_funding: bool = False,
     funding: pd.DataFrame | None = None,
     tau_mode: str = "pooled",
+    folds: list | None = None,
+    tiered_costs: bool = False,
+    fee_bps_next: float = 10.0,
+    slip_bps_next: float = 8.0,
+    liq_cap_adv_frac: float | None = None,
+    nominal_book_usd: float = 1_000_000.0,
+    hedge_mode: str = "trailing",
+    rank_universe: pd.DataFrame | None = None,
 ) -> dict:
     del exit_hysteresis
     h = int(horizon)
     df = _attach_aux(preds, feat, universe)
     rets = _prepare_returns(panel)
     fund_wide = _funding_wide(funding) if apply_funding else pd.DataFrame()
+    rank_src = rank_universe if rank_universe is not None else universe
+    rank_long = _rank_lookup_frame(rank_src)
     dates = sorted(df["date"].unique())
     if len(dates) < h + 5 + int(lag):
         return {"error": "not enough dates", "tau_pct": tau_pct, "variant": "tranche", "lag": lag}
@@ -419,8 +603,8 @@ def run_tranche_portfolio(
 
     tau = float(np.percentile(abs_scores, tau_pct))
     tau_by_date: dict = {}
-    if str(tau_mode) == "expanding":
-        # Causal: τ at t from |score| on dates strictly before t (training-window / PIT).
+    mode = str(tau_mode)
+    if mode == "expanding":
         by_d = df.groupby("date")["score"].apply(lambda s: s.abs().dropna().to_numpy())
         acc: list[float] = []
         for dt in dates:
@@ -431,8 +615,14 @@ def run_tranche_portfolio(
             extra = by_d.get(dt)
             if extra is not None and len(extra):
                 acc.extend(float(x) for x in extra)
+    elif mode in ("fold_train", "training", "train_window"):
+        tau_by_date = tau_by_date_fold_train(df, dates, tau_pct, folds)
+        # Warm-up dates with too few past scores: do not fall back to full-OOS τ.
+        for dt in dates:
+            tau_by_date.setdefault(dt, 1e9)
     cost_rate = (fee_bps + slip_bps) * 1e-4
     tg = gross_limit / float(h)
+    use_oracle = str(hedge_mode).lower() == "oracle"
 
     states: list[dict[str, int]] = [{} for _ in range(h)]
     alphas: list[pd.Series] = [pd.Series(dtype=float) for _ in range(h)]
@@ -451,9 +641,11 @@ def run_tranche_portfolio(
     daily_net, daily_gross, daily_hedge, daily_cost, daily_funding = [], [], [], [], []
     to_ee, to_rs, to_hg = [], [], []
     n_pos, n_long, n_short, flat, eq_dates = [], [], [], [], []
+    traded_ranks: list[float] = []
 
     for i, dt in enumerate(dates[:-1]):
         day = df[df["date"] == dt]
+        rank_day = rank_long[rank_long["date"] == dt] if not rank_long.empty else day
         k = i % h
         prev_ak = alphas[k].copy()
         tau_t = float(tau_by_date.get(dt, tau)) if tau_by_date else tau
@@ -472,11 +664,21 @@ def run_tranche_portfolio(
                 entry_date[(k, sym)] = dt
                 sym_pnl[(k, sym)] = 0.0
         states[k] = new_state
-        alphas[k] = _size_book(day, new_state, tg)
+        alphas[k] = _size_book(
+            day, new_state, tg,
+            liq_cap_adv_frac=liq_cap_adv_frac,
+            nominal_book_usd=nominal_book_usd,
+        )
 
         full = pd.Series(dtype=float)
         alpha = pd.Series(dtype=float)
         hedge_sum = 0.0
+        beta_ov = None
+        if use_oracle:
+            names = []
+            for tk in range(h):
+                names.extend(list(alphas[tk].index))
+            beta_ov = _forward_beta_map(rets, dt, h, sorted(set(names)))
         for tk in range(h):
             ak = alphas[tk]
             if ak.empty:
@@ -485,7 +687,7 @@ def run_tranche_portfolio(
                 univ = set(day["symbol"])
                 ak = ak[[s for s in ak.index if s in univ]]
                 alphas[tk] = ak
-            fk, hk = _apply_hedge(day, ak)
+            fk, hk = _apply_hedge(day, ak, beta_override=beta_ov)
             alpha = alpha.add(ak, fill_value=0.0)
             full = full.add(fk, fill_value=0.0)
             hedge_sum += hk
@@ -515,8 +717,19 @@ def run_tranche_portfolio(
         fidx = applied_full.index.union(prev_full.index)
         f = applied_full.reindex(fidx).fillna(0.0)
         pf = prev_full.reindex(fidx).fillna(0.0)
-        turnover = 0.5 * float((f - pf).abs().sum())
-        cost = turnover * cost_rate
+        dw = (f - pf).abs()
+        turnover = 0.5 * float(dw.sum())
+        if tiered_costs:
+            cost = 0.0
+            for s, mag in dw.items():
+                rnk = _rank_of(day, rank_day, s)
+                if s == "BTCUSDT" and not np.isfinite(rnk):
+                    rnk = 1.0
+                cost += 0.5 * float(mag) * _cost_rate_for_rank(
+                    rnk, fee_bps, slip_bps, True, fee_bps_next, slip_bps_next
+                )
+        else:
+            cost = turnover * cost_rate
 
         nxt = dates[i + 1]
         gross_r = hedge_r = 0.0
@@ -557,11 +770,22 @@ def run_tranche_portfolio(
         n_pos.append(nl + ns)
         flat.append(1 if nl + ns == 0 else 0)
         eq_dates.append(nxt)
+        day_ranks = []
+        if len(applied_alpha):
+            for s, wi in applied_alpha.items():
+                if abs(float(wi)) <= 1e-12:
+                    continue
+                rnk = _rank_of(day, rank_day, s)
+                if np.isfinite(rnk):
+                    day_ranks.append(float(rnk))
+        if day_ranks:
+            traded_ranks.append(float(np.mean(day_ranks)))
         prev_full, prev_hedge = applied_full, applied_hedge
 
         if i % 60 == 0:
             print(
-                f"[portfolio tranche h={h} τ={tau_pct} lag={lag} fund={apply_funding}] "
+                f"[portfolio tranche h={h} τ={tau_pct} lag={lag} fund={apply_funding} "
+                f"tau_mode={mode} hedge={hedge_mode} tiered={tiered_costs}] "
                 f"day {i}/{len(dates)} L={nl} S={ns} to={turnover:.3f}",
                 flush=True,
             )
@@ -571,5 +795,10 @@ def run_tranche_portfolio(
         to_ee, to_rs, to_hg, n_pos, n_long, n_short, flat, eq_dates, hold_days, trade_pnls,
         tau_pct, tau, "tranche", horizon, lag, apply_funding, dict(sym_contrib), dict(side_days),
     )
-    packed["tau_mode"] = str(tau_mode)
+    packed["tau_mode"] = mode
+    packed["hedge_mode"] = str(hedge_mode)
+    packed["tiered_costs"] = bool(tiered_costs)
+    packed["liq_cap_adv_frac"] = liq_cap_adv_frac
+    packed["nominal_book_usd"] = float(nominal_book_usd)
+    packed["avg_traded_rank"] = float(np.mean(traded_ranks)) if traded_ranks else float("nan")
     return packed

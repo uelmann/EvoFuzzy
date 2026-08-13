@@ -7,8 +7,8 @@ Strictness notes vs first-pass version (7b634ff):
   Empty IC after shuffle FAILs (removed the pass-on-degenerate escape hatch).
   25 within-date shuffles average the null mean to cut MC noise only;
   threshold is not relaxed. Full-OOS sample softener removed.
-- universe_lookahead: same invariance test; now run for both exec top-20 and
-  train top-120 (identical mechanism).
+- universe_lookahead: same invariance test; now run for exec top-20, exec top-40,
+  and train top-120 (identical mechanism).
 - feature_lookahead / seed_determinism: unchanged in logic/thresholds.
 """
 
@@ -188,6 +188,15 @@ def run_all_gates(
             n=cfg["data"]["exec_universe_n"],
             window=window,
             name="universe_lookahead_top20",
+        )
+    )
+    results.append(
+        gate_universe_lookahead(
+            panel,
+            build_pit_fn,
+            n=40,
+            window=window,
+            name="universe_lookahead_top40",
         )
     )
     results.append(

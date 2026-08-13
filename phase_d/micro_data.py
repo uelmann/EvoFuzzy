@@ -28,6 +28,8 @@ MICRO_FEATURE_COLS = [
     "taker_imb_z",
     "ls_ratio_z",
 ]
+MICRO_LIQ_NAN_COLS = ["liq_imb_1", "liq_imb_7"]
+MICRO_FEATURE_COLS_10 = [c for c in MICRO_FEATURE_COLS if c not in MICRO_LIQ_NAN_COLS]
 
 
 def _log(msg: str) -> None:
