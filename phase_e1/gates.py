@@ -53,7 +53,20 @@ def future_perturbation_gate(feat: pd.DataFrame, n_symbols: int = 4) -> dict:
     if len(dates) < WINDOW + 20:
         return {"name": "future_perturbation", "passed": False, "reason": "too few dates"}
     t = dates[len(dates) // 2]
-    # synthetic panel
+    eligible = []
+    for s, g in feat.groupby("symbol"):
+        n_le = int((g["date"] <= t).sum())
+        n_gt = int((g["date"] > t).sum())
+        if n_le >= WINDOW and n_gt >= 5:
+            eligible.append(str(s))
+    if len(eligible) < 2:
+        return {
+            "name": "future_perturbation",
+            "passed": False,
+            "reason": "too few symbols with history at t",
+            "t": str(pd.Timestamp(t).date()),
+            "n_eligible": len(eligible),
+        }
     rng = np.random.default_rng(0)
     syn_dates = pd.date_range("2021-01-01", periods=120, freq="D", tz="UTC")
     syn_rows = []
@@ -98,7 +111,7 @@ def future_perturbation_gate(feat: pd.DataFrame, n_symbols: int = 4) -> dict:
             return None
         return gru_score_from_window(w, seed=0)
 
-    symbols = [s for s, n in feat.groupby("symbol").size().items() if n >= WINDOW + 5][:n_symbols]
+    symbols = eligible[:n_symbols]
     feat_pert = feat.copy()
     feat_pert.loc[feat_pert["date"] > t, FEATURE_COLS] = (
         feat_pert.loc[feat_pert["date"] > t, FEATURE_COLS].astype(np.float32)
@@ -123,7 +136,17 @@ def future_perturbation_gate(feat: pd.DataFrame, n_symbols: int = 4) -> dict:
                 "n_future_rows": int((g1["date"] > t).sum()),
             }
         )
-    passed = bool(syn_ok and syn_score_ok and real_ok and scores_ok)
+    later = [d for d in dates if d > t]
+    power_ok = False
+    if later and symbols:
+        t_later = later[min(20, len(later) - 1)]
+        for s in symbols:
+            w_now = window_from_symbol_frame(feat[feat["symbol"] == s], t_later)
+            w_pert = window_from_symbol_frame(feat_pert[feat_pert["symbol"] == s], t_later)
+            if w_now is not None and w_pert is not None and not np.array_equal(w_now, w_pert):
+                power_ok = True
+                break
+    passed = bool(syn_ok and syn_score_ok and real_ok and scores_ok and power_ok)
     return {
         "name": "future_perturbation",
         "passed": passed,
@@ -131,10 +154,12 @@ def future_perturbation_gate(feat: pd.DataFrame, n_symbols: int = 4) -> dict:
         "synthetic_score_ok": bool(syn_score_ok),
         "real_ok": bool(real_ok),
         "score_ok": bool(scores_ok),
+        "power_ok": bool(power_ok),
+        "n_eligible": int(len(eligible)),
         "t": str(pd.Timestamp(t).date()),
         "synthetic": syn_detail,
         "real": real_detail,
-        "note": "Sequence windows use only rows with date ≤ t (last 60 bars). Score at t is a fixed-weight GRU of that window.",
+        "note": "Sequence windows use only rows with date ≤ t (last 60 bars). Score at t is a fixed-weight GRU of that window. Power check: windows ending after t must change when future rows are perturbed.",
     }
 
 
