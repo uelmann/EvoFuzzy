@@ -65,11 +65,11 @@ def plot_sleeves(cands: dict, out_path: Path) -> None:
             if got is None:
                 continue
             d, y = got
-            m = (d >= start) & (d <= end)
-            if not np.any(m):
+            m = np.asarray((pd.DatetimeIndex(d) >= start) & (pd.DatetimeIndex(d) <= end))
+            if not m.any():
                 continue
-            yy = y[m.to_numpy()] if hasattr(m, "to_numpy") else y[m]
-            dd = d[m]
+            yy = np.asarray(y)[m]
+            dd = pd.DatetimeIndex(d)[m]
             if len(yy) and yy[0] != 0:
                 yy = yy / yy[0]
             axes[1].plot(dd, yy, label=lab, lw=1.4)
