@@ -274,7 +274,7 @@ def run_phase_e1b() -> dict:
         fold_mean_ic,
         plot_null,
     )
-    from phase_e1.resume import NEW_SEEDS, OLD_SEEDS, run_sections_2_to_4
+    from phase_e1.resume import OLD_SEEDS
 
     t_pipe = time.time()
     frozen_text = Path("/root/config_frozen_a0.yaml").read_text()
@@ -487,40 +487,7 @@ def run_phase_e1b() -> dict:
     resume_blob = None
     extra_gpu = {}
     if e1b_verdict == "GREEN":
-        extra_gpu = gru_extra_seed_jobs.remote(
-            {
-                "cache_dir": str(seq_dir),
-                "out_root": str(gru_root),
-                "inner_holdout_days": cfg["cv"]["inner_holdout_days"],
-                "max_epochs": DEFAULT_MAX_EPOCHS,
-                "seeds": NEW_SEEDS,
-                "horizons": [7, 10],
-                "folds": folds_payload,
-                "gpu_cap": E1_GPU_CAP,
-                "sec_per_epoch": sec,
-            }
-        )
-        volume.reload()
-        horizons_trained = extra_gpu.get("horizons") or [7, 10]
-        resume_blob = run_sections_2_to_4(
-            feat=feat,
-            pit20=pit20,
-            pit120=pit120,
-            panel=panel,
-            funding=funding,
-            pred_a=pred_a,
-            folds=folds,
-            cfg=cfg,
-            gru_root=gru_root,
-            extra_gpu=extra_gpu,
-            horizons_trained=horizons_trained,
-            frozen_hash=calc,
-            gates=[{"name": "e1b_empirical_null", "passed": True, "verdict": "GREEN"}],
-            gates_ok=True,
-            rep_dir=rep_dir,
-            chart_dir=chart_dir,
-            volume_commit=volume.commit,
-        )
+        print("[phaseE1b] GREEN — extra seeds deferred to local entrypoint / gru_extra_seed_jobs", flush=True)
     elif e1b_verdict == "CONTAMINATED":
         print("[phaseE1b] CONTAMINATED — no further GRU work", flush=True)
     else:
@@ -552,6 +519,9 @@ def run_phase_e1b() -> dict:
         "gru_cells": gru_cells,
         "a0_cells": a0_cells,
         "resume": {k: resume_blob[k] for k in ("verdict", "details", "keep_lines", "stdout") if resume_blob and k in resume_blob},
+        "folds_payload": folds_payload,
+        "inner_holdout_days": cfg["cv"]["inner_holdout_days"],
+        "sec_per_epoch": sec,
         "criterion": E1B_GATE,
         "scheduled_jobs_created": False,
         "elapsed_sec": time.time() - t_pipe,
@@ -570,13 +540,99 @@ def run_phase_e1b() -> dict:
         flush=True,
     )
     print(f"VERDICT: {e1b_verdict}", flush=True)
-    if resume_blob:
-        for line in resume_blob.get("keep_lines") or []:
-            print(f"ENSEMBLE: {line}", flush=True)
-        print((resume_blob.get("stdout") or {}).get("portfolio", ""), flush=True)
-        print(f"CONFIRM: {resume_blob.get('verdict')}", flush=True)
     print(f"[phaseE1b] DONE elapsed={time.time()-t_pipe:.1f}s", flush=True)
     return summary
+
+
+@app.function(
+    image=cpu_image,
+    timeout=60 * 60 * 24,
+    retries=0,
+    volumes={"/data/quant": volume},
+    cpu=16,
+    memory=65536,
+)
+def run_e1_resume(payload: dict) -> dict:
+    """GREEN path: extra seeds already trained; run E.1 §2–§4 and rewrite report."""
+    import hashlib
+
+    import pandas as pd
+
+    from baseline.data import load_funding_panel, load_panel
+    from baseline.model import make_folds
+    from phase_e1.e1b_report import write_e1b_report
+    from phase_e1.resume import run_sections_2_to_4
+
+    calc = hashlib.sha256(Path("/root/config_frozen_a0.yaml").read_text().encode()).hexdigest()
+    cfg = _cfg()
+    root = Path(cfg["paths"]["volume_root"])
+    feat = pd.read_parquet(root / "features" / "features_labeled.parquet")
+    feat["date"] = pd.to_datetime(feat["date"], utc=True)
+    pit20 = pd.read_parquet(root / "universe" / "top20_pit.parquet")
+    pit120 = pd.read_parquet(root / "universe" / "top120_pit.parquet")
+    pit20["date"] = pd.to_datetime(pit20["date"], utc=True)
+    pit120["date"] = pd.to_datetime(pit120["date"], utc=True)
+    pred_a = {
+        7: pd.read_parquet(root / "predictions" / "lgbm_price_only_h7.parquet"),
+        10: pd.read_parquet(root / "predictions" / "lgbm_price_only_h10.parquet"),
+    }
+    for h in pred_a:
+        pred_a[h]["date"] = pd.to_datetime(pred_a[h]["date"], utc=True)
+    ever = sorted(set(feat["symbol"].unique()) | {"BTCUSDT"})
+    panel = load_panel(root / "raw" / "klines", ever)
+    panel["date"] = pd.to_datetime(panel["date"], utc=True)
+    funding = load_funding_panel(root / "raw" / "funding", ever)
+    folds = {}
+    for h in (7, 10):
+        folds[h] = make_folds(
+            pd.DatetimeIndex(feat["date"].unique()),
+            horizon=h,
+            min_train_days=cfg["cv"]["min_train_days"],
+            val_days=cfg["cv"]["val_days"],
+            step_days=cfg["cv"]["step_days"],
+        )
+    extra_gpu = payload.get("extra_gpu") or {}
+    horizons_trained = extra_gpu.get("horizons") or [7, 10]
+    resume_blob = run_sections_2_to_4(
+        feat=feat,
+        pit20=pit20,
+        pit120=pit120,
+        panel=panel,
+        funding=funding,
+        pred_a=pred_a,
+        folds=folds,
+        cfg=cfg,
+        gru_root=root / "phase_e" / "gru",
+        extra_gpu=extra_gpu,
+        horizons_trained=horizons_trained,
+        frozen_hash=calc,
+        gates=[{"name": "e1b_empirical_null", "passed": True, "verdict": "GREEN"}],
+        gates_ok=True,
+        rep_dir=root / "reports",
+        chart_dir=root / "charts",
+        volume_commit=volume.commit,
+    )
+    e1b = json.loads((root / "reports" / "phaseE1b_summary.json").read_text())
+    write_e1b_report(
+        root / "reports" / "phaseE1b_report.md",
+        frozen_hash=calc,
+        budget=e1b.get("budget"),
+        folds_used=e1b.get("folds_used"),
+        horizons=[7, 10],
+        shuffle_seeds=list(range(101, 111)),
+        dropped_folds=e1b.get("dropped_folds"),
+        e1b_verdict="GREEN",
+        e1b_details=e1b.get("decision"),
+        null_table=e1b.get("gru_cells"),
+        a0_table=e1b.get("a0_cells"),
+        skill_by_h=(e1b.get("decision") or {}).get("skill_by_h"),
+        resume=resume_blob,
+        gates=[{"name": "e1b_empirical_null", "passed": True}],
+    )
+    e1b["resume"] = {k: resume_blob[k] for k in ("verdict", "details", "keep_lines", "stdout") if k in resume_blob}
+    (root / "reports" / "phaseE1b_summary.json").write_text(json.dumps(e1b, indent=2, default=str))
+    volume.commit()
+    return e1b
 
 
 @app.local_entrypoint()
@@ -586,31 +642,52 @@ def main():
     import shutil
     import subprocess
 
-    art = Path("artifacts")
-    (art / "reports").mkdir(parents=True, exist_ok=True)
-    (art / "charts").mkdir(parents=True, exist_ok=True)
-    Path("reports").mkdir(exist_ok=True)
-    Path("charts").mkdir(exist_ok=True)
-    for remote, name, kind in [
-        ("reports/phaseE1b_report.md", "phaseE1b_report.md", "reports"),
-        ("reports/phaseE1b_summary.json", "phaseE1b_summary.json", "reports"),
-        ("charts/phaseE1b_null.png", "phaseE1b_null.png", "charts"),
-        ("charts/phaseE1_seeds.png", "phaseE1_seeds.png", "charts"),
-        ("charts/phaseE1_blend_equity.png", "phaseE1_blend_equity.png", "charts"),
-    ]:
-        dest = art / kind / name
-        subprocess.run(["modal", "volume", "get", VOLUME_NAME, remote, str(dest), "--force"], check=False)
-        if dest.exists() and dest.is_file():
-            shutil.copy2(dest, Path(kind) / name)
-    opt = Path("/opt/cursor/artifacts")
-    if opt.exists():
-        for sub in ("reports", "charts"):
-            (opt / sub).mkdir(parents=True, exist_ok=True)
-        for src in (art / "reports").glob("phaseE1b*"):
-            (opt / "reports" / src.name).write_bytes(src.read_bytes())
-        for src in (art / "charts").glob("phaseE1b*"):
-            (opt / "charts" / src.name).write_bytes(src.read_bytes())
-        for src in (art / "charts").glob("phaseE1_*"):
-            (opt / "charts" / src.name).write_bytes(src.read_bytes())
+    def _pull():
+        art = Path("artifacts")
+        (art / "reports").mkdir(parents=True, exist_ok=True)
+        (art / "charts").mkdir(parents=True, exist_ok=True)
+        Path("reports").mkdir(exist_ok=True)
+        Path("charts").mkdir(exist_ok=True)
+        for remote, name, kind in [
+            ("reports/phaseE1b_report.md", "phaseE1b_report.md", "reports"),
+            ("reports/phaseE1b_summary.json", "phaseE1b_summary.json", "reports"),
+            ("charts/phaseE1b_null.png", "phaseE1b_null.png", "charts"),
+            ("charts/phaseE1_seeds.png", "phaseE1_seeds.png", "charts"),
+            ("charts/phaseE1_blend_equity.png", "phaseE1_blend_equity.png", "charts"),
+        ]:
+            dest = art / kind / name
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            subprocess.run(["modal", "volume", "get", VOLUME_NAME, remote, str(dest), "--force"], check=False)
+            if dest.exists() and dest.is_file():
+                shutil.copy2(dest, Path(kind) / name)
+        opt = Path("/opt/cursor/artifacts")
+        if opt.exists():
+            for sub in ("reports", "charts"):
+                (opt / sub).mkdir(parents=True, exist_ok=True)
+            for src in (art / "reports").glob("phaseE1b*"):
+                (opt / "reports" / src.name).write_bytes(src.read_bytes())
+            for src in (art / "charts").glob("phaseE1b*"):
+                (opt / "charts" / src.name).write_bytes(src.read_bytes())
+            for src in (art / "charts").glob("phaseE1_*"):
+                (opt / "charts" / src.name).write_bytes(src.read_bytes())
+
+    _pull()
+    if summary.get("e1b_verdict") == "GREEN":
+        print("[local] GREEN — training extra seeds 45–50 then §2–§4", flush=True)
+        extra = gru_extra_seed_jobs.remote(
+            {
+                "cache_dir": "/data/quant/phase_e/seq",
+                "out_root": "/data/quant/phase_e/gru",
+                "inner_holdout_days": summary.get("inner_holdout_days", 90),
+                "max_epochs": DEFAULT_MAX_EPOCHS,
+                "seeds": [45, 46, 47, 48, 49, 50],
+                "horizons": [7, 10],
+                "folds": summary["folds_payload"],
+                "gpu_cap": E1_GPU_CAP,
+                "sec_per_epoch": summary.get("sec_per_epoch", 5.4),
+            }
+        )
+        summary = run_e1_resume.remote({"extra_gpu": extra})
+        _pull()
     print(json.dumps({"e1b_verdict": summary.get("e1b_verdict"), "resume": summary.get("resume")}, indent=2, default=str))
     print("[local] Phase E.1b complete.", flush=True)
