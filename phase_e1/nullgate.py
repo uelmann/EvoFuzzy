@@ -4,10 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
@@ -121,6 +117,11 @@ def assemble_fold_ensemble(gru_root: Path, horizon: int, fold_id: int, seeds: li
 
 
 def plot_null(cells: list[dict], out_path: Path) -> None:
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
     prim = [c for c in cells if c.get("universe") == PRIMARY_UNI]
     prim = sorted(prim, key=lambda c: (int(c["horizon"]), int(c["fold_id"])))
     n = max(len(prim), 1)
