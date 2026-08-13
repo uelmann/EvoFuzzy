@@ -223,6 +223,24 @@ def train_gru_all_job(payload: dict) -> dict:
     for h, folds in sorted(folds_by_h.items()):
         for fr in folds:
             for seed in seeds:
+                dest_dir = out_root / f"h{h}" / f"seed{seed}"
+                dest_dir.mkdir(parents=True, exist_ok=True)
+                pp = dest_dir / f"fold{fr.fold_id}.parquet"
+                mp = dest_dir / f"fold{fr.fold_id}_meta.json"
+                if pp.exists() and pp.stat().st_size > 0:
+                    meta = json.loads(mp.read_text()) if mp.exists() else {
+                        "fold_id": fr.fold_id,
+                        "seed": seed,
+                        "horizon": int(h),
+                        "status": "reuse",
+                    }
+                    meta["pred_path"] = str(pp)
+                    all_meta.append(meta)
+                    print(
+                        f"[HB] GRU reuse h={h} fold={fr.fold_id} seed={seed} path={pp}",
+                        flush=True,
+                    )
+                    continue
                 pred_df, meta = train_gru_fold(
                     cache_dir,
                     fr,
