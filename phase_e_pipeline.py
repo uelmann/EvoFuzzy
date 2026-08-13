@@ -37,8 +37,8 @@ cpu_image = (
         "httpx",
         "pyyaml",
         "scikit-learn",
-        "iisignature",
     )
+    .pip_install("iisignature")
     .env({"PYTHONUNBUFFERED": "1"})
     .add_local_python_source("baseline", "phase_e")
     .add_local_file("config.yaml", remote_path="/root/config.yaml")
