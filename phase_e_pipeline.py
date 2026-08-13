@@ -172,6 +172,7 @@ def train_gru_all_job(payload: dict) -> dict:
     cache_dir = Path(payload["cache_dir"])
     out_root = Path(payload["out_root"])
     out_root.mkdir(parents=True, exist_ok=True)
+    volume.reload()
     inner_h = int(payload["inner_holdout_days"])
     max_epochs = int(payload["max_epochs"])
     seeds = list(payload["seeds"])
