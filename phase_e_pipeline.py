@@ -283,14 +283,14 @@ def train_gru_all_job(payload: dict) -> dict:
             sdf = sdf.sort_values(["date", "symbol", "fold_id"]).drop_duplicates(["date", "symbol"], keep="first")
             sp = out_root / f"lgbm_seq_s_h{h}_seed{seed}.parquet"
             sdf.to_parquet(sp, index=False)
-            seed_frames.append(sdf[["date", "symbol", "score"]].rename(columns={"score": f"s{seed}"}))
+            seed_frames.append(sdf[["date", "symbol", "score"]].rename(columns={"score": f"score_s{seed}"}))
         if not seed_frames:
             continue
         merged = seed_frames[0]
         for extra in seed_frames[1:]:
             merged = merged.merge(extra, on=["date", "symbol"], how="outer")
-        scols = [c for c in merged.columns if c.startswith("s")]
-        merged["score"] = merged[scols].mean(axis=1)
+        scols = [c for c in merged.columns if c.startswith("score_s")]
+        merged["score"] = merged[scols].apply(pd.to_numeric, errors="coerce").mean(axis=1)
         ycol = f"y_h{h}"
         # attach label from first seed file if present
         first = pd.read_parquet(out_root / f"lgbm_seq_s_h{h}_seed{seeds[0]}.parquet")
