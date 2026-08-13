@@ -394,6 +394,8 @@ def _pack_metrics(
         "daily_hedge": hedge_s,
         "daily_cost": cost_s,
         "daily_funding": fund_s,
+        "daily_n_pos": pd.Series(n_pos, index=rets_s.index, dtype=float) if n_pos else pd.Series(dtype=float),
+        "daily_flat": pd.Series(flat, index=rets_s.index, dtype=float) if flat else pd.Series(dtype=float),
         "sym_contrib": dict(sym_contrib),
         "side_days": side_days,
     }

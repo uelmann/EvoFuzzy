@@ -42,7 +42,7 @@ def window_slice(s: pd.Series, window: str) -> pd.Series:
 def slim_port(res: dict) -> dict:
     drop = {
         "equity", "daily_ret", "daily_gross", "daily_hedge", "daily_cost",
-        "daily_funding", "sym_contrib", "side_days",
+        "daily_funding", "daily_n_pos", "daily_flat", "sym_contrib", "side_days",
     }
     return {k: v for k, v in res.items() if k not in drop}
 
@@ -85,6 +85,14 @@ def summarize_port(res: dict, common_idx: pd.DatetimeIndex | None = None) -> dic
     if isinstance(eq, pd.DataFrame) and not eq.empty:
         out["equity"] = eq
     out["daily_ret"] = used
+    for key in ("daily_n_pos", "daily_flat"):
+        ser = res.get(key)
+        if isinstance(ser, pd.Series) and len(ser):
+            ser = ser.copy()
+            ser.index = pd.DatetimeIndex(pd.to_datetime(ser.index, utc=True))
+            if common_idx is not None:
+                ser = ser.reindex(common_idx)
+            out[key] = ser
     return out
 
 
