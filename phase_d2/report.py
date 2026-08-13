@@ -187,6 +187,13 @@ def write_phaseD2_report(
     lines.append(f"> {ADOPTION_CRITERION}\n")
     lines.append(f"**Universe: {verdict.get('universe_verdict')}**")
     lines.append(f"**Micro on {verdict.get('chosen_universe')}: {verdict.get('micro_verdict')}**\n")
+    if verdict.get("universe_verdict") == "ADOPTED" and verdict.get("micro_verdict") != "ADOPTED":
+        lines.append(
+            "Operational reading (pre-registered, not a new criterion): top-40 execution is adopted; "
+            "the micro block is not. The tradeable adopted book is **P2 (model A on top-40)**. "
+            "P4 may pass the universe Sharpe inequalities without adopting micro, because micro requires "
+            "ΔIC full ≥ 0 on the chosen universe in addition to the Sharpe delta.\n"
+        )
     lines.append("Universe comparisons (identical days):\n")
     lines.append("| candidate | h | trail18m | need (≥ P1+0.30) | full | need (≥ P1−0.20) | pass |")
     lines.append("|-----------|---|----------|------------------|------|------------------|------|")
@@ -229,6 +236,8 @@ def write_phaseD2_report(
         lines.append(f"| {y} | {_fmt(an)} | {_fmt(on)} | {_fmt(delta)} |")
     lines.append("")
     lines.append(f"{(attr_2026 or {}).get('sentence', '')}\n")
+    if extra.get("phaseD_2026_note"):
+        lines.append(extra["phaseD_2026_note"] + "\n")
     lines.append("No production changes from this section.\n")
 
     text = "\n".join(lines) + "\n"
