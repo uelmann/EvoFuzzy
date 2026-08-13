@@ -180,6 +180,21 @@ def evaluate_ablation_horizon(
     ycol = f"y_h{horizon}"
     a = pred_a.copy()
     b = pred_b.copy()
+    if a.empty or b.empty:
+        return {
+            "horizon": horizon,
+            "tables": [],
+            "paired_nw": {},
+            "fold_stats": {},
+            "coverage_conditional_delta": {},
+            "sharpe_delta": {},
+            "delta_top20_full": float("nan"),
+            "delta_top20_trail18m": float("nan"),
+            "frac_pos_folds_trail18m": float("nan"),
+            "micro_importance": aggregate_micro_importance(metas_b),
+            "delta_daily_ic": pd.Series(dtype=float),
+            "error": "empty_predictions",
+        }
     a["date"] = pd.to_datetime(a["date"], utc=True)
     b["date"] = pd.to_datetime(b["date"], utc=True)
     if ycol not in a.columns:

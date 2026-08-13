@@ -144,8 +144,12 @@ def _fit_predict_fold(
 
     train_mask = (df["date"] >= fold.train_start) & (df["date"] <= fold.train_end)
     val_mask = (df["date"] >= fold.val_start) & (df["date"] <= fold.val_end)
-    train = df.loc[train_mask].dropna(subset=feats + [ycol])
-    valid = df.loc[val_mask].dropna(subset=feats + [ycol])
+    # Require finite A0 features + label. Extra columns (e.g. microstructure) may be
+    # NaN — LightGBM handles NaN natively; do not drop rows or impute zeros.
+    a0_need = [c for c in feats if c in FEATURE_COLS]
+    need = (a0_need if a0_need else list(feats)) + [ycol]
+    train = df.loc[train_mask].dropna(subset=need)
+    valid = df.loc[val_mask].dropna(subset=need)
     if train.empty or valid.empty:
         return pd.DataFrame(), {"fold_id": fold.fold_id, "status": "empty", "elapsed": 0.0}
 

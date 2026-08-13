@@ -422,16 +422,22 @@ def run_phase_d() -> dict:
         out_h = phase_dir / f"preds_d_h{h}"
         canon = phase_dir / f"lgbm_a0_plus_micro_h{h}.parquet"
         meta_path = out_h / f"fold_meta_h{h}.json"
+        reuse_ok = False
         if canon.exists():
-            print(f"[phaseD] reusing Model D preds {canon}", flush=True)
             pred_d = pd.read_parquet(canon)
-            if meta_path.exists():
-                metas = json.loads(meta_path.read_text())
+            if not pred_d.empty:
+                print(f"[phaseD] reusing Model D preds {canon} n={len(pred_d)}", flush=True)
+                if meta_path.exists():
+                    metas = json.loads(meta_path.read_text())
+                else:
+                    metas = []
+                    for mp in sorted(out_h.glob(f"meta_h{h}_fold*.json")):
+                        metas.append(json.loads(mp.read_text()))
+                reuse_ok = True
             else:
-                metas = []
-                for mp in sorted(out_h.glob(f"meta_h{h}_fold*.json")):
-                    metas.append(json.loads(mp.read_text()))
-        else:
+                print(f"[phaseD] empty Model D canon — retraining h={h}", flush=True)
+                canon.unlink(missing_ok=True)
+        if not reuse_ok:
             out_h.mkdir(parents=True, exist_ok=True)
             payloads = [
                 {
