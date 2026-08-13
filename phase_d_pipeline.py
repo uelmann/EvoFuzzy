@@ -73,7 +73,6 @@ def download_metrics_job(item: dict) -> dict:
     import httpx
     import pandas as pd
 
-    from phase_d.micro_data import VISION_FILE  # type: ignore
     from baseline.data import VISION_FILE as VF
 
     symbol = item["symbol"]
