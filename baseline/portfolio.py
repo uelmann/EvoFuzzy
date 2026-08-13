@@ -403,6 +403,7 @@ def run_tranche_portfolio(
     lag: int = 0,
     apply_funding: bool = False,
     funding: pd.DataFrame | None = None,
+    tau_mode: str = "pooled",
 ) -> dict:
     del exit_hysteresis
     h = int(horizon)
@@ -417,6 +418,19 @@ def run_tranche_portfolio(
         return {"error": "not enough scores", "tau_pct": tau_pct, "variant": "tranche", "lag": lag}
 
     tau = float(np.percentile(abs_scores, tau_pct))
+    tau_by_date: dict = {}
+    if str(tau_mode) == "expanding":
+        # Causal: τ at t from |score| on dates strictly before t (training-window / PIT).
+        by_d = df.groupby("date")["score"].apply(lambda s: s.abs().dropna().to_numpy())
+        acc: list[float] = []
+        for dt in dates:
+            if len(acc) >= 50:
+                tau_by_date[dt] = float(np.percentile(np.asarray(acc, dtype=float), tau_pct))
+            else:
+                tau_by_date[dt] = tau
+            extra = by_d.get(dt)
+            if extra is not None and len(extra):
+                acc.extend(float(x) for x in extra)
     cost_rate = (fee_bps + slip_bps) * 1e-4
     tg = gross_limit / float(h)
 
@@ -442,7 +456,8 @@ def run_tranche_portfolio(
         day = df[df["date"] == dt]
         k = i % h
         prev_ak = alphas[k].copy()
-        new_state = _hard_threshold_state(day, tau)
+        tau_t = float(tau_by_date.get(dt, tau)) if tau_by_date else tau
+        new_state = _hard_threshold_state(day, tau_t)
 
         for sym, side in list(states[k].items()):
             if new_state.get(sym, 0) != side:
@@ -551,8 +566,10 @@ def run_tranche_portfolio(
                 flush=True,
             )
 
-    return _pack_metrics(
+    packed = _pack_metrics(
         daily_net, daily_gross, daily_hedge, daily_cost, daily_funding,
         to_ee, to_rs, to_hg, n_pos, n_long, n_short, flat, eq_dates, hold_days, trade_pnls,
         tau_pct, tau, "tranche", horizon, lag, apply_funding, dict(sym_contrib), dict(side_days),
     )
+    packed["tau_mode"] = str(tau_mode)
+    return packed

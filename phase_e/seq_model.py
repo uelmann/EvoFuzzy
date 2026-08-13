@@ -110,6 +110,30 @@ def build_sequence_cache(feat: pd.DataFrame, out_dir: Path) -> dict:
     return meta
 
 
+def _as_utc(date) -> pd.Timestamp:
+    t = pd.Timestamp(date)
+    if t.tzinfo is None:
+        return t.tz_localize("UTC")
+    return t.tz_convert("UTC")
+
+
+def window_from_symbol_frame(g: pd.DataFrame, date, cols: list[str] | None = None) -> np.ndarray | None:
+    """Left-padded 60×F window ending at date t using rows with date ≤ t. Matches the cache."""
+    cols = cols or list(FEATURE_COLS)
+    g = g.sort_values("date")
+    t = _as_utc(date)
+    g = g[pd.to_datetime(g["date"], utc=True) <= t]
+    if len(g) < MIN_WINDOW:
+        return None
+    sl = g.tail(WINDOW)[cols].to_numpy(dtype=np.float32)
+    if not np.isfinite(sl[-1]).any():
+        return None
+    pad = WINDOW - sl.shape[0]
+    win = np.zeros((WINDOW, len(cols)), dtype=np.float32)
+    win[pad:] = np.nan_to_num(sl, nan=0.0, posinf=0.0, neginf=0.0)
+    return win
+
+
 def gru_param_count(hidden: int = 32, n_feat: int = N_FEAT, dropout: float = 0.1) -> int:
     m = _make_gru(n_feat=n_feat, hidden=hidden, dropout=dropout)
     return int(sum(p.numel() for p in m.parameters()))
@@ -172,6 +196,7 @@ def train_gru_fold(
     dropout: float = 0.1,
     patience: int = 10,
     pairwise_rank: bool = False,
+    shuffle_labels: bool = False,
     device: str | None = None,
 ) -> tuple[pd.DataFrame, dict]:
     import torch
@@ -207,6 +232,22 @@ def train_gru_fold(
     tr_batches = _date_batches(inner_tr, inner_tr["date"].unique(), ycol)
     ho_batches = _date_batches(inner_ho, inner_ho["date"].unique(), ycol)
     va_batches = _date_batches(valid, valid["date"].unique(), ycol)
+    max_train_date = _as_utc(inner_tr["date"].max()) if not inner_tr.empty else None
+    max_ho_date = _as_utc(inner_ho["date"].max()) if not inner_ho.empty else None
+    train_end_utc = _as_utc(fold.train_end)
+    if max_train_date is not None and max_train_date > train_end_utc:
+        raise RuntimeError(f"train dataloader max date {max_train_date.date()} > train_end {train_end_utc.date()}")
+    if max_ho_date is not None and max_ho_date > train_end_utc:
+        raise RuntimeError(f"inner-holdout max date {max_ho_date.date()} > train_end {train_end_utc.date()}")
+    if shuffle_labels:
+        rng = np.random.default_rng(int(seed) + 17_389)
+        def _shuf(batches):
+            out = []
+            for dt, rids, y in batches:
+                out.append((dt, rids, rng.permutation(np.asarray(y))))
+            return out
+        tr_batches = _shuf(tr_batches)
+        ho_batches = _shuf(ho_batches)
     if not tr_batches or not ho_batches:
         return pd.DataFrame(), {"fold_id": fold.fold_id, "seed": seed, "status": "empty_batches", "elapsed": 0.0}
 
@@ -328,6 +369,11 @@ def train_gru_fold(
         "device": str(device),
         "history_tail": history[-5:],
         "pairwise_rank": bool(pairwise_rank),
+        "shuffle_labels": bool(shuffle_labels),
+        "max_train_date": str(max_train_date.date()) if max_train_date is not None else None,
+        "max_ho_date": str(max_ho_date.date()) if max_ho_date is not None else None,
+        "fold_train_end": str(pd.Timestamp(fold.train_end).date()),
+        "warm_start": False,
     }
     return pred_df, meta
 
