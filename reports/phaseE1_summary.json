@@ -1,0 +1,569 @@
+{
+  "frozen_sha256": "e6b7407c8243ea49df3801ccaacedecd194315f45790e549a68c3368078b3faa",
+  "gates": [
+    {
+      "name": "gru_label_shuffle",
+      "passed": false,
+      "threshold": 0.005,
+      "folds": [
+        9,
+        17
+      ],
+      "rows": [
+        {
+          "horizon": 7,
+          "fold_id": 9,
+          "seed": 42,
+          "mean_ic": -0.03356775703808303,
+          "n_days": 90,
+          "abs_ic": 0.03356775703808303,
+          "passed": false
+        },
+        {
+          "horizon": 7,
+          "fold_id": 9,
+          "seed": 43,
+          "mean_ic": -0.056325646341688254,
+          "n_days": 90,
+          "abs_ic": 0.056325646341688254,
+          "passed": false
+        },
+        {
+          "horizon": 7,
+          "fold_id": 9,
+          "seed": 44,
+          "mean_ic": -0.03652244826007893,
+          "n_days": 90,
+          "abs_ic": 0.03652244826007893,
+          "passed": false
+        },
+        {
+          "horizon": 7,
+          "fold_id": 17,
+          "seed": 42,
+          "mean_ic": 0.021339758194360087,
+          "n_days": 90,
+          "abs_ic": 0.021339758194360087,
+          "passed": false
+        },
+        {
+          "horizon": 7,
+          "fold_id": 17,
+          "seed": 43,
+          "mean_ic": 0.03974403105657143,
+          "n_days": 90,
+          "abs_ic": 0.03974403105657143,
+          "passed": false
+        },
+        {
+          "horizon": 7,
+          "fold_id": 17,
+          "seed": 44,
+          "mean_ic": -0.04574511302897012,
+          "n_days": 90,
+          "abs_ic": 0.04574511302897012,
+          "passed": false
+        },
+        {
+          "horizon": 10,
+          "fold_id": 9,
+          "seed": 42,
+          "mean_ic": -0.014612922596175216,
+          "n_days": 90,
+          "abs_ic": 0.014612922596175216,
+          "passed": false
+        },
+        {
+          "horizon": 10,
+          "fold_id": 9,
+          "seed": 43,
+          "mean_ic": -0.05174682450508932,
+          "n_days": 90,
+          "abs_ic": 0.05174682450508932,
+          "passed": false
+        },
+        {
+          "horizon": 10,
+          "fold_id": 9,
+          "seed": 44,
+          "mean_ic": -0.07994320881207063,
+          "n_days": 90,
+          "abs_ic": 0.07994320881207063,
+          "passed": false
+        },
+        {
+          "horizon": 10,
+          "fold_id": 17,
+          "seed": 42,
+          "mean_ic": 0.0007455349954781942,
+          "n_days": 90,
+          "abs_ic": 0.0007455349954781942,
+          "passed": true
+        },
+        {
+          "horizon": 10,
+          "fold_id": 17,
+          "seed": 43,
+          "mean_ic": 0.02715779002145692,
+          "n_days": 90,
+          "abs_ic": 0.02715779002145692,
+          "passed": false
+        },
+        {
+          "horizon": 10,
+          "fold_id": 17,
+          "seed": 44,
+          "mean_ic": 0.029280700423012798,
+          "n_days": 90,
+          "abs_ic": 0.029280700423012798,
+          "passed": false
+        }
+      ],
+      "gpu": {
+        "status": "ok",
+        "projection": {
+          "sec_per_epoch": 5.4,
+          "n_folds": 2,
+          "n_seeds": 3,
+          "n_horizons": 2,
+          "max_epochs": 30,
+          "gpu_hours": 0.5400000000000001,
+          "gpu_seconds": 1944.0000000000005
+        },
+        "dropped_h7": false,
+        "aborted": false,
+        "horizons": [
+          7,
+          10
+        ],
+        "n_metas": 12
+      }
+    },
+    {
+      "name": "future_perturbation",
+      "passed": true,
+      "synthetic_ok": true,
+      "synthetic_score_ok": true,
+      "real_ok": true,
+      "score_ok": true,
+      "power_ok": true,
+      "n_eligible": 143,
+      "t": "2023-04-21",
+      "synthetic": [
+        {
+          "symbol": "SYN0",
+          "equal": true,
+          "score_equal": true
+        },
+        {
+          "symbol": "SYN1",
+          "equal": true,
+          "score_equal": true
+        },
+        {
+          "symbol": "SYN2",
+          "equal": true,
+          "score_equal": true
+        },
+        {
+          "symbol": "SYN3",
+          "equal": true,
+          "score_equal": true
+        }
+      ],
+      "real": [
+        {
+          "symbol": "1000LUNCUSDT",
+          "t": "2023-04-21",
+          "window_equal": true,
+          "score_equal": true,
+          "n_future_rows": 650
+        },
+        {
+          "symbol": "1000SHIBUSDT",
+          "t": "2023-04-21",
+          "window_equal": true,
+          "score_equal": true,
+          "n_future_rows": 1197
+        },
+        {
+          "symbol": "1000XECUSDT",
+          "t": "2023-04-21",
+          "window_equal": true,
+          "score_equal": true,
+          "n_future_rows": 78
+        },
+        {
+          "symbol": "1INCHUSDT",
+          "t": "2023-04-21",
+          "window_equal": true,
+          "score_equal": true,
+          "n_future_rows": 288
+        }
+      ],
+      "note": "Sequence windows use only rows with date \u2264 t (last 60 bars). Score at t is a fixed-weight GRU of that window. Power check: windows ending after t must change when future rows are perturbed."
+    },
+    {
+      "name": "fold_isolation",
+      "passed": true,
+      "warm_start": "no warm-start",
+      "n_warm_start_metas": 0,
+      "n_metas_inspected": 108,
+      "meta_date_fail": [],
+      "folds": [
+        {
+          "fold_id": 0,
+          "train_start": "2020-01-10",
+          "train_end": "2022-01-01",
+          "max_dataloader_date": "2021-10-03",
+          "max_train_slice_date": "2022-01-01",
+          "n_train_rows": 48391,
+          "passed": true
+        },
+        {
+          "fold_id": 1,
+          "train_start": "2020-01-10",
+          "train_end": "2022-04-01",
+          "max_dataloader_date": "2022-01-01",
+          "max_train_slice_date": "2022-04-01",
+          "n_train_rows": 58658,
+          "passed": true
+        },
+        {
+          "fold_id": 2,
+          "train_start": "2020-01-10",
+          "train_end": "2022-06-30",
+          "max_dataloader_date": "2022-04-01",
+          "max_train_slice_date": "2022-06-30",
+          "n_train_rows": 69018,
+          "passed": true
+        },
+        {
+          "fold_id": 3,
+          "train_start": "2020-01-10",
+          "train_end": "2022-09-28",
+          "max_dataloader_date": "2022-06-30",
+          "max_train_slice_date": "2022-09-28",
+          "n_train_rows": 79684,
+          "passed": true
+        },
+        {
+          "fold_id": 4,
+          "train_start": "2020-01-10",
+          "train_end": "2022-12-27",
+          "max_dataloader_date": "2022-09-28",
+          "max_train_slice_date": "2022-12-27",
+          "n_train_rows": 90253,
+          "passed": true
+        },
+        {
+          "fold_id": 5,
+          "train_start": "2020-01-10",
+          "train_end": "2023-03-27",
+          "max_dataloader_date": "2022-12-27",
+          "max_train_slice_date": "2023-03-27",
+          "n_train_rows": 100510,
+          "passed": true
+        },
+        {
+          "fold_id": 6,
+          "train_start": "2020-01-10",
+          "train_end": "2023-06-25",
+          "max_dataloader_date": "2023-03-27",
+          "max_train_slice_date": "2023-06-25",
+          "n_train_rows": 110673,
+          "passed": true
+        },
+        {
+          "fold_id": 7,
+          "train_start": "2020-01-10",
+          "train_end": "2023-09-23",
+          "max_dataloader_date": "2023-06-25",
+          "max_train_slice_date": "2023-09-23",
+          "n_train_rows": 120979,
+          "passed": true
+        },
+        {
+          "fold_id": 8,
+          "train_start": "2020-01-10",
+          "train_end": "2023-12-22",
+          "max_dataloader_date": "2023-09-23",
+          "max_train_slice_date": "2023-12-22",
+          "n_train_rows": 130704,
+          "passed": true
+        },
+        {
+          "fold_id": 9,
+          "train_start": "2020-01-10",
+          "train_end": "2024-03-21",
+          "max_dataloader_date": "2023-12-22",
+          "max_train_slice_date": "2024-03-21",
+          "n_train_rows": 140456,
+          "passed": true
+        },
+        {
+          "fold_id": 10,
+          "train_start": "2020-01-10",
+          "train_end": "2024-06-19",
+          "max_dataloader_date": "2024-03-21",
+          "max_train_slice_date": "2024-06-19",
+          "n_train_rows": 150514,
+          "passed": true
+        },
+        {
+          "fold_id": 11,
+          "train_start": "2020-01-10",
+          "train_end": "2024-09-17",
+          "max_dataloader_date": "2024-06-19",
+          "max_train_slice_date": "2024-09-17",
+          "n_train_rows": 160699,
+          "passed": true
+        },
+        {
+          "fold_id": 12,
+          "train_start": "2020-01-10",
+          "train_end": "2024-12-16",
+          "max_dataloader_date": "2024-09-17",
+          "max_train_slice_date": "2024-12-16",
+          "n_train_rows": 170328,
+          "passed": true
+        },
+        {
+          "fold_id": 13,
+          "train_start": "2020-01-10",
+          "train_end": "2025-03-16",
+          "max_dataloader_date": "2024-12-16",
+          "max_train_slice_date": "2025-03-16",
+          "n_train_rows": 179404,
+          "passed": true
+        },
+        {
+          "fold_id": 14,
+          "train_start": "2020-01-10",
+          "train_end": "2025-06-14",
+          "max_dataloader_date": "2025-03-16",
+          "max_train_slice_date": "2025-06-14",
+          "n_train_rows": 188706,
+          "passed": true
+        },
+        {
+          "fold_id": 15,
+          "train_start": "2020-01-10",
+          "train_end": "2025-09-12",
+          "max_dataloader_date": "2025-06-14",
+          "max_train_slice_date": "2025-09-12",
+          "n_train_rows": 198000,
+          "passed": true
+        },
+        {
+          "fold_id": 16,
+          "train_start": "2020-01-10",
+          "train_end": "2025-12-11",
+          "max_dataloader_date": "2025-09-12",
+          "max_train_slice_date": "2025-12-11",
+          "n_train_rows": 206457,
+          "passed": true
+        },
+        {
+          "fold_id": 17,
+          "train_start": "2020-01-10",
+          "train_end": "2026-03-11",
+          "max_dataloader_date": "2025-12-11",
+          "max_train_slice_date": "2026-03-11",
+          "n_train_rows": 215729,
+          "passed": true
+        },
+        {
+          "fold_id": 0,
+          "train_start": "2020-01-10",
+          "train_end": "2021-12-29",
+          "max_dataloader_date": "2021-09-30",
+          "max_train_slice_date": "2021-12-29",
+          "n_train_rows": 48038,
+          "passed": true
+        },
+        {
+          "fold_id": 1,
+          "train_start": "2020-01-10",
+          "train_end": "2022-03-29",
+          "max_dataloader_date": "2021-12-29",
+          "max_train_slice_date": "2022-03-29",
+          "n_train_rows": 58353,
+          "passed": true
+        },
+        {
+          "fold_id": 2,
+          "train_start": "2020-01-10",
+          "train_end": "2022-06-27",
+          "max_dataloader_date": "2022-03-29",
+          "max_train_slice_date": "2022-06-27",
+          "n_train_rows": 68664,
+          "passed": true
+        },
+        {
+          "fold_id": 3,
+          "train_start": "2020-01-10",
+          "train_end": "2022-09-25",
+          "max_dataloader_date": "2022-06-27",
+          "max_train_slice_date": "2022-09-25",
+          "n_train_rows": 79339,
+          "passed": true
+        },
+        {
+          "fold_id": 4,
+          "train_start": "2020-01-10",
+          "train_end": "2022-12-24",
+          "max_dataloader_date": "2022-09-25",
+          "max_train_slice_date": "2022-12-24",
+          "n_train_rows": 89893,
+          "passed": true
+        },
+        {
+          "fold_id": 5,
+          "train_start": "2020-01-10",
+          "train_end": "2023-03-24",
+          "max_dataloader_date": "2022-12-24",
+          "max_train_slice_date": "2023-03-24",
+          "n_train_rows": 100185,
+          "passed": true
+        },
+        {
+          "fold_id": 6,
+          "train_start": "2020-01-10",
+          "train_end": "2023-06-22",
+          "max_dataloader_date": "2023-03-24",
+          "max_train_slice_date": "2023-06-22",
+          "n_train_rows": 110325,
+          "passed": true
+        },
+        {
+          "fold_id": 7,
+          "train_start": "2020-01-10",
+          "train_end": "2023-09-20",
+          "max_dataloader_date": "2023-06-22",
+          "max_train_slice_date": "2023-09-20",
+          "n_train_rows": 120647,
+          "passed": true
+        },
+        {
+          "fold_id": 8,
+          "train_start": "2020-01-10",
+          "train_end": "2023-12-19",
+          "max_dataloader_date": "2023-09-20",
+          "max_train_slice_date": "2023-12-19",
+          "n_train_rows": 130380,
+          "passed": true
+        },
+        {
+          "fold_id": 9,
+          "train_start": "2020-01-10",
+          "train_end": "2024-03-18",
+          "max_dataloader_date": "2023-12-19",
+          "max_train_slice_date": "2024-03-18",
+          "n_train_rows": 140116,
+          "passed": true
+        },
+        {
+          "fold_id": 10,
+          "train_start": "2020-01-10",
+          "train_end": "2024-06-16",
+          "max_dataloader_date": "2024-03-18",
+          "max_train_slice_date": "2024-06-16",
+          "n_train_rows": 150163,
+          "passed": true
+        },
+        {
+          "fold_id": 11,
+          "train_start": "2020-01-10",
+          "train_end": "2024-09-14",
+          "max_dataloader_date": "2024-06-16",
+          "max_train_slice_date": "2024-09-14",
+          "n_train_rows": 160385,
+          "passed": true
+        },
+        {
+          "fold_id": 12,
+          "train_start": "2020-01-10",
+          "train_end": "2024-12-13",
+          "max_dataloader_date": "2024-09-14",
+          "max_train_slice_date": "2024-12-13",
+          "n_train_rows": 170002,
+          "passed": true
+        },
+        {
+          "fold_id": 13,
+          "train_start": "2020-01-10",
+          "train_end": "2025-03-13",
+          "max_dataloader_date": "2024-12-13",
+          "max_train_slice_date": "2025-03-13",
+          "n_train_rows": 179070,
+          "passed": true
+        },
+        {
+          "fold_id": 14,
+          "train_start": "2020-01-10",
+          "train_end": "2025-06-11",
+          "max_dataloader_date": "2025-03-13",
+          "max_train_slice_date": "2025-06-11",
+          "n_train_rows": 188383,
+          "passed": true
+        },
+        {
+          "fold_id": 15,
+          "train_start": "2020-01-10",
+          "train_end": "2025-09-09",
+          "max_dataloader_date": "2025-06-11",
+          "max_train_slice_date": "2025-09-09",
+          "n_train_rows": 197703,
+          "passed": true
+        },
+        {
+          "fold_id": 16,
+          "train_start": "2020-01-10",
+          "train_end": "2025-12-08",
+          "max_dataloader_date": "2025-09-09",
+          "max_train_slice_date": "2025-12-08",
+          "n_train_rows": 206147,
+          "passed": true
+        },
+        {
+          "fold_id": 17,
+          "train_start": "2020-01-10",
+          "train_end": "2026-03-08",
+          "max_dataloader_date": "2025-12-08",
+          "max_train_slice_date": "2026-03-08",
+          "n_train_rows": 215408,
+          "passed": true
+        }
+      ]
+    },
+    {
+      "name": "prediction_alignment",
+      "passed": true,
+      "by_h": {
+        "7": {
+          "name": "prediction_alignment",
+          "passed": true,
+          "n_rows": 176317,
+          "n_bad": 0,
+          "n_unassigned": 0,
+          "n_dates": 1620,
+          "note": "Phase E assembly kept the first fold_id on overlapping dates; each kept row must lie in that fold's val window."
+        },
+        "10": {
+          "name": "prediction_alignment",
+          "passed": true,
+          "n_rows": 176281,
+          "n_bad": 0,
+          "n_unassigned": 0,
+          "n_dates": 1620,
+          "note": "Phase E assembly kept the first fold_id on overlapping dates; each kept row must lie in that fold's val window."
+        }
+      }
+    }
+  ],
+  "gates_ok": false,
+  "verdict": "NOT CONFIRMED",
+  "scheduled_jobs_created": false,
+  "criterion": "The GRU BLEND is CONFIRMED only if: (i) all \u00a71 gates pass; (ii) EACH of the three disjoint 3-seed ensembles satisfies the original BLEND KEEP criterion (trailing-18m \u0394RankIC \u2265 +0.005, full-OOS \u0394 \u2265 0, \u226560% positive trailing folds) on at least one universe at h=7 or h=10, with the SAME universe/horizon passing for all three ensembles; (iii) the grand-ensemble paired NW-t of trailing-18m \u0394IC on that universe/horizon is \u2265 2.0; and (iv) the BLEND portfolio (median-\u03c4, either \u03c4 convention) does not lose more than 0.10 net Sharpe vs A0 on the full period while improving or matching on trailing-18m. If CONFIRMED, BLEND is designated candidate baseline A1, pending the D.2 universe decision. Otherwise: NOT CONFIRMED \u2014 park, no adoption, no retuning."
+}
