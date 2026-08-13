@@ -35,8 +35,8 @@ def plot_ic(delta_by: dict, out_path: Path) -> None:
                 continue
             s = ser.sort_index().fillna(0.0)
             end = s.index.max() if end is None else max(end, s.index.max())
-            ax.plot(s.index, s.cumsum().values, label=f"{block} h={h}", lw=1.2)
-    ax.set_title("Round F cumulative ΔRankIC vs A0 (top-20 & top-40 mean of plotted series)")
+            ax.plot(s.index, s.cumsum().values, label=f"{block} {h}", lw=1.2)
+    ax.set_title("Round F cumulative ΔRankIC vs A0")
     ax.set_ylabel("Cum ΔIC")
     ax.legend(fontsize=7, ncol=2)
     ax.grid(True, alpha=0.3)
@@ -51,7 +51,7 @@ def plot_ic(delta_by: dict, out_path: Path) -> None:
                 s = s[(s.index >= start) & (s.index <= end)].fillna(0.0)
                 if s.empty:
                     continue
-                ax2.plot(s.index, s.cumsum().values, label=f"{block} h={h}", lw=1.2)
+                ax2.plot(s.index, s.cumsum().values, label=f"{block} {h}", lw=1.2)
     ax2.set_title("Trailing-18m zoom")
     ax2.set_ylabel("Cum ΔIC")
     ax2.legend(fontsize=7, ncol=2)
@@ -166,6 +166,15 @@ def write_roundF_report(
             f"{_fmt(r.get('a0_full'), 3)} | {_fmt(r.get('f_full'), 3)} | {_fmt(r.get('a0_trail18m'), 3)} | "
             f"{_fmt(r.get('f_trail18m'), 3)} | {_fmt(r.get('delta_trail18m'), 3)} |"
         )
+    lines.append("\nPer-year net Sharpe Δ (F − A0) on identical days:\n")
+    lines.append("| block | book | 2022 | 2023 | 2024 | 2025 | 2026 |")
+    lines.append("|-------|------|------|------|------|------|------|")
+    for r in port_rows or []:
+        dy = r.get("delta_by_year") or {}
+        lines.append(
+            f"| {r.get('block')} | {r.get('book')} | {_fmt(dy.get(2022), 3)} | {_fmt(dy.get(2023), 3)} | "
+            f"{_fmt(dy.get(2024), 3)} | {_fmt(dy.get(2025), 3)} | {_fmt(dy.get(2026), 3)} |"
+        )
     lines.append("")
 
     lines.append("## Mechanical KEEP verdicts\n")
@@ -195,6 +204,8 @@ def write_roundF_report(
         f"need full ≥ {_fmt(combo_v.get('need_full'), 3)} (max P={_fmt(combo_v.get('max_p_full'), 3)}−0.10).\n"
     )
     by = combo.get("net_sharpe_by_year") or {}
+    p1y = combo.get("p1_by_year") or {}
+    p2y = combo.get("p2_by_year") or {}
     lines.append("| book | full | trail18m | 2022 | 2023 | 2024 | 2025 | 2026 | MaxDD | corr sleeves | ann to |")
     lines.append("|------|------|----------|------|------|------|------|------|-------|--------------|--------|")
     lines.append(
@@ -204,10 +215,14 @@ def write_roundF_report(
         f"{_fmt(combo.get('ann_turnover'), 2)} |"
     )
     lines.append(
-        f"| P1 | {_fmt(combo.get('p1_full'), 3)} | {_fmt(combo.get('p1_trail18m'), 3)} |  |  |  |  |  |  |  |  |"
+        f"| P1 | {_fmt(combo.get('p1_full'), 3)} | {_fmt(combo.get('p1_trail18m'), 3)} | "
+        f"{_fmt(p1y.get(2022), 3)} | {_fmt(p1y.get(2023), 3)} | {_fmt(p1y.get(2024), 3)} | "
+        f"{_fmt(p1y.get(2025), 3)} | {_fmt(p1y.get(2026), 3)} |  |  |  |"
     )
     lines.append(
-        f"| P2 | {_fmt(combo.get('p2_full'), 3)} | {_fmt(combo.get('p2_trail18m'), 3)} |  |  |  |  |  |  |  |  |"
+        f"| P2 | {_fmt(combo.get('p2_full'), 3)} | {_fmt(combo.get('p2_trail18m'), 3)} | "
+        f"{_fmt(p2y.get(2022), 3)} | {_fmt(p2y.get(2023), 3)} | {_fmt(p2y.get(2024), 3)} | "
+        f"{_fmt(p2y.get(2025), 3)} | {_fmt(p2y.get(2026), 3)} |  |  |  |"
     )
     lines.append("")
     lines.append("Ledger confirmation: all Round F portfolios used `tau_mode=fold_train` (causal).\n")

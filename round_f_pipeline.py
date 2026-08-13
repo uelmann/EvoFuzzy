@@ -49,7 +49,7 @@ def _cfg() -> dict:
         return yaml.safe_load(f)
 
 
-@app.function(timeout=60 * 120, retries=0, volumes={"/data/quant": volume}, cpu=2, memory=8192)
+@app.function(timeout=60 * 180, retries=0, volumes={"/data/quant": volume}, cpu=2, memory=8192)
 def complexity_symbol_job(payload: dict) -> dict:
     import pandas as pd
 
@@ -275,7 +275,7 @@ def run_round_f() -> dict:
         todo = [s for s in symbols if not (phase_dir / "cx_sym" / f"{s}.parquet").exists()]
         print(f"[HB] complexity map n_sym={len(symbols)} todo={len(todo)}", flush=True)
         if todo:
-            waves = [todo[i : i + 25] for i in range(0, len(todo), 25)]
+            waves = [todo[i : i + 8] for i in range(0, len(todo), 8)]
             payloads = [
                 {"resid_path": str(resid_path), "out_dir": str(phase_dir / "cx_sym"), "symbols": w}
                 for w in waves
@@ -398,8 +398,7 @@ def run_round_f() -> dict:
                             "frac_pos_trail18m": blob.get("frac_pos_trail18m") if w == "trail18m" else None,
                         }
                     )
-                if uni_name == "top20":
-                    delta_plot[mid][h] = blob.get("delta_daily")
+                delta_plot[mid][f"{uni_name}/h{h}"] = blob.get("delta_daily")
                 print(
                     f"[HB] IC {mid} {uni_name} h={h} d18={blob.get('delta_trail18m')} dfull={blob.get('delta_full')}",
                     flush=True,
@@ -458,6 +457,8 @@ def run_round_f() -> dict:
             d18 = float(fs2["net_sharpe_trail18m"] - a0s["net_sharpe_trail18m"])
             port_d18[mid][uni_name] = d18
             f_port[(mid, uni_name)] = fs2
+            a0y = a0s.get("net_sharpe_by_year") or {}
+            fy = fs2.get("net_sharpe_by_year") or {}
             port_rows.append(
                 {
                     "block": mid,
@@ -469,6 +470,14 @@ def run_round_f() -> dict:
                     "a0_trail18m": a0s.get("net_sharpe_trail18m"),
                     "f_trail18m": fs2.get("net_sharpe_trail18m"),
                     "delta_trail18m": d18,
+                    "a0_by_year": a0y,
+                    "f_by_year": fy,
+                    "delta_by_year": {
+                        int(y): float(fy.get(y, float("nan")) - a0y.get(y, float("nan")))
+                        if np.isfinite(float(fy.get(y, float("nan")))) and np.isfinite(float(a0y.get(y, float("nan"))))
+                        else float("nan")
+                        for y in sorted(set(a0y) | set(fy))
+                    },
                 }
             )
             print(f"[HB] port Δ {mid} {uni_name} d18={d18:.3f}", flush=True)

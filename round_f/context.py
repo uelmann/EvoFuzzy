@@ -9,6 +9,24 @@ from baseline.features import features_for_symbol
 from round_f.constants import CTX_COLS
 
 
+def utc_col(df: pd.DataFrame, col: str = "date") -> pd.DataFrame:
+    out = df.copy()
+    out[col] = pd.to_datetime(out[col], utc=True)
+    return out
+
+
+def _utc_index(s: pd.Series) -> pd.Series:
+    s = s.copy()
+    s.index = pd.DatetimeIndex(pd.to_datetime(s.index, utc=True))
+    return s
+
+
+def _map_date(dates: pd.Series, ser: pd.Series) -> pd.Series:
+    if ser is None or len(ser) == 0:
+        return pd.Series(np.nan, index=dates.index)
+    return pd.to_datetime(dates, utc=True).map(_utc_index(ser))
+
+
 def _own_z_250(s: pd.Series, clip: float = 5.0) -> pd.Series:
     mu = s.rolling(250, min_periods=60).mean()
     sd = s.rolling(250, min_periods=60).std(ddof=0)
@@ -32,18 +50,17 @@ def residual_log_returns(panel: pd.DataFrame, feat: pd.DataFrame) -> pd.DataFram
     # fill missing beta with rolling cov/var vs BTC (causal)
     need = p["beta_btc_60_raw"].isna() & p["r"].notna() & p["r_btc"].notna()
     if need.any():
-        filled = []
-        for sym, g in p.loc[p["symbol"].isin(p.loc[need, "symbol"].unique())].groupby("symbol", sort=False):
+        # Assign by index (do not merge .values dates — that strips tz and breaks UTC merges).
+        p["beta_fill"] = np.nan
+        need_syms = p.loc[need, "symbol"].unique()
+        for _, g in p.loc[p["symbol"].isin(need_syms)].groupby("symbol", sort=False):
             gg = g.sort_values("date")
             cov = gg["r"].rolling(60, min_periods=20).cov(gg["r_btc"])
             var = gg["r_btc"].rolling(60, min_periods=20).var()
             beta = cov / var.replace(0.0, np.nan)
-            filled.append(pd.DataFrame({"date": gg["date"].values, "symbol": sym, "beta_fill": beta.values}))
-        fill = pd.concat(filled, ignore_index=True) if filled else pd.DataFrame()
-        if not fill.empty:
-            p = p.merge(fill, on=["date", "symbol"], how="left")
-            p["beta_btc_60_raw"] = p["beta_btc_60_raw"].fillna(p["beta_fill"])
-            p = p.drop(columns=["beta_fill"])
+            p.loc[gg.index, "beta_fill"] = beta.to_numpy()
+        p["beta_btc_60_raw"] = p["beta_btc_60_raw"].fillna(p["beta_fill"])
+        p = p.drop(columns=["beta_fill"])
     p["resid"] = p["r"] - p["beta_btc_60_raw"].fillna(0.0) * p["r_btc"]
     return p[["date", "symbol", "close", "r", "r_btc", "beta_btc_60_raw", "resid"]]
 
@@ -59,31 +76,25 @@ def build_context_block(
 ) -> pd.DataFrame:
     print("[HB] context: residuals...", flush=True)
     resid = residual_log_returns(panel, feat)
-    pit120 = pit120.copy()
-    pit40 = pit40.copy()
-    pit120["date"] = pd.to_datetime(pit120["date"], utc=True)
-    pit40["date"] = pd.to_datetime(pit40["date"], utc=True)
+    pit120 = utc_col(pit120)
+    pit40 = utc_col(pit40)
 
     r120 = resid.merge(pit120[["date", "symbol"]], on=["date", "symbol"], how="inner")
     cs_disp = r120.groupby("date")["resid"].std(ddof=0).sort_index()
     ctx_disp = cs_disp.rolling(30, min_periods=10).mean()
 
-    pa = pred_a7.copy()
-    pa["date"] = pd.to_datetime(pa["date"], utc=True)
+    pa = utc_col(pred_a7)
     ctx_score_disp = pa.groupby("date")["score"].std(ddof=0).sort_index()
 
-    btc = panel.loc[panel["symbol"] == "BTCUSDT"].sort_values("date").copy()
-    btc["date"] = pd.to_datetime(btc["date"], utc=True)
-    btc_feat = features_for_symbol(btc, btc.set_index("date")["close"])
-    btc_feat["date"] = pd.to_datetime(btc_feat["date"], utc=True)
+    btc = utc_col(panel.loc[panel["symbol"] == "BTCUSDT"].sort_values("date"))
+    btc_feat = utc_col(features_for_symbol(btc, btc.set_index("date")["close"]))
     ctx_btc_vol = btc_feat.set_index("date")["yz_vol_30_raw"]
     sma100 = btc.set_index("date")["close"].rolling(100, min_periods=40).mean()
     ctx_btc_trend = btc.set_index("date")["close"] / sma100 - 1.0
 
     fund_agg = pd.Series(dtype=float)
     if funding is not None and not funding.empty:
-        f = funding.copy()
-        f["date"] = pd.to_datetime(f["date"], utc=True)
+        f = utc_col(funding)
         f120 = f.merge(pit120[["date", "symbol"]], on=["date", "symbol"], how="inner")
         col = "funding_rate" if "funding_rate" in f120.columns else "funding_now"
         if col in f120.columns:
@@ -100,10 +111,20 @@ def build_context_block(
 
     print("[HB] context: top-40 mean pairwise 28d corr...", flush=True)
     wide_r = resid.pivot(index="date", columns="symbol", values="r").sort_index()
-    dates40 = sorted(pit40["date"].unique())
+    wide_r.index = pd.DatetimeIndex(pd.to_datetime(wide_r.index, utc=True))
+    dates40 = pd.DatetimeIndex(pd.to_datetime(sorted(pit40["date"].unique()), utc=True))
     corr_rows = []
-    by_d = pit40.groupby("date")["symbol"].apply(list)
+    by_d = {}
+    for k, v in pit40.groupby("date")["symbol"].apply(list).items():
+        t = pd.Timestamp(k)
+        t = t.tz_localize("UTC") if t.tzinfo is None else t.tz_convert("UTC")
+        by_d[t] = list(v)
     for dt in dates40:
+        dt = pd.Timestamp(dt)
+        if dt.tzinfo is None:
+            dt = dt.tz_localize("UTC")
+        else:
+            dt = dt.tz_convert("UTC")
         syms = [s for s in by_d.get(dt, []) if s in wide_r.columns]
         if len(syms) < 5:
             corr_rows.append((dt, np.nan))
@@ -120,15 +141,15 @@ def build_context_block(
     ctx_corr = pd.Series({d: v for d, v in corr_rows}).sort_index()
     ctx_corr.index = pd.DatetimeIndex(pd.to_datetime(ctx_corr.index, utc=True))
 
-    idx = pd.DatetimeIndex(sorted(set(pit120["date"]).union(pit40["date"]))).tz_convert("UTC")
+    idx = pd.DatetimeIndex(pd.to_datetime(sorted(set(pit120["date"]).union(pit40["date"])), utc=True))
     out = pd.DataFrame({"date": idx})
-    out["ctx_disp"] = out["date"].map(ctx_disp)
-    out["ctx_score_disp"] = out["date"].map(ctx_score_disp)
-    out["ctx_btc_vol"] = out["date"].map(ctx_btc_vol)
-    out["ctx_btc_trend"] = out["date"].map(ctx_btc_trend)
-    out["ctx_funding_agg"] = out["date"].map(fund_agg)
-    out["ctx_breadth"] = out["date"].map(ctx_breadth)
-    out["ctx_corr"] = out["date"].map(ctx_corr)
+    out["ctx_disp"] = _map_date(out["date"], ctx_disp)
+    out["ctx_score_disp"] = _map_date(out["date"], ctx_score_disp)
+    out["ctx_btc_vol"] = _map_date(out["date"], ctx_btc_vol)
+    out["ctx_btc_trend"] = _map_date(out["date"], ctx_btc_trend)
+    out["ctx_funding_agg"] = _map_date(out["date"], fund_agg)
+    out["ctx_breadth"] = _map_date(out["date"], ctx_breadth)
+    out["ctx_corr"] = _map_date(out["date"], ctx_corr)
     out = out.sort_values("date")
     for c in CTX_COLS:
         out[c] = _own_z_250(out[c], clip=clip)
@@ -137,9 +158,7 @@ def build_context_block(
 
 
 def merge_context(feat: pd.DataFrame, ctx: pd.DataFrame) -> pd.DataFrame:
-    f = feat.copy()
-    f["date"] = pd.to_datetime(f["date"], utc=True)
-    c = ctx.copy()
-    c["date"] = pd.to_datetime(c["date"], utc=True)
+    f = utc_col(feat)
+    c = utc_col(ctx)
     cols = ["date"] + [x for x in CTX_COLS if x in c.columns]
     return f.merge(c[cols], on="date", how="left")

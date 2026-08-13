@@ -127,10 +127,11 @@ def complexity_for_series(dates: np.ndarray, resid: np.ndarray, window: int = 90
 
 
 def complexity_for_symbol(resid_sym: pd.DataFrame) -> pd.DataFrame:
-    g = resid_sym.sort_values("date")
-    dates = pd.to_datetime(g["date"], utc=True).to_numpy()
+    g = resid_sym.sort_values("date").reset_index(drop=True)
+    dates = pd.to_datetime(g["date"], utc=True)
     x = g["resid"].to_numpy(dtype=float)
-    out = complexity_for_series(dates, x)
+    out = complexity_for_series(dates.to_numpy(dtype="datetime64[ns]"), x)
+    out["date"] = dates
     out["symbol"] = g["symbol"].iloc[0]
     return out
 

@@ -194,6 +194,8 @@ def combo_from_sleeves(p1: dict, p2: dict) -> dict:
         "p2_full": _sharpe(b),
         "p1_trail18m": _sharpe(window_slice(a, "trail18m")),
         "p2_trail18m": _sharpe(window_slice(b, "trail18m")),
+        "p1_by_year": {y: _sharpe(window_slice(a, f"y{y}")) for y in years},
+        "p2_by_year": {y: _sharpe(window_slice(b, f"y{y}")) for y in years},
         "daily_ret": combo,
         "equity": pd.DataFrame({"date": idx, "equity": eq.values}),
         "p1_equity": p1.get("equity"),
