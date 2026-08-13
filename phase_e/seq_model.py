@@ -197,6 +197,7 @@ def train_gru_fold(
     patience: int = 10,
     pairwise_rank: bool = False,
     shuffle_labels: bool = False,
+    shuffle_seed: int | None = None,
     device: str | None = None,
 ) -> tuple[pd.DataFrame, dict]:
     import torch
@@ -240,7 +241,8 @@ def train_gru_fold(
     if max_ho_date is not None and max_ho_date > train_end_utc:
         raise RuntimeError(f"inner-holdout max date {max_ho_date.date()} > train_end {train_end_utc.date()}")
     if shuffle_labels:
-        rng = np.random.default_rng(int(seed) + 17_389)
+        ss = int(shuffle_seed) if shuffle_seed is not None else int(seed) + 17_389
+        rng = np.random.default_rng(ss)
         def _shuf(batches):
             out = []
             for dt, rids, y in batches:
@@ -370,6 +372,7 @@ def train_gru_fold(
         "history_tail": history[-5:],
         "pairwise_rank": bool(pairwise_rank),
         "shuffle_labels": bool(shuffle_labels),
+        "shuffle_seed": int(shuffle_seed) if shuffle_seed is not None else (int(seed) + 17_389 if shuffle_labels else None),
         "max_train_date": str(max_train_date.date()) if max_train_date is not None else None,
         "max_ho_date": str(max_ho_date.date()) if max_ho_date is not None else None,
         "fold_train_end": str(pd.Timestamp(fold.train_end).date()),

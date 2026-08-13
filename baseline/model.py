@@ -136,6 +136,8 @@ def _fit_predict_fold(
     log_eval_curve: bool = False,
     feature_cols: list[str] | None = None,
     model_name: str = "lgbm_price_only",
+    shuffle_labels: bool = False,
+    shuffle_seed: int | None = None,
 ) -> tuple[pd.DataFrame, dict]:
     seed_everything(seed + fold.fold_id)
     ycol = f"y_h{fold.horizon}"
@@ -159,6 +161,18 @@ def _fit_predict_fold(
     if inner_tr.empty or inner_ho.empty:
         inner_tr = train.iloc[: int(len(train) * 0.85)]
         inner_ho = train.iloc[int(len(train) * 0.85) :]
+
+    if shuffle_labels:
+        ss = int(shuffle_seed) if shuffle_seed is not None else int(seed) + 90_017
+        rng = np.random.default_rng(ss)
+
+        def _shuf_y(d: pd.DataFrame) -> pd.DataFrame:
+            d = d.copy()
+            d[ycol] = d.groupby("date", sort=False)[ycol].transform(lambda s: rng.permutation(s.to_numpy()))
+            return d
+
+        inner_tr = _shuf_y(inner_tr)
+        inner_ho = _shuf_y(inner_ho)
 
     dtrain = lgb.Dataset(inner_tr[feats], label=inner_tr[ycol], free_raw_data=False)
     dvalid = lgb.Dataset(inner_ho[feats], label=inner_ho[ycol], reference=dtrain, free_raw_data=False)
@@ -272,6 +286,8 @@ def _fit_predict_fold(
         "eval_curve_head": curve,
         "feature_importance_gain": gain_map,
         "feature_cols": feats,
+        "shuffle_labels": bool(shuffle_labels),
+        "shuffle_seed": int(shuffle_seed) if shuffle_seed is not None else None,
     }
     return pred_df, meta
 
