@@ -18,6 +18,20 @@ PHASE1_LABEL = (
     "numbers become the floor every ML phase of this project must beat net of costs."
 )
 
+PHASE0C_GATE = (
+    "The dataset is USABLE-FROM-YYYY-MM at the first quarterly CMC historical "
+    "snapshot D whose true-top-100 coverage is ≥ 85% and remains ≥ 85% at every "
+    "later snapshot, measured against the external snapshot lists. If that first "
+    "D is after 2023-01, the project is BLOCKED pending a different data source. "
+    "Mechanical, no post-hoc adjustment."
+)
+
+DEATH_CONVENTION = (
+    "A held coin whose data ends is force-exited at its last available close "
+    "(no better information assumed). The count and PnL impact of such forced "
+    "exits is reported in every backtest of this project."
+)
+
 SEED = 42
 SAMPLE_N = 30
 SAMPLE_TOPN = 200
@@ -85,3 +99,28 @@ CYCLES = (
 )
 
 ANNUALIZATION = 365
+
+# Phase 0.c — full map + honest window
+COVERAGE_THRESH = 0.85
+COVERAGE_NS = (50, 100, 200)
+SNAPSHOT_TOPN = 500
+SNAPSHOT_START = (2017, 1)
+SNAPSHOT_END = (2025, 4)
+HTTP_HARD_STOP = 100_000
+DOWNLOAD_MAX_YEARS = 12
+DOWNLOAD_PERIOD_DAYS = 180
+DOWNLOAD_SLEEP_S = 0.12
+CONVERT_ID_USD = 2781
+ENDED_BEFORE_YEAR = 2026
+
+GRAVEYARD_0C = [
+    {"query": "SRM", "slugs": ("serum",), "event": "Serum / FTX complex 2022"},
+    {"query": "CEL", "slugs": ("celsius", "celsius-degree-token"), "event": "Celsius bankruptcy 2022"},
+    {"query": "UST", "slugs": ("terrausd",), "event": "TerraUSD collapse May 2022"},
+    {"query": "ANC", "slugs": ("anchor-protocol",), "event": "Anchor Protocol / Terra 2022"},
+    {"query": "SAFEMOON", "slugs": ("safemoon",), "event": "SafeMoon collapse / delist"},
+    {"query": "BCC", "slugs": ("bitconnect",), "event": "BitConnect era 2017–18"},
+    {"query": "XEM", "slugs": ("nem",), "event": "XEM secular decline"},
+    {"query": "FTT", "slugs": ("ftx-token",), "event": "FTX collapse Nov 2022 (continuity)"},
+    {"query": "LUNC", "slugs": ("terra-luna",), "event": "Terra Classic after May 2022 (continuity)"},
+]
