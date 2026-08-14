@@ -160,7 +160,8 @@ def write_longonly_report(
         "no live components. No model retraining, no feature changes, no τ re-optimization.",
         "",
         f"**Frozen A0 SHA256:** `{frozen_hash}`",
-        f"**Prediction files (reused, not recomputed):** `{pred_hashes}`",
+        f"**Prediction files (reused, not recomputed):** h7=`{pred_hashes.get('h7')}` "
+        f"h10=`{pred_hashes.get('h10')}`",
         "**Reference book:** COMBO v2.0-combo-final (Sleeve A C0 + Sleeve B P2, causal τ). "
         "**UNCHANGED.** This evaluation does not rewrite the ledger or the system card.",
         "",
@@ -230,7 +231,8 @@ def write_longonly_report(
     lines += [
         "",
         "Funding PnL is the sum of daily −w·funding_rate (longs pay when the rate is positive). "
-        "On long-only books this is expected to be **negative**.",
+        "On long-only books this was **expected** to be negative; the realized sign is in the table "
+        "(a diagnostic, not a viability input).",
         "Avg gross (alpha) is mean Σ|w_i| over alt names only (ex-hedge). "
         "LO books do not renormalize the long half toward 1.0 when shorts are absent, "
         "so deployed gross sits near ~0.5 when every slot has ≥1 long, and lower when slots are empty.",

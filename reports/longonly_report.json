@@ -1,0 +1,1514 @@
+{
+  "frozen_sha256": "e6b7407c8243ea49df3801ccaacedecd194315f45790e549a68c3368078b3faa",
+  "pred_hashes": {
+    "h7": "8d48ea5a2f4ba47df986b57977f0be6ece2376a9277723a60606bafe150cf3a1",
+    "h10": "74359bff9c68b345a531b96d42876d5b3c492800fab9bbdf9c11cb6f9e51f916",
+    "h7_path": "/data/quant/predictions/lgbm_price_only_h7.parquet",
+    "h10_path": "/data/quant/predictions/lgbm_price_only_h10.parquet"
+  },
+  "gpu_used": false,
+  "scheduled_jobs_created": false,
+  "viability_criterion": "LO-H is VIABLE as a standalone mandate only if its full-period net Sharpe \u2265 0.7 AND trailing-18m net Sharpe \u2265 0.3. LO-U is VIABLE as a standalone mandate only if its full-period regression alpha vs BTC B&H is positive with NW-t \u2265 2.0 AND trailing-18m alpha is positive. These are viability labels for a parallel product; no outcome changes the reference book. No post-hoc adjustment.",
+  "loh": {
+    "verdict": "NOT VIABLE",
+    "criterion": "LO-H is VIABLE as a standalone mandate only if its full-period net Sharpe \u2265 0.7 AND trailing-18m net Sharpe \u2265 0.3. LO-U is VIABLE as a standalone mandate only if its full-period regression alpha vs BTC B&H is positive with NW-t \u2265 2.0 AND trailing-18m alpha is positive. These are viability labels for a parallel product; no outcome changes the reference book. No post-hoc adjustment.",
+    "sharpe_full": 0.15295381534174615,
+    "sharpe_trail18m": 0.15651498670893466,
+    "need_full": 0.7,
+    "need_trail18m": 0.3,
+    "pass_full": false,
+    "pass_trail18m": false,
+    "pass": false
+  },
+  "lou": {
+    "verdict": "NOT VIABLE",
+    "criterion": "LO-H is VIABLE as a standalone mandate only if its full-period net Sharpe \u2265 0.7 AND trailing-18m net Sharpe \u2265 0.3. LO-U is VIABLE as a standalone mandate only if its full-period regression alpha vs BTC B&H is positive with NW-t \u2265 2.0 AND trailing-18m alpha is positive. These are viability labels for a parallel product; no outcome changes the reference book. No post-hoc adjustment.",
+    "alpha_ann_full": -0.12294547465372647,
+    "nw_t_alpha_full": -0.9570722700633247,
+    "alpha_ann_trail18m": -0.028816315529661463,
+    "need_alpha_positive": true,
+    "need_nw_t": 2.0,
+    "need_trail_alpha_positive": true,
+    "pass_alpha_full": false,
+    "pass_nw_t": false,
+    "pass_alpha_trail18m": false,
+    "pass": false
+  },
+  "loh_sleeves": {
+    "Sleeve A": {
+      "verdict": "NOT VIABLE",
+      "criterion": "LO-H is VIABLE as a standalone mandate only if its full-period net Sharpe \u2265 0.7 AND trailing-18m net Sharpe \u2265 0.3. LO-U is VIABLE as a standalone mandate only if its full-period regression alpha vs BTC B&H is positive with NW-t \u2265 2.0 AND trailing-18m alpha is positive. These are viability labels for a parallel product; no outcome changes the reference book. No post-hoc adjustment.",
+      "sharpe_full": -0.31464946809149186,
+      "sharpe_trail18m": -1.2464001297555312,
+      "need_full": 0.7,
+      "need_trail18m": 0.3,
+      "pass_full": false,
+      "pass_trail18m": false,
+      "pass": false
+    },
+    "Sleeve B": {
+      "verdict": "NOT VIABLE",
+      "criterion": "LO-H is VIABLE as a standalone mandate only if its full-period net Sharpe \u2265 0.7 AND trailing-18m net Sharpe \u2265 0.3. LO-U is VIABLE as a standalone mandate only if its full-period regression alpha vs BTC B&H is positive with NW-t \u2265 2.0 AND trailing-18m alpha is positive. These are viability labels for a parallel product; no outcome changes the reference book. No post-hoc adjustment.",
+      "sharpe_full": 0.28665295676595526,
+      "sharpe_trail18m": 0.2713226856514144,
+      "need_full": 0.7,
+      "need_trail18m": 0.3,
+      "pass_full": false,
+      "pass_trail18m": false,
+      "pass": false
+    }
+  },
+  "lou_sleeves": {
+    "Sleeve A": {
+      "verdict": "NOT VIABLE",
+      "criterion": "LO-H is VIABLE as a standalone mandate only if its full-period net Sharpe \u2265 0.7 AND trailing-18m net Sharpe \u2265 0.3. LO-U is VIABLE as a standalone mandate only if its full-period regression alpha vs BTC B&H is positive with NW-t \u2265 2.0 AND trailing-18m alpha is positive. These are viability labels for a parallel product; no outcome changes the reference book. No post-hoc adjustment.",
+      "alpha_ann_full": -0.18603780975725087,
+      "nw_t_alpha_full": -1.8430441677719942,
+      "alpha_ann_trail18m": -0.11169348567600905,
+      "need_alpha_positive": true,
+      "need_nw_t": 2.0,
+      "need_trail_alpha_positive": true,
+      "pass_alpha_full": false,
+      "pass_nw_t": false,
+      "pass_alpha_trail18m": false,
+      "pass": false
+    },
+    "Sleeve B": {
+      "verdict": "NOT VIABLE",
+      "criterion": "LO-H is VIABLE as a standalone mandate only if its full-period net Sharpe \u2265 0.7 AND trailing-18m net Sharpe \u2265 0.3. LO-U is VIABLE as a standalone mandate only if its full-period regression alpha vs BTC B&H is positive with NW-t \u2265 2.0 AND trailing-18m alpha is positive. These are viability labels for a parallel product; no outcome changes the reference book. No post-hoc adjustment.",
+      "alpha_ann_full": -0.059853139550202314,
+      "nw_t_alpha_full": -0.29009658054979337,
+      "alpha_ann_trail18m": 0.054060854616686194,
+      "need_alpha_positive": true,
+      "need_nw_t": 2.0,
+      "need_trail_alpha_positive": true,
+      "pass_alpha_full": false,
+      "pass_nw_t": false,
+      "pass_alpha_trail18m": true,
+      "pass": false
+    }
+  },
+  "books": {
+    "LO-H Sleeve A": {
+      "n_days": 1616,
+      "net_sharpe_full": -0.31464946809149186,
+      "net_sharpe_trail18m": -1.2464001297555312,
+      "net_sharpe_by_year": {
+        "2022": -0.7651825963472454,
+        "2023": 1.1694533800238656,
+        "2024": -0.11127949190627807,
+        "2025": -1.4451677400451728,
+        "2026": -0.7431498409455848
+      },
+      "net_cagr": -0.05381543810147604,
+      "max_drawdown": -0.31859945177975657,
+      "total_return": -0.21722746646869928,
+      "avg_n_long": 1.61509900990099,
+      "avg_gross_deployed": 0.1098757105451162,
+      "avg_gross_full": 0.24278589607268927,
+      "pct_flat_days": 0.7122524752475248,
+      "funding_total_pnl": 0.07309692312670615,
+      "ann_turnover": 6.87876168312357,
+      "top5_names": [
+        {
+          "symbol": "FTMUSDT",
+          "pnl": -0.24191890893542986
+        },
+        {
+          "symbol": "MOODENGUSDT",
+          "pnl": -0.149147704428065
+        },
+        {
+          "symbol": "BNBUSDT",
+          "pnl": 0.11858523181485014
+        },
+        {
+          "symbol": "BTCUSDT",
+          "pnl": -0.08018045182925819
+        },
+        {
+          "symbol": "ADAUSDT",
+          "pnl": -0.07911709887739983
+        }
+      ],
+      "alpha": {
+        "full": {
+          "alpha_daily": -0.00012040903454651652,
+          "alpha_ann": -0.04394929760947853,
+          "beta": -0.004051260894164268,
+          "nw_t_alpha": -0.643417948113693,
+          "n": 1616,
+          "lag": 7,
+          "se_alpha_daily": 0.00018713968875055384
+        },
+        "trail18m": {
+          "alpha_daily": -0.00017891333604375912,
+          "alpha_ann": -0.06530336765597208,
+          "beta": 0.002251087419365911,
+          "nw_t_alpha": -1.4542684221323885,
+          "n": 548,
+          "lag": 7,
+          "se_alpha_daily": 0.00012302635010214905
+        }
+      },
+      "corr_vs_ref_combo": 0.2147030649209725,
+      "long_only": true,
+      "apply_beta_hedge": true,
+      "tau_pct": 80.0,
+      "horizon": 7
+    },
+    "LO-H Sleeve B": {
+      "n_days": 1616,
+      "net_sharpe_full": 0.28665295676595526,
+      "net_sharpe_trail18m": 0.2713226856514144,
+      "net_sharpe_by_year": {
+        "2022": 0.05154678190224288,
+        "2023": 0.36151173673725534,
+        "2024": 0.6218265048164221,
+        "2025": 0.456205639923607,
+        "2026": 0.15828916582626798
+      },
+      "net_cagr": 0.03457241602824479,
+      "max_drawdown": -0.49921163593705786,
+      "total_return": 0.16239128718831708,
+      "avg_n_long": 4.2308168316831685,
+      "avg_gross_deployed": 0.2860852408790413,
+      "avg_gross_full": 0.6806439206888022,
+      "pct_flat_days": 0.11014851485148515,
+      "funding_total_pnl": 0.6278912655552757,
+      "ann_turnover": 17.20828354270413,
+      "top5_names": [
+        {
+          "symbol": "RIVERUSDT",
+          "pnl": -0.314531744139819
+        },
+        {
+          "symbol": "XRPUSDT",
+          "pnl": 0.23848093771751755
+        },
+        {
+          "symbol": "FTMUSDT",
+          "pnl": -0.1556274370965032
+        },
+        {
+          "symbol": "REEFUSDT",
+          "pnl": 0.15276664231220238
+        },
+        {
+          "symbol": "SIRENUSDT",
+          "pnl": 0.14067867641288076
+        }
+      ],
+      "alpha": {
+        "full": {
+          "alpha_daily": 0.0003170455776104023,
+          "alpha_ann": 0.11572163582779683,
+          "beta": 0.009612379060588207,
+          "nw_t_alpha": 0.5601255128797412,
+          "n": 1616,
+          "lag": 10,
+          "se_alpha_daily": 0.0005660259536838342
+        },
+        "trail18m": {
+          "alpha_daily": 0.00044230549842931696,
+          "alpha_ann": 0.1614415069267007,
+          "beta": 0.010236269558059907,
+          "nw_t_alpha": 0.32243964432599875,
+          "n": 548,
+          "lag": 10,
+          "se_alpha_daily": 0.0013717466391388563
+        }
+      },
+      "corr_vs_ref_combo": 0.5754379979309427,
+      "long_only": true,
+      "apply_beta_hedge": true,
+      "tau_pct": 70.0,
+      "horizon": 10
+    },
+    "COMBO-LO-H": {
+      "n_days": 1616,
+      "net_sharpe_full": 0.15295381534174615,
+      "net_sharpe_trail18m": 0.15651498670893466,
+      "net_sharpe_by_year": {
+        "2022": -0.35441236418455513,
+        "2023": 0.6436490027904964,
+        "2024": 0.5628122487033925,
+        "2025": 0.23866435582979662,
+        "2026": 0.12216609037408123
+      },
+      "net_cagr": 0.008105378735594027,
+      "max_drawdown": -0.28368560452120717,
+      "total_return": 0.036387469269893336,
+      "avg_n_long": 5.845915841584159,
+      "avg_gross_deployed": 0.19798047571207875,
+      "avg_gross_full": 0.4617149083807457,
+      "pct_flat_days": 0.10952970297029703,
+      "funding_total_pnl": 0.350494094340991,
+      "ann_turnover": 12.04352261291385,
+      "top5_names": [
+        {
+          "symbol": "FTMUSDT",
+          "pnl": -0.19877317301596653
+        },
+        {
+          "symbol": "RIVERUSDT",
+          "pnl": -0.1572658720699095
+        },
+        {
+          "symbol": "MOODENGUSDT",
+          "pnl": -0.1302194190862413
+        },
+        {
+          "symbol": "XRPUSDT",
+          "pnl": 0.11929741822114898
+        },
+        {
+          "symbol": "BNBUSDT",
+          "pnl": 0.07978638123120263
+        }
+      ],
+      "alpha": {
+        "full": {
+          "alpha_daily": 9.831827153194289e-05,
+          "alpha_ann": 0.035886169109159156,
+          "beta": 0.002780559083211986,
+          "nw_t_alpha": 0.3023714544839287,
+          "n": 1616,
+          "lag": 10,
+          "se_alpha_daily": 0.00032515725302094807
+        },
+        "trail18m": {
+          "alpha_daily": 0.00013169608119277876,
+          "alpha_ann": 0.048069069635364246,
+          "beta": 0.006243678488712931,
+          "nw_t_alpha": 0.18940806828004084,
+          "n": 548,
+          "lag": 10,
+          "se_alpha_daily": 0.0006953034387007495
+        }
+      },
+      "corr_vs_ref_combo": 0.5598899638791557,
+      "long_only": true,
+      "apply_beta_hedge": true,
+      "tau_pct": "50/50",
+      "horizon": 10
+    },
+    "LO-U Sleeve A": {
+      "n_days": 1616,
+      "net_sharpe_full": -0.5892275064086497,
+      "net_sharpe_trail18m": -1.446500681122792,
+      "net_sharpe_by_year": {
+        "2022": -1.6951311915916167,
+        "2023": 2.53765747192268,
+        "2024": 0.25878094522606815,
+        "2025": -1.620756943840511,
+        "2026": -1.088175018059021
+      },
+      "net_cagr": -0.14851516620221095,
+      "max_drawdown": -0.6592894050602676,
+      "total_return": -0.5092441634455006,
+      "avg_n_long": 1.61509900990099,
+      "avg_gross_deployed": 0.1098757105451162,
+      "avg_gross_full": 0.1098757105451162,
+      "pct_flat_days": 0.7122524752475248,
+      "funding_total_pnl": 0.0363260862196245,
+      "ann_turnover": 4.432878294010439,
+      "top5_names": [
+        {
+          "symbol": "FTMUSDT",
+          "pnl": -0.24191890893542986
+        },
+        {
+          "symbol": "MOODENGUSDT",
+          "pnl": -0.149147704428065
+        },
+        {
+          "symbol": "BNBUSDT",
+          "pnl": 0.11858523181485014
+        },
+        {
+          "symbol": "BTCUSDT",
+          "pnl": -0.08018045182925819
+        },
+        {
+          "symbol": "ADAUSDT",
+          "pnl": -0.07911709887739983
+        }
+      ],
+      "alpha": {
+        "full": {
+          "alpha_daily": -0.0005096926294719202,
+          "alpha_ann": -0.18603780975725087,
+          "beta": 0.20556415581154028,
+          "nw_t_alpha": -1.8430441677719942,
+          "n": 1616,
+          "lag": 7,
+          "se_alpha_daily": 0.0002765493298449129
+        },
+        "trail18m": {
+          "alpha_daily": -0.00030600954979728505,
+          "alpha_ann": -0.11169348567600905,
+          "beta": 0.012085115776390327,
+          "nw_t_alpha": -1.402787554838809,
+          "n": 548,
+          "lag": 7,
+          "se_alpha_daily": 0.00021814390122134203
+        }
+      },
+      "corr_vs_ref_combo": 0.12705761958276504,
+      "long_only": true,
+      "apply_beta_hedge": false,
+      "tau_pct": 80.0,
+      "horizon": 7
+    },
+    "LO-U Sleeve B": {
+      "n_days": 1616,
+      "net_sharpe_full": 0.08661399403422067,
+      "net_sharpe_trail18m": 0.014134310919181117,
+      "net_sharpe_by_year": {
+        "2022": -1.4147265667159412,
+        "2023": 1.0545485144127338,
+        "2024": 1.2472722796307496,
+        "2025": 0.4448469692575148,
+        "2026": -0.2741128703509475
+      },
+      "net_cagr": -0.05739742144562565,
+      "max_drawdown": -0.5915128293636243,
+      "total_return": -0.23026254806607993,
+      "avg_n_long": 4.2308168316831685,
+      "avg_gross_deployed": 0.2860852408790413,
+      "avg_gross_full": 0.2860852408790413,
+      "pct_flat_days": 0.11014851485148515,
+      "funding_total_pnl": 0.5292891487676264,
+      "ann_turnover": 8.810118404983116,
+      "top5_names": [
+        {
+          "symbol": "RIVERUSDT",
+          "pnl": -0.314531744139819
+        },
+        {
+          "symbol": "XRPUSDT",
+          "pnl": 0.23848093771751755
+        },
+        {
+          "symbol": "FTMUSDT",
+          "pnl": -0.1556274370965032
+        },
+        {
+          "symbol": "REEFUSDT",
+          "pnl": 0.15276664231220238
+        },
+        {
+          "symbol": "SIRENUSDT",
+          "pnl": 0.14067867641288076
+        }
+      ],
+      "alpha": {
+        "full": {
+          "alpha_daily": -0.00016398120424712963,
+          "alpha_ann": -0.059853139550202314,
+          "beta": 0.3875742344586385,
+          "nw_t_alpha": -0.29009658054979337,
+          "n": 1616,
+          "lag": 10,
+          "se_alpha_daily": 0.0005652641749046167
+        },
+        "trail18m": {
+          "alpha_daily": 0.0001481119304566745,
+          "alpha_ann": 0.054060854616686194,
+          "beta": 0.19485017766640927,
+          "nw_t_alpha": 0.1071382957924077,
+          "n": 548,
+          "lag": 10,
+          "se_alpha_daily": 0.0013824368715333846
+        }
+      },
+      "corr_vs_ref_combo": 0.46600294529653136,
+      "long_only": true,
+      "apply_beta_hedge": false,
+      "tau_pct": 70.0,
+      "horizon": 10
+    },
+    "COMBO-LO-U": {
+      "n_days": 1616,
+      "net_sharpe_full": -0.16436416159595946,
+      "net_sharpe_trail18m": -0.1860109052243491,
+      "net_sharpe_by_year": {
+        "2022": -1.5924022818707764,
+        "2023": 1.6458304364519831,
+        "2024": 1.2015505096306343,
+        "2025": -0.021881965556323428,
+        "2026": -0.32268524167837226
+      },
+      "net_cagr": -0.08718050642589337,
+      "max_drawdown": -0.6159204820484353,
+      "total_return": -0.3322586951929164,
+      "avg_n_long": 5.845915841584159,
+      "avg_gross_deployed": 0.19798047571207875,
+      "avg_gross_full": 0.19798047571207875,
+      "pct_flat_days": 0.10952970297029703,
+      "funding_total_pnl": 0.2828076174936255,
+      "ann_turnover": 6.621498349496777,
+      "top5_names": [
+        {
+          "symbol": "FTMUSDT",
+          "pnl": -0.19877317301596653
+        },
+        {
+          "symbol": "RIVERUSDT",
+          "pnl": -0.1572658720699095
+        },
+        {
+          "symbol": "MOODENGUSDT",
+          "pnl": -0.1302194190862413
+        },
+        {
+          "symbol": "XRPUSDT",
+          "pnl": 0.11929741822114898
+        },
+        {
+          "symbol": "BNBUSDT",
+          "pnl": 0.07978638123120263
+        }
+      ],
+      "alpha": {
+        "full": {
+          "alpha_daily": -0.0003368369168595246,
+          "alpha_ann": -0.12294547465372647,
+          "beta": 0.2965691951350894,
+          "nw_t_alpha": -0.9570722700633247,
+          "n": 1616,
+          "lag": 10,
+          "se_alpha_daily": 0.00035194512200968663
+        },
+        "trail18m": {
+          "alpha_daily": -7.894880967030537e-05,
+          "alpha_ann": -0.028816315529661463,
+          "beta": 0.10346764672139981,
+          "nw_t_alpha": -0.11034381132867341,
+          "n": 548,
+          "lag": 10,
+          "se_alpha_daily": 0.0007154801770907302
+        }
+      },
+      "corr_vs_ref_combo": 0.4007764986452786,
+      "long_only": true,
+      "apply_beta_hedge": false,
+      "tau_pct": "50/50",
+      "horizon": 10
+    },
+    "Reference Sleeve A": {
+      "n_days": 1616,
+      "net_sharpe_full": 1.215687800160314,
+      "net_sharpe_trail18m": 1.0092597177945795,
+      "net_sharpe_by_year": {
+        "2022": -0.3289672638170933,
+        "2023": 2.7548348772308358,
+        "2024": 1.390823982284115,
+        "2025": 1.147778583923034,
+        "2026": 0.7211150361819313
+      },
+      "net_cagr": 0.3375089466272885,
+      "max_drawdown": -0.22107486713654423,
+      "total_return": 2.62381188123381,
+      "avg_n_long": 1.4362623762376239,
+      "avg_gross_deployed": 0.35484028906129583,
+      "avg_gross_full": 0.662857644468674,
+      "pct_flat_days": 0.29826732673267325,
+      "funding_total_pnl": -0.2655906053344721,
+      "ann_turnover": 20.733266396610414,
+      "top5_names": [
+        {
+          "symbol": "REEFUSDT",
+          "pnl": 0.3118057929819424
+        },
+        {
+          "symbol": "TRBUSDT",
+          "pnl": 0.25446873064016
+        },
+        {
+          "symbol": "FTMUSDT",
+          "pnl": -0.23419154662908293
+        },
+        {
+          "symbol": "BLZUSDT",
+          "pnl": 0.22209347493196357
+        },
+        {
+          "symbol": "WIFUSDT",
+          "pnl": -0.19128492261307992
+        }
+      ],
+      "alpha": {
+        "full": {
+          "alpha_daily": 0.0008863253470160293,
+          "alpha_ann": 0.3235087516608507,
+          "beta": 0.009834274421648262,
+          "nw_t_alpha": 2.6264422697920033,
+          "n": 1616,
+          "lag": 7,
+          "se_alpha_daily": 0.0003374623372499333
+        },
+        "trail18m": {
+          "alpha_daily": 0.0006777342812243493,
+          "alpha_ann": 0.2473730126468875,
+          "beta": 0.02997863756008402,
+          "nw_t_alpha": 1.335335387288733,
+          "n": 548,
+          "lag": 7,
+          "se_alpha_daily": 0.000507538621140283
+        }
+      },
+      "corr_vs_ref_combo": 0.6704041545068492,
+      "long_only": false,
+      "apply_beta_hedge": true,
+      "tau_pct": 80.0,
+      "horizon": 7
+    },
+    "Reference Sleeve B": {
+      "n_days": 1616,
+      "net_sharpe_full": 1.4770284525032373,
+      "net_sharpe_trail18m": 0.7326494642307158,
+      "net_sharpe_by_year": {
+        "2022": 2.3168100194518133,
+        "2023": 1.54670067151857,
+        "2024": 3.4454562522823395,
+        "2025": 1.2155891767783484,
+        "2026": 0.26769321477201885
+      },
+      "net_cagr": 0.7250311692553417,
+      "max_drawdown": -0.5296357476365399,
+      "total_return": 10.178773401266632,
+      "avg_n_long": 3.9764851485148514,
+      "avg_gross_deployed": 0.7172262936806327,
+      "avg_gross_full": 1.1543806146219164,
+      "pct_flat_days": 0.0006188118811881188,
+      "funding_total_pnl": 0.27056482245011026,
+      "ann_turnover": 32.228944373603035,
+      "top5_names": [
+        {
+          "symbol": "RIVERUSDT",
+          "pnl": -0.2987553330263994
+        },
+        {
+          "symbol": "REEFUSDT",
+          "pnl": 0.265830405052166
+        },
+        {
+          "symbol": "XRPUSDT",
+          "pnl": 0.2491947314808584
+        },
+        {
+          "symbol": "WLDUSDT",
+          "pnl": 0.22946467925058528
+        },
+        {
+          "symbol": "PUMPUSDT",
+          "pnl": 0.1821919268522412
+        }
+      ],
+      "alpha": {
+        "full": {
+          "alpha_daily": 0.0017205721306600824,
+          "alpha_ann": 0.6280088276909301,
+          "beta": 0.04180271551411341,
+          "nw_t_alpha": 2.8134709181907183,
+          "n": 1616,
+          "lag": 10,
+          "se_alpha_daily": 0.0006115478640762155
+        },
+        "trail18m": {
+          "alpha_daily": 0.0012676704830608513,
+          "alpha_ann": 0.46269972631721074,
+          "beta": 0.061480599130760406,
+          "nw_t_alpha": 0.8458297259197534,
+          "n": 548,
+          "lag": 10,
+          "se_alpha_daily": 0.0014987301157835158
+        }
+      },
+      "corr_vs_ref_combo": 0.8878042917403699,
+      "long_only": false,
+      "apply_beta_hedge": true,
+      "tau_pct": 70.0,
+      "horizon": 10
+    },
+    "Reference COMBO": {
+      "n_days": 1616,
+      "net_sharpe_full": 1.7114300248388588,
+      "net_sharpe_trail18m": 0.9974594459461144,
+      "net_sharpe_by_year": {
+        "2022": 1.0972721619289092,
+        "2023": 2.5437085915892794,
+        "2024": 2.842835158315406,
+        "2025": 1.4440535291590557,
+        "2026": 0.4406685999669462
+      },
+      "net_cagr": 0.5569823720739611,
+      "max_drawdown": -0.3320051619789679,
+      "total_return": 6.10094758565471,
+      "avg_n_long": 5.412747524752476,
+      "avg_gross_deployed": 0.5360332913709643,
+      "avg_gross_full": 0.9086191295452951,
+      "pct_flat_days": 0.0,
+      "funding_total_pnl": 0.0024871085578190566,
+      "ann_turnover": 26.481105385106723,
+      "top5_names": [
+        {
+          "symbol": "REEFUSDT",
+          "pnl": 0.2888180990170542
+        },
+        {
+          "symbol": "FTMUSDT",
+          "pnl": -0.20043964438126866
+        },
+        {
+          "symbol": "TRBUSDT",
+          "pnl": 0.19213762302916942
+        },
+        {
+          "symbol": "WLDUSDT",
+          "pnl": 0.15754085068608709
+        },
+        {
+          "symbol": "XRPUSDT",
+          "pnl": 0.1467568710746981
+        }
+      ],
+      "alpha": {
+        "full": {
+          "alpha_daily": 0.0013034487388380563,
+          "alpha_ann": 0.4757587896758905,
+          "beta": 0.025818494967880832,
+          "nw_t_alpha": 3.386674723582039,
+          "n": 1616,
+          "lag": 10,
+          "se_alpha_daily": 0.00038487568049033554
+        },
+        "trail18m": {
+          "alpha_daily": 0.0009727023821425998,
+          "alpha_ann": 0.3550363694820489,
+          "beta": 0.045729618345422246,
+          "nw_t_alpha": 1.175512140102432,
+          "n": 548,
+          "lag": 10,
+          "se_alpha_daily": 0.0008274711497729324
+        }
+      },
+      "corr_vs_ref_combo": 1.0,
+      "long_only": false,
+      "apply_beta_hedge": true,
+      "tau_pct": "50/50",
+      "horizon": 10
+    }
+  },
+  "attribution": {
+    "LO-H Sleeve A": {
+      "full": {
+        "long": -0.6137209744992879,
+        "short": 0.0,
+        "hedge": 0.36551611339904766,
+        "funding": 0.07309692312670615,
+        "costs": 0.024006974618082877,
+        "net": -0.19911491259161698,
+        "recon": -0.19911491259161693,
+        "recon_gap": 5.551115123125783e-17,
+        "long_share_of_net": 3.0822451543748732,
+        "long_share_of_alpha": 1.0
+      },
+      "trail18m": {
+        "long": -0.17059465225609727,
+        "short": 0.0,
+        "hedge": 0.07245447216074943,
+        "funding": 0.001419520265049653,
+        "costs": 0.0021253051411460255,
+        "net": -0.09884596497144421,
+        "recon": -0.0988459649714442,
+        "recon_gap": 1.3877787807814457e-17,
+        "long_share_of_net": 1.7258635929689257,
+        "long_share_of_alpha": 1.0
+      },
+      "by_year": {
+        "2022": {
+          "long": -0.7590472796108374,
+          "short": 0.0,
+          "hedge": 0.5167162980805835,
+          "funding": 0.05504211718328471,
+          "costs": 0.01640595043424327,
+          "net": -0.20369481478121254,
+          "recon": -0.20369481478121243,
+          "recon_gap": 1.1102230246251565e-16,
+          "long_share_of_net": 3.726394706836921,
+          "long_share_of_alpha": 1.0
+        },
+        "2023": {
+          "long": 0.29460081994405957,
+          "short": 0.0,
+          "hedge": -0.1976712973990763,
+          "funding": 0.015822686571202806,
+          "costs": 0.0040272874045371825,
+          "net": 0.10872492171164891,
+          "recon": 0.1087249217116489,
+          "recon_gap": -1.3877787807814457e-17,
+          "long_share_of_net": 2.7095979036469218,
+          "long_share_of_alpha": 1.0
+        },
+        "2024": {
+          "long": 0.021320137423587314,
+          "short": 0.0,
+          "hedge": -0.025983359443208988,
+          "funding": 0.0008125991071689819,
+          "costs": 0.001448431638156397,
+          "net": -0.00529905455060908,
+          "recon": -0.005299054550609089,
+          "recon_gap": -8.673617379884035e-18,
+          "long_share_of_net": -4.023385156723241,
+          "long_share_of_alpha": 1.0
+        },
+        "2025": {
+          "long": -0.14914770442806502,
+          "short": 0.0,
+          "hedge": 0.06518061662557745,
+          "funding": 0.0013991811789487866,
+          "costs": 0.0017450909320891007,
+          "net": -0.08431299755562789,
+          "recon": -0.08431299755562789,
+          "recon_gap": 0.0,
+          "long_share_of_net": 1.7689764182522463,
+          "long_share_of_alpha": 1.0
+        },
+        "2026": {
+          "long": -0.02144694782803224,
+          "short": 0.0,
+          "hedge": 0.007273855535171984,
+          "funding": 2.0339086100866457e-05,
+          "costs": 0.0003802142090569249,
+          "net": -0.01453296741581632,
+          "recon": -0.014532967415816314,
+          "recon_gap": 5.204170427930421e-18,
+          "long_share_of_net": 1.47574457537773,
+          "long_share_of_alpha": 1.0
+        }
+      },
+      "n_days": 1616
+    },
+    "LO-H Sleeve B": {
+      "full": {
+        "long": -0.3076922042517899,
+        "short": 0.0,
+        "hedge": 0.28525215835339157,
+        "funding": 0.6278912655552757,
+        "costs": 0.08234800476364942,
+        "net": 0.5231032148932281,
+        "recon": 0.523103214893228,
+        "recon_gap": -1.1102230246251565e-16,
+        "long_share_of_net": -0.5882055309382752,
+        "long_share_of_alpha": 1.0
+      },
+      "trail18m": {
+        "long": -0.4782929821345351,
+        "short": 0.0,
+        "hedge": 0.23580122262261602,
+        "funding": 0.5034318142625355,
+        "costs": 0.022201070509403776,
+        "net": 0.23873898424121237,
+        "recon": 0.23873898424121265,
+        "recon_gap": 2.7755575615628914e-16,
+        "long_share_of_net": -2.003413827258672,
+        "long_share_of_alpha": 1.0
+      },
+      "by_year": {
+        "2022": {
+          "long": -0.6109608604095143,
+          "short": 0.0,
+          "hedge": 0.5952988131375447,
+          "funding": 0.05288977095800987,
+          "costs": 0.022322038534416756,
+          "net": 0.014905685151623674,
+          "recon": 0.014905685151623597,
+          "recon_gap": -7.632783294297951e-17,
+          "long_share_of_net": -40.988445294174376,
+          "long_share_of_alpha": 1.0
+        },
+        "2023": {
+          "long": 0.32762941565716464,
+          "short": 0.0,
+          "hedge": -0.2658452586213303,
+          "funding": 0.06852604706999427,
+          "costs": 0.0222669220457673,
+          "net": 0.10804328206006136,
+          "recon": 0.10804328206006131,
+          "recon_gap": -5.551115123125783e-17,
+          "long_share_of_net": 3.03239044029628,
+          "long_share_of_alpha": 1.0
+        },
+        "2024": {
+          "long": 0.4384383330691219,
+          "short": 0.0,
+          "hedge": -0.274009477770915,
+          "funding": 0.0030393954712514036,
+          "costs": 0.015814812985854805,
+          "net": 0.15165343778360355,
+          "recon": 0.1516534377836035,
+          "recon_gap": -5.551115123125783e-17,
+          "long_share_of_net": 2.8910543636652393,
+          "long_share_of_alpha": 1.0
+        },
+        "2025": {
+          "long": -0.023893614252921608,
+          "short": 0.0,
+          "hedge": 0.04781648962754809,
+          "funding": 0.17468855172612277,
+          "costs": 0.015958393970484097,
+          "net": 0.18265303313026507,
+          "recon": 0.18265303313026515,
+          "recon_gap": 8.326672684688674e-17,
+          "long_share_of_net": -0.1308142210585744,
+          "long_share_of_alpha": 1.0
+        },
+        "2026": {
+          "long": -0.43890547831564075,
+          "short": 0.0,
+          "hedge": 0.18199159198054413,
+          "funding": 0.3287475003298976,
+          "costs": 0.005985837227126466,
+          "net": 0.06584777676767442,
+          "recon": 0.06584777676767452,
+          "recon_gap": 9.71445146547012e-17,
+          "long_share_of_net": -6.665456297244427,
+          "long_share_of_alpha": 1.0
+        }
+      },
+      "n_days": 1616
+    },
+    "COMBO-LO-H": {
+      "full": {
+        "long": -0.46070658937553877,
+        "short": 0.0,
+        "hedge": 0.3253841358762196,
+        "funding": 0.350494094340991,
+        "costs": 0.05317748969086615,
+        "net": 0.16199415115080557,
+        "recon": 0.16199415115080568,
+        "recon_gap": 1.1102230246251565e-16,
+        "long_share_of_net": -2.843970514383894,
+        "long_share_of_alpha": 1.0
+      },
+      "trail18m": {
+        "long": -0.32444381719531623,
+        "short": 0.0,
+        "hedge": 0.15412784739168273,
+        "funding": 0.25242566726379256,
+        "costs": 0.0121631878252749,
+        "net": 0.06994650963488411,
+        "recon": 0.06994650963488416,
+        "recon_gap": 5.551115123125783e-17,
+        "long_share_of_net": -4.638456141541448,
+        "long_share_of_alpha": 1.0
+      },
+      "by_year": {
+        "2022": {
+          "long": -0.6850040700101758,
+          "short": 0.0,
+          "hedge": 0.5560075556090642,
+          "funding": 0.05396594407064728,
+          "costs": 0.01936399448433001,
+          "net": -0.09439456481479447,
+          "recon": -0.09439456481479433,
+          "recon_gap": 1.3877787807814457e-16,
+          "long_share_of_net": 7.256816866036497,
+          "long_share_of_alpha": 1.0
+        },
+        "2023": {
+          "long": 0.3111151178006122,
+          "short": 0.0,
+          "hedge": -0.23175827801020324,
+          "funding": 0.04217436682059854,
+          "costs": 0.01314710472515224,
+          "net": 0.10838410188585515,
+          "recon": 0.10838410188585525,
+          "recon_gap": 9.71445146547012e-17,
+          "long_share_of_net": 2.87048665244524,
+          "long_share_of_alpha": 1.0
+        },
+        "2024": {
+          "long": 0.22987923524635462,
+          "short": 0.0,
+          "hedge": -0.149996418607062,
+          "funding": 0.0019259972892101927,
+          "costs": 0.008631622312005602,
+          "net": 0.07317719161649723,
+          "recon": 0.0731771916164972,
+          "recon_gap": -2.7755575615628914e-17,
+          "long_share_of_net": 3.1414055413754105,
+          "long_share_of_alpha": 1.0
+        },
+        "2025": {
+          "long": -0.08652065934049326,
+          "short": 0.0,
+          "hedge": 0.05649855312656276,
+          "funding": 0.08804386645253579,
+          "costs": 0.0088517424512866,
+          "net": 0.04917001778731857,
+          "recon": 0.049170017787318686,
+          "recon_gap": 1.1796119636642288e-16,
+          "long_share_of_net": -1.7596222908588777,
+          "long_share_of_alpha": 1.0
+        },
+        "2026": {
+          "long": -0.23017621307183644,
+          "short": 0.0,
+          "hedge": 0.09463272375785806,
+          "funding": 0.1643839197079992,
+          "costs": 0.0031830257180916954,
+          "net": 0.02565740467592907,
+          "recon": 0.02565740467592912,
+          "recon_gap": 4.85722573273506e-17,
+          "long_share_of_net": -8.971141702721793,
+          "long_share_of_alpha": 1.0
+        }
+      },
+      "n_days": 1616
+    },
+    "LO-U Sleeve A": {
+      "full": {
+        "long": -0.6137209744992879,
+        "short": 0.0,
+        "hedge": 0.0,
+        "funding": 0.0363260862196245,
+        "costs": 0.016214110617467994,
+        "net": -0.5936089988971314,
+        "recon": -0.5936089988971314,
+        "recon_gap": 0.0,
+        "long_share_of_net": 1.033880846886625,
+        "long_share_of_alpha": 1.0
+      },
+      "trail18m": {
+        "long": -0.17059465225609727,
+        "short": 0.0,
+        "hedge": 0.0,
+        "funding": -0.0008869707142857143,
+        "costs": 0.0005142857142857142,
+        "net": -0.17199590868466869,
+        "recon": -0.17199590868466869,
+        "recon_gap": 0.0,
+        "long_share_of_net": 0.991852966507823,
+        "long_share_of_alpha": 1.0
+      },
+      "by_year": {
+        "2022": {
+          "long": -0.7590472796108374,
+          "short": 0.0,
+          "hedge": 0.0,
+          "funding": 0.03485499455835335,
+          "costs": 0.012017406863819087,
+          "net": -0.7362096919163033,
+          "recon": -0.7362096919163031,
+          "recon_gap": 1.1102230246251565e-16,
+          "long_share_of_net": 1.0310204931357116,
+          "long_share_of_alpha": 1.0
+        },
+        "2023": {
+          "long": 0.29460081994405957,
+          "short": 0.0,
+          "hedge": 0.0,
+          "funding": 0.005949756385544796,
+          "costs": 0.0026906739756304985,
+          "net": 0.29785990235397386,
+          "recon": 0.29785990235397386,
+          "recon_gap": 0.0,
+          "long_share_of_net": 0.9890583378824813,
+          "long_share_of_alpha": 1.0
+        },
+        "2024": {
+          "long": 0.021320137423587314,
+          "short": 0.0,
+          "hedge": 0.0,
+          "funding": -0.0035916940099879396,
+          "costs": 0.0009917440637326924,
+          "net": 0.016736699349866692,
+          "recon": 0.01673669934986668,
+          "recon_gap": -1.0408340855860843e-17,
+          "long_share_of_net": 1.2738555540676022,
+          "long_share_of_alpha": 1.0
+        },
+        "2025": {
+          "long": -0.14914770442806502,
+          "short": 0.0,
+          "hedge": 0.0,
+          "funding": -0.000701375,
+          "costs": 0.0003999999999999999,
+          "net": -0.150249079428065,
+          "recon": -0.15024907942806504,
+          "recon_gap": -2.7755575615628914e-17,
+          "long_share_of_net": 0.9926696722256638,
+          "long_share_of_alpha": 1.0
+        },
+        "2026": {
+          "long": -0.02144694782803224,
+          "short": 0.0,
+          "hedge": 0.0,
+          "funding": -0.00018559571428571428,
+          "costs": 0.00011428571428571428,
+          "net": -0.021746829256603675,
+          "recon": -0.021746829256603668,
+          "recon_gap": 6.938893903907228e-18,
+          "long_share_of_net": 0.9862103378367045,
+          "long_share_of_alpha": 1.0
+        }
+      },
+      "n_days": 1616
+    },
+    "LO-U Sleeve B": {
+      "full": {
+        "long": -0.3076922042517899,
+        "short": 0.0,
+        "hedge": 0.0,
+        "funding": 0.5292891487676264,
+        "costs": 0.05284221057755367,
+        "net": 0.16875473393828305,
+        "recon": 0.16875473393828289,
+        "recon_gap": -1.6653345369377348e-16,
+        "long_share_of_net": -1.8233100611229018,
+        "long_share_of_alpha": 1.0
+      },
+      "trail18m": {
+        "long": -0.4782929821345351,
+        "short": 0.0,
+        "hedge": 0.0,
+        "funding": 0.49959940261926566,
+        "costs": 0.00951377879502565,
+        "net": 0.01179264168970487,
+        "recon": 0.011792641689704932,
+        "recon_gap": 6.245004513516506e-17,
+        "long_share_of_net": -40.55859532746519,
+        "long_share_of_alpha": 1.0
+      },
+      "by_year": {
+        "2022": {
+          "long": -0.6109608604095143,
+          "short": 0.0,
+          "hedge": 0.0,
+          "funding": 0.03271318197518548,
+          "costs": 0.016861560441878608,
+          "net": -0.5951092388762074,
+          "recon": -0.5951092388762074,
+          "recon_gap": 0.0,
+          "long_share_of_net": 1.0266364904084513,
+          "long_share_of_alpha": 1.0
+        },
+        "2023": {
+          "long": 0.32762941565716464,
+          "short": 0.0,
+          "hedge": 0.0,
+          "funding": 0.034061659612975845,
+          "costs": 0.016186045908586997,
+          "net": 0.3455050293615536,
+          "recon": 0.3455050293615535,
+          "recon_gap": -1.1102230246251565e-16,
+          "long_share_of_net": 0.9482623632500498,
+          "long_share_of_alpha": 1.0
+        },
+        "2024": {
+          "long": 0.4384383330691219,
+          "short": 0.0,
+          "hedge": 0.0,
+          "funding": -0.0372356800839672,
+          "costs": 0.010440610372481028,
+          "net": 0.3907620426126737,
+          "recon": 0.39076204261267367,
+          "recon_gap": -5.551115123125783e-17,
+          "long_share_of_net": 1.122008499437867,
+          "long_share_of_alpha": 1.0
+        },
+        "2025": {
+          "long": -0.023893614252921608,
+          "short": 0.0,
+          "hedge": 0.0,
+          "funding": 0.1725262210814095,
+          "costs": 0.006140551136872935,
+          "net": 0.14249205569161483,
+          "recon": 0.14249205569161497,
+          "recon_gap": 1.3877787807814457e-16,
+          "long_share_of_net": -0.16768383428078837,
+          "long_share_of_alpha": 1.0
+        },
+        "2026": {
+          "long": -0.43890547831564075,
+          "short": 0.0,
+          "hedge": 0.0,
+          "funding": 0.32722376618202276,
+          "costs": 0.0032134427177341073,
+          "net": -0.11489515485135186,
+          "recon": -0.1148951548513521,
+          "recon_gap": -2.3592239273284576e-16,
+          "long_share_of_net": 3.820052106492083,
+          "long_share_of_alpha": 1.0
+        }
+      },
+      "n_days": 1616
+    },
+    "COMBO-LO-U": {
+      "full": {
+        "long": -0.46070658937553877,
+        "short": 0.0,
+        "hedge": 0.0,
+        "funding": 0.2828076174936255,
+        "costs": 0.034528160597510835,
+        "net": -0.21242713247942405,
+        "recon": -0.21242713247942413,
+        "recon_gap": -8.326672684688674e-17,
+        "long_share_of_net": 2.168774694636352,
+        "long_share_of_alpha": 1.0
+      },
+      "trail18m": {
+        "long": -0.32444381719531623,
+        "short": 0.0,
+        "hedge": 0.0,
+        "funding": 0.24935621595248997,
+        "costs": 0.005014032254655682,
+        "net": -0.0801016334974819,
+        "recon": -0.08010163349748195,
+        "recon_gap": -5.551115123125783e-17,
+        "long_share_of_net": 4.05040200841242,
+        "long_share_of_alpha": 1.0
+      },
+      "by_year": {
+        "2022": {
+          "long": -0.6850040700101758,
+          "short": 0.0,
+          "hedge": 0.0,
+          "funding": 0.033784088266769416,
+          "costs": 0.014439483652848847,
+          "net": -0.6656594653962553,
+          "recon": -0.6656594653962553,
+          "recon_gap": 0.0,
+          "long_share_of_net": 1.0290608120511064,
+          "long_share_of_alpha": 1.0
+        },
+        "2023": {
+          "long": 0.3111151178006122,
+          "short": 0.0,
+          "hedge": 0.0,
+          "funding": 0.02000570799926032,
+          "costs": 0.009438359942108747,
+          "net": 0.3216824658577637,
+          "recon": 0.3216824658577638,
+          "recon_gap": 5.551115123125783e-17,
+          "long_share_of_net": 0.9671497542491979,
+          "long_share_of_alpha": 1.0
+        },
+        "2024": {
+          "long": 0.22987923524635462,
+          "short": 0.0,
+          "hedge": 0.0,
+          "funding": -0.020413687046977574,
+          "costs": 0.00571617721810686,
+          "net": 0.20374937098127022,
+          "recon": 0.2037493709812702,
+          "recon_gap": -2.7755575615628914e-17,
+          "long_share_of_net": 1.1282451285088209,
+          "long_share_of_alpha": 1.0
+        },
+        "2025": {
+          "long": -0.08652065934049326,
+          "short": 0.0,
+          "hedge": 0.0,
+          "funding": 0.08591242304070476,
+          "costs": 0.0032702755684364676,
+          "net": -0.0038785118682250763,
+          "recon": -0.0038785118682249653,
+          "recon_gap": 1.1102230246251565e-16,
+          "long_share_of_net": 22.30769487888346,
+          "long_share_of_alpha": 1.0
+        },
+        "2026": {
+          "long": -0.23017621307183644,
+          "short": 0.0,
+          "hedge": 0.0,
+          "funding": 0.16351908523386852,
+          "costs": 0.0016638642160099106,
+          "net": -0.06832099205397779,
+          "recon": -0.06832099205397783,
+          "recon_gap": -4.163336342344337e-17,
+          "long_share_of_net": 3.369040848967519,
+          "long_share_of_alpha": 1.0
+        }
+      },
+      "n_days": 1616
+    },
+    "Reference Sleeve A": {
+      "full": {
+        "long": -0.5577862561287776,
+        "short": 2.3593899563604914,
+        "hedge": -0.017389993818804045,
+        "funding": -0.2655906053344721,
+        "costs": 0.07531544769223264,
+        "net": 1.443307653386205,
+        "recon": 1.443307653386205,
+        "recon_gap": 0.0,
+        "long_share_of_net": -0.3864638663975291,
+        "long_share_of_alpha": -0.30960541214310217
+      },
+      "trail18m": {
+        "long": -0.17059465225609727,
+        "short": 1.0052494410280401,
+        "hedge": -0.3116576189182275,
+        "funding": -0.1359009833640514,
+        "costs": 0.026371123548703336,
+        "net": 0.3607250629409607,
+        "recon": 0.3607250629409606,
+        "recon_gap": -1.1102230246251565e-16,
+        "long_share_of_net": -0.4729215399264293,
+        "long_share_of_alpha": -0.2043894728107883
+      },
+      "by_year": {
+        "2022": {
+          "long": -0.6871207747405618,
+          "short": 0.5761868748533789,
+          "hedge": 0.05669680058586705,
+          "funding": 0.009775105102310302,
+          "costs": 0.026270683733473035,
+          "net": -0.07073267793247856,
+          "recon": -0.07073267793247852,
+          "recon_gap": 4.163336342344337e-17,
+          "long_share_of_net": 9.714332820771858,
+          "long_share_of_alpha": 6.193965734904727
+        },
+        "2023": {
+          "long": 0.2786090334442941,
+          "short": 0.3752692903541101,
+          "hedge": 0.1366247743873463,
+          "funding": -0.1232274607206717,
+          "costs": 0.011685170848195828,
+          "net": 0.6555904666168831,
+          "recon": 0.655590466616883,
+          "recon_gap": -1.1102230246251565e-16,
+          "long_share_of_net": 0.4249741990331731,
+          "long_share_of_alpha": 0.4260869695539738
+        },
+        "2024": {
+          "long": 0.021320137423587314,
+          "short": 0.44869226037265575,
+          "hedge": 0.058047497623730404,
+          "funding": -0.017149496853213094,
+          "costs": 0.011413075505028233,
+          "net": 0.49949732306173206,
+          "recon": 0.4994973230617321,
+          "recon_gap": 5.551115123125783e-17,
+          "long_share_of_net": 0.04268318655423984,
+          "long_share_of_alpha": 0.04536079797799268
+        },
+        "2025": {
+          "long": -0.14914770442806502,
+          "short": 0.511061373654875,
+          "hedge": -0.01676927060087302,
+          "funding": -0.04470218862102361,
+          "costs": 0.018300734215532098,
+          "net": 0.2821414757893815,
+          "recon": 0.2821414757893813,
+          "recon_gap": -1.6653345369377348e-16,
+          "long_share_of_net": -0.5286273633140125,
+          "long_share_of_alpha": -0.4121085140185592
+        },
+        "2026": {
+          "long": -0.02144694782803224,
+          "short": 0.44818015712547143,
+          "hedge": -0.2519897958148747,
+          "funding": -0.09028656424187398,
+          "costs": 0.007645783390003452,
+          "net": 0.07681106585068705,
+          "recon": 0.07681106585068707,
+          "recon_gap": 2.7755575615628914e-17,
+          "long_share_of_net": -0.2792169017641669,
+          "long_share_of_alpha": -0.050258445700398745
+        }
+      },
+      "n_days": 1616
+    },
+    "Reference Sleeve B": {
+      "full": {
+        "long": -0.2585959868210215,
+        "short": 2.74932174097016,
+        "hedge": 0.23341708956122464,
+        "funding": 0.27056482245011026,
+        "costs": 0.16748017038878535,
+        "net": 2.827227495771688,
+        "recon": 2.8272274957716883,
+        "recon_gap": 4.440892098500626e-16,
+        "long_share_of_net": -0.09146628179294714,
+        "long_share_of_alpha": -0.10382354877498784
+      },
+      "trail18m": {
+        "long": -0.4756407067671611,
+        "short": 1.1230680176265948,
+        "hedge": -0.2652843178788359,
+        "funding": 0.34334383589115625,
+        "costs": 0.05269240100730283,
+        "net": 0.6727944278644509,
+        "recon": 0.6727944278644512,
+        "recon_gap": 3.3306690738754696e-16,
+        "long_share_of_net": -0.706962910315585,
+        "long_share_of_alpha": -0.734662716244959
+      },
+      "by_year": {
+        "2022": {
+          "long": -0.5600007010495247,
+          "short": 0.936966312786678,
+          "hedge": 0.12968285783569672,
+          "funding": -0.005798246563172451,
+          "costs": 0.039206052848431386,
+          "net": 0.46164417016124604,
+          "recon": 0.46164417016124615,
+          "recon_gap": 1.1102230246251565e-16,
+          "long_share_of_net": -1.2130570193357453,
+          "long_share_of_alpha": -1.4855485052572814
+        },
+        "2023": {
+          "long": 0.3250696965684121,
+          "short": 0.011478952062026954,
+          "hedge": 0.26212579578376827,
+          "funding": -0.054229842590296354,
+          "costs": 0.04244110997966079,
+          "net": 0.5020034918442502,
+          "recon": 0.5020034918442502,
+          "recon_gap": 0.0,
+          "long_share_of_net": 0.6475446921179326,
+          "long_share_of_alpha": 0.9658921463249377
+        },
+        "2024": {
+          "long": 0.43739086428429125,
+          "short": 0.726600517403772,
+          "hedge": 0.07303949075782634,
+          "funding": -0.013256237853349551,
+          "costs": 0.03372304821818162,
+          "net": 1.1900515863743584,
+          "recon": 1.1900515863743584,
+          "recon_gap": 0.0,
+          "long_share_of_net": 0.36753941534321,
+          "long_share_of_alpha": 0.3757681295285631
+        },
+        "2025": {
+          "long": -0.03910127969927993,
+          "short": 0.6615875706813948,
+          "hedge": -0.13298727414972145,
+          "funding": 0.11033315078116242,
+          "costs": 0.03621023363844358,
+          "net": 0.5636219339751123,
+          "recon": 0.5636219339751124,
+          "recon_gap": 1.1102230246251565e-16,
+          "long_share_of_net": -0.06937501424670693,
+          "long_share_of_alpha": -0.06281468405928858
+        },
+        "2026": {
+          "long": -0.4219545669249203,
+          "short": 0.4126883880362886,
+          "hedge": -0.09844378066634499,
+          "funding": 0.23351599867576614,
+          "costs": 0.015899725704067995,
+          "net": 0.10990631341672145,
+          "recon": 0.10990631341672147,
+          "recon_gap": 1.3877787807814457e-17,
+          "long_share_of_net": -3.8392204579279694,
+          "long_share_of_alpha": 45.53706247163004
+        }
+      },
+      "n_days": 1616
+    },
+    "Reference COMBO": {
+      "full": {
+        "long": -0.40819112147489955,
+        "short": 2.5543558486653257,
+        "hedge": 0.10801354787121034,
+        "funding": 0.0024871085578190566,
+        "costs": 0.12139780904050901,
+        "net": 2.135267574578947,
+        "recon": 2.135267574578947,
+        "recon_gap": 0.0,
+        "long_share_of_net": -0.19116626240877127,
+        "long_share_of_alpha": -0.1901956156036858
+      },
+      "trail18m": {
+        "long": -0.3231176795116292,
+        "short": 1.0641587293273174,
+        "hedge": -0.2884709683985317,
+        "funding": 0.10372142626355245,
+        "costs": 0.039531762278003084,
+        "net": 0.5167597454027058,
+        "recon": 0.5167597454027059,
+        "recon_gap": 1.1102230246251565e-16,
+        "long_share_of_net": -0.6252764120777766,
+        "long_share_of_alpha": -0.4360320924083693
+      },
+      "by_year": {
+        "2022": {
+          "long": -0.6235607378950432,
+          "short": 0.7565765938200284,
+          "hedge": 0.0931898292107819,
+          "funding": 0.0019884292695689274,
+          "costs": 0.03273836829095221,
+          "net": 0.1954557461143838,
+          "recon": 0.19545574611438382,
+          "recon_gap": 2.7755575615628914e-17,
+          "long_share_of_net": -3.1902911543471615,
+          "long_share_of_alpha": -4.687867724932752
+        },
+        "2023": {
+          "long": 0.3018393650063531,
+          "short": 0.19337412120806857,
+          "hedge": 0.1993752850855572,
+          "funding": -0.08872865165548403,
+          "costs": 0.027063140413928308,
+          "net": 0.5787969792305666,
+          "recon": 0.5787969792305665,
+          "recon_gap": -1.1102230246251565e-16,
+          "long_share_of_net": 0.5214943682111269,
+          "long_share_of_alpha": 0.6095136207087466
+        },
+        "2024": {
+          "long": 0.22935550085393927,
+          "short": 0.5876463888882137,
+          "hedge": 0.06554349419077844,
+          "funding": -0.015202867353281324,
+          "costs": 0.022568061861604923,
+          "net": 0.8447744547180452,
+          "recon": 0.8447744547180452,
+          "recon_gap": 0.0,
+          "long_share_of_net": 0.2714990960877122,
+          "long_share_of_alpha": 0.2807282378824414
+        },
+        "2025": {
+          "long": -0.09412449206367242,
+          "short": 0.586324472168135,
+          "hedge": -0.07487827237529715,
+          "funding": 0.03281548108006944,
+          "costs": 0.027255483926987834,
+          "net": 0.42288170488224686,
+          "recon": 0.422881704882247,
+          "recon_gap": 1.6653345369377348e-16,
+          "long_share_of_net": -0.22257877552277125,
+          "long_share_of_alpha": -0.19123221427943943
+        },
+        "2026": {
+          "long": -0.22170075737647627,
+          "short": 0.43043427258088,
+          "hedge": -0.17521678824060988,
+          "funding": 0.0716147172169461,
+          "costs": 0.011772754547035724,
+          "net": 0.09335868963370424,
+          "recon": 0.09335868963370425,
+          "recon_gap": 1.3877787807814457e-17,
+          "long_share_of_net": -2.374720106358885,
+          "long_share_of_alpha": -1.06212343120545
+        }
+      },
+      "n_days": 1616
+    }
+  },
+  "corr_oneliner": "Corr vs reference COMBO: COMBO-LO-H=0.560, COMBO-LO-U=0.401 (Sleeve A LO-H=0.215, LO-U=0.127; Sleeve B LO-H=0.575, LO-U=0.466).",
+  "reference_long_share_of_net": -0.19116626240877127,
+  "elapsed_sec": 124.45922946929932,
+  "tau_mode": "fold_train",
+  "reference_book_unchanged": true,
+  "identical_days": 1616
+}
