@@ -395,6 +395,8 @@ def _pack_metrics(
         "daily_cost": cost_s,
         "daily_funding": fund_s,
         "daily_n_pos": pd.Series(n_pos, index=rets_s.index, dtype=float) if n_pos else pd.Series(dtype=float),
+        "daily_n_long": pd.Series(n_long, index=rets_s.index, dtype=float) if n_long else pd.Series(dtype=float),
+        "daily_n_short": pd.Series(n_short, index=rets_s.index, dtype=float) if n_short else pd.Series(dtype=float),
         "daily_flat": pd.Series(flat, index=rets_s.index, dtype=float) if flat else pd.Series(dtype=float),
         "sym_contrib": dict(sym_contrib),
         "side_days": side_days,
@@ -588,6 +590,8 @@ def run_tranche_portfolio(
     nominal_book_usd: float = 1_000_000.0,
     hedge_mode: str = "trailing",
     rank_universe: pd.DataFrame | None = None,
+    long_only: bool = False,
+    apply_beta_hedge: bool = True,
 ) -> dict:
     del exit_hysteresis
     h = int(horizon)
@@ -643,6 +647,9 @@ def run_tranche_portfolio(
     daily_net, daily_gross, daily_hedge, daily_cost, daily_funding = [], [], [], [], []
     to_ee, to_rs, to_hg = [], [], []
     n_pos, n_long, n_short, flat, eq_dates = [], [], [], [], []
+    daily_long, daily_short = [], []
+    daily_gross_deployed, daily_gross_full = [], []
+    name_alpha_pnl: dict[str, float] = defaultdict(float)
     traded_ranks: list[float] = []
 
     for i, dt in enumerate(dates[:-1]):
@@ -652,6 +659,8 @@ def run_tranche_portfolio(
         prev_ak = alphas[k].copy()
         tau_t = float(tau_by_date.get(dt, tau)) if tau_by_date else tau
         new_state = _hard_threshold_state(day, tau_t)
+        if long_only:
+            new_state = {n: int(s) for n, s in new_state.items() if int(s) > 0}
 
         for sym, side in list(states[k].items()):
             if new_state.get(sym, 0) != side:
@@ -689,7 +698,10 @@ def run_tranche_portfolio(
                 univ = set(day["symbol"])
                 ak = ak[[s for s in ak.index if s in univ]]
                 alphas[tk] = ak
-            fk, hk = _apply_hedge(day, ak, beta_override=beta_ov)
+            if apply_beta_hedge:
+                fk, hk = _apply_hedge(day, ak, beta_override=beta_ov)
+            else:
+                fk, hk = ak.copy(), 0.0
             alpha = alpha.add(ak, fill_value=0.0)
             full = full.add(fk, fill_value=0.0)
             hedge_sum += hk
@@ -734,7 +746,7 @@ def run_tranche_portfolio(
             cost = turnover * cost_rate
 
         nxt = dates[i + 1]
-        gross_r = hedge_r = 0.0
+        gross_r = hedge_r = long_r = short_r = 0.0
         if nxt in rets.index:
             rrow = rets.loc[nxt]
             for s, wi in applied_alpha.items():
@@ -742,6 +754,11 @@ def run_tranche_portfolio(
                     ri = float(rrow[s])
                     contrib = float(wi) * ri
                     gross_r += contrib
+                    name_alpha_pnl[s] = name_alpha_pnl.get(s, 0.0) + contrib
+                    if float(wi) > 0:
+                        long_r += contrib
+                    elif float(wi) < 0:
+                        short_r += contrib
                     sym_contrib[s] = sym_contrib.get(s, 0.0) + contrib
             if "BTCUSDT" in rrow.index and np.isfinite(rrow["BTCUSDT"]):
                 hedge_r = applied_hedge * float(rrow["BTCUSDT"])
@@ -762,6 +779,10 @@ def run_tranche_portfolio(
         daily_hedge.append(hedge_r)
         daily_cost.append(cost)
         daily_funding.append(fund_r)
+        daily_long.append(long_r)
+        daily_short.append(short_r)
+        daily_gross_deployed.append(float(applied_alpha.abs().sum()) if len(applied_alpha) else 0.0)
+        daily_gross_full.append(float(applied_full.abs().sum()) if len(applied_full) else 0.0)
         to_ee.append(ee)
         to_rs.append(rs)
         to_hg.append(hg)
@@ -787,7 +808,8 @@ def run_tranche_portfolio(
         if i % 60 == 0:
             print(
                 f"[portfolio tranche h={h} τ={tau_pct} lag={lag} fund={apply_funding} "
-                f"tau_mode={mode} hedge={hedge_mode} tiered={tiered_costs}] "
+                f"tau_mode={mode} hedge={hedge_mode} tiered={tiered_costs} "
+                f"long_only={long_only} beta_hedge={apply_beta_hedge}] "
                 f"day {i}/{len(dates)} L={nl} S={ns} to={turnover:.3f}",
                 flush=True,
             )
@@ -803,4 +825,17 @@ def run_tranche_portfolio(
     packed["liq_cap_adv_frac"] = liq_cap_adv_frac
     packed["nominal_book_usd"] = float(nominal_book_usd)
     packed["avg_traded_rank"] = float(np.mean(traded_ranks)) if traded_ranks else float("nan")
+    packed["long_only"] = bool(long_only)
+    packed["apply_beta_hedge"] = bool(apply_beta_hedge)
+    idx = packed["daily_ret"].index
+    packed["daily_long"] = pd.Series(daily_long, index=idx, dtype=float)
+    packed["daily_short"] = pd.Series(daily_short, index=idx, dtype=float)
+    packed["daily_gross_deployed"] = pd.Series(daily_gross_deployed, index=idx, dtype=float)
+    packed["daily_gross_full"] = pd.Series(daily_gross_full, index=idx, dtype=float)
+    packed["avg_gross_deployed"] = float(np.mean(daily_gross_deployed)) if daily_gross_deployed else 0.0
+    packed["avg_gross_full"] = float(np.mean(daily_gross_full)) if daily_gross_full else 0.0
+    packed["name_alpha_pnl"] = dict(name_alpha_pnl)
+    packed["long_short_identity_gap"] = float(
+        np.sum(daily_gross) - np.sum(daily_long) - np.sum(daily_short)
+    )
     return packed

@@ -42,7 +42,9 @@ def window_slice(s: pd.Series, window: str) -> pd.Series:
 def slim_port(res: dict) -> dict:
     drop = {
         "equity", "daily_ret", "daily_gross", "daily_hedge", "daily_cost",
-        "daily_funding", "daily_n_pos", "daily_flat", "sym_contrib", "side_days",
+        "daily_funding", "daily_n_pos", "daily_n_long", "daily_n_short",
+        "daily_flat", "sym_contrib", "side_days", "daily_long", "daily_short",
+        "daily_gross_deployed", "daily_gross_full", "name_alpha_pnl",
     }
     return {k: v for k, v in res.items() if k not in drop}
 
@@ -75,9 +77,13 @@ def summarize_port(res: dict, common_idx: pd.DatetimeIndex | None = None) -> dic
                 ser = ser.reindex(common_idx).fillna(0.0)
             out[name] = float(ser.sum())
     out["avg_n_positions"] = float(res.get("avg_n_positions", float("nan")))
+    out["avg_n_long"] = float(res.get("avg_n_long", float("nan")))
+    out["avg_n_short"] = float(res.get("avg_n_short", float("nan")))
     out["pct_flat_days"] = float(res.get("pct_flat_days", float("nan")))
     out["ann_turnover"] = float(res.get("ann_turnover", float("nan")))
     out["avg_traded_rank"] = float(res.get("avg_traded_rank", float("nan")))
+    out["avg_gross_deployed"] = float(res.get("avg_gross_deployed", float("nan")))
+    out["avg_gross_full"] = float(res.get("avg_gross_full", float("nan")))
     out["tau_pct"] = float(res.get("tau_pct", float("nan")))
     out["tau_mode"] = res.get("tau_mode")
     out["year_rows"] = per_year_breakdown(res)
@@ -85,7 +91,14 @@ def summarize_port(res: dict, common_idx: pd.DatetimeIndex | None = None) -> dic
     if isinstance(eq, pd.DataFrame) and not eq.empty:
         out["equity"] = eq
     out["daily_ret"] = used
-    for key in ("daily_n_pos", "daily_flat"):
+    out["name_alpha_pnl"] = dict(res.get("name_alpha_pnl") or {})
+    out["sym_contrib"] = dict(res.get("sym_contrib") or {})
+    series_keys = (
+        "daily_n_pos", "daily_n_long", "daily_n_short", "daily_flat",
+        "daily_long", "daily_short", "daily_gross", "daily_hedge",
+        "daily_cost", "daily_funding", "daily_gross_deployed", "daily_gross_full",
+    )
+    for key in series_keys:
         ser = res.get(key)
         if isinstance(ser, pd.Series) and len(ser):
             ser = ser.copy()
@@ -93,6 +106,14 @@ def summarize_port(res: dict, common_idx: pd.DatetimeIndex | None = None) -> dic
             if common_idx is not None:
                 ser = ser.reindex(common_idx)
             out[key] = ser
+            if key == "daily_n_long":
+                out["avg_n_long"] = float(ser.mean()) if len(ser) else float("nan")
+            if key == "daily_flat":
+                out["pct_flat_days"] = float(ser.mean()) if len(ser) else float("nan")
+            if key == "daily_gross_deployed":
+                out["avg_gross_deployed"] = float(ser.mean()) if len(ser) else float("nan")
+            if key == "daily_gross_full":
+                out["avg_gross_full"] = float(ser.mean()) if len(ser) else float("nan")
     return out
 
 
