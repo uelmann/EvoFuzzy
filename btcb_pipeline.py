@@ -181,6 +181,8 @@ def run_btcb() -> dict:
         "pit_n50": n50,
         "pit_ndates": int(len(score)),
         "data_end": str(data_end.date()),
+        "n_survivor": int((span["terminal"] == "SURVIVOR").sum()),
+        "n_ended": int((span["terminal"] == "ENDED").sum()),
         "elapsed_sec": time.time() - t0,
         "source_sha256": hashlib.sha256(src.read_bytes() if src.stat().st_size < 50_000_000 else str(src.stat().st_size).encode()).hexdigest()
         if src.stat().st_size < 50_000_000
@@ -209,7 +211,7 @@ def run_btcb() -> dict:
     if not skipped:
         print(f"[HB] Phase 1 window from {gate['usable_from']}", flush=True)
         pit50 = pd.read_parquet(uni_dir / "btcb_top50_pit.parquet")
-        start = pd.Timestamp(gate["usable_from"], tz="UTC")
+        start = gate["usable_from"]
         naive = naive_rotation(panel, pit50, start, degenerate_btc=False)
         control = naive_rotation(panel, pit50, start, degenerate_btc=True)
         extra1["elapsed_sec"] = time.time() - t0
@@ -274,6 +276,21 @@ def run_btcb() -> dict:
         "gate_verdict": gate.get("verdict"),
         "gpu_used": False,
     }
+    if naive and isinstance(naive.get("equity"), pd.Series):
+        eq = naive["equity"]
+        eqb = naive["equity_btc"]
+        rel = naive["rel_equity"]
+        wbtc = naive["w_btc"]
+        p1j["rel_equity_line"] = [
+            {
+                "date": str(pd.Timestamp(d).date()),
+                "book": float(eq.loc[d]),
+                "btc": float(eqb.loc[d]) if d in eqb.index else float("nan"),
+                "rel": float(rel.loc[d]) if d in rel.index else float("nan"),
+                "w_btc": float(wbtc.loc[d]) if d in wbtc.index else float("nan"),
+            }
+            for d in eq.index
+        ]
     (rep_dir / "btcb_phase0_audit.json").write_text(json.dumps(p0j, indent=2, default=str))
     (rep_dir / "btcb_phase1_benchmark.json").write_text(json.dumps(p1j, indent=2, default=str))
 

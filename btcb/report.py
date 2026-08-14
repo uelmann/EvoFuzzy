@@ -59,6 +59,8 @@ def write_phase0(path: Path, *, schema, graveyard, sample, quality, agree, gate,
         f"- columns: `{schema.get('columns')}`",
         f"- null fractions: `{schema.get('null_frac')}`",
         f"- symbols mapping to >1 id: {schema.get('dup_symbol_ids')}; ids with >1 symbol: {schema.get('dup_id_symbols')}",
+        f"- terminal histories: survivors={extra.get('n_survivor')} ended={extra.get('n_ended')} "
+        f"(an archive with ended=0 does not retain delisted names — survivorship bias).",
         "",
         "## Graveyard — named dead/collapsed assets",
         "",
@@ -195,8 +197,8 @@ def write_phase1(path: Path, *, naive, control, gate, extra) -> str:
         f"| BTC B&H | {_pct(naive.get('btc_total'))} | {_pct(naive.get('btc_cagr'))} "
         f"| {_fmt(naive.get('btc_sharpe'))} | {_pct(naive.get('btc_maxdd'))} | 0 | 0 | 100% | 0 |",
         f"| 100% BTC control | {_pct(control.get('book_total'))} | {_pct(control.get('book_cagr'))} "
-        f"| {_fmt(control.get('book_sharpe'))} | {_pct(control.get('maxdd'))} | {_fmt(control.get('rel_sharpe'), 4)} "
-        f"| {_fmt(control.get('rel_cagr'), 4)} | {_pct(control.get('avg_w_btc'))} | {_fmt(control.get('ann_turnover'), 4)} |",
+        f"| {_fmt(control.get('book_sharpe'))} | {_pct(control.get('maxdd'))} | {_fmt(control.get('rel_cagr'), 4)} "
+        f"| {_fmt(control.get('rel_sharpe'), 4)} | {_pct(control.get('avg_w_btc'))} | {_fmt(control.get('ann_turnover'), 4)} |",
         "",
         "The 100% BTC control should reproduce B&H (relative line ≈ 1, rel Sharpe ≈ 0).",
         "",
@@ -247,7 +249,11 @@ def plot_benchmark(naive: dict, start: str | None, out_path: Path) -> None:
         axes[1].legend(fontsize=8)
         axes[1].grid(True, alpha=0.3)
     if start:
-        t0 = pd.Timestamp(start, tz="UTC")
+        t0 = pd.Timestamp(start)
+        if t0.tzinfo is None:
+            t0 = t0.tz_localize("UTC")
+        else:
+            t0 = t0.tz_convert("UTC")
         for ax in axes:
             ax.axvline(t0, color="#E45756", ls="--", lw=1.0, alpha=0.8)
     fig.savefig(out_path, dpi=120)

@@ -15,6 +15,14 @@ from btcb.constants import (
     NAME_CAP,
     N_HOLD,
 )
+from btcb.universe import collapse_duplicate_symbols
+
+
+def _as_utc(ts) -> pd.Timestamp:
+    t = pd.Timestamp(ts)
+    if t.tzinfo is None:
+        return t.tz_localize("UTC")
+    return t.tz_convert("UTC")
 
 
 def _sharpe(x: pd.Series) -> float:
@@ -49,18 +57,22 @@ def naive_rotation(
     degenerate_btc: bool = False,
 ) -> dict:
     """Equal-weight top names by 90d excess vs BTC; remainder in BTC; h overlapping slots."""
-    df = panel.copy()
+    df = collapse_duplicate_symbols(panel.copy())
     df["date"] = pd.to_datetime(df["date"], utc=True)
-    start = pd.Timestamp(start, tz="UTC")
+    start = _as_utc(start)
     close = df.pivot(index="date", columns="symbol", values="close").sort_index()
+    close.index = pd.to_datetime(close.index, utc=True).tz_convert("UTC").normalize()
     if "BTC" not in close.columns:
         raise RuntimeError("BTC missing from panel")
     logp = np.log(close.clip(lower=1e-18))
     fwd = logp.diff(lookback)
     excess = fwd.sub(fwd["BTC"], axis=0)
     pit = pit.copy()
-    pit["date"] = pd.to_datetime(pit["date"], utc=True)
-    members = pit.groupby("date")["symbol"].apply(list)
+    pit["date"] = pd.to_datetime(pit["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
+    members = {
+        pd.Timestamp(d).tz_convert("UTC").normalize(): list(v)
+        for d, v in pit.groupby("date")["symbol"]
+    }
     dates = [d for d in close.index if d >= start]
     if len(dates) < h + lookback + 5:
         return {"error": "not enough dates in usable window"}
@@ -68,7 +80,8 @@ def naive_rotation(
     alt_c = alt_bps * 1e-4
     btc_c = btc_bps * 1e-4
     slots = [pd.Series(dtype=float) for _ in range(h)]
-    prev_full = pd.Series(dtype=float)
+    # Product starts parked in BTC (never cash); no entry cost on the initial BTC book.
+    prev_full = pd.Series({"BTC": 1.0}, dtype=float)
     daily = []
     btc_w = []
     to_list = []
@@ -80,7 +93,8 @@ def naive_rotation(
         if degenerate_btc:
             alpha = pd.Series(dtype=float)
         else:
-            names = members.get(dt, [])
+            key = pd.Timestamp(dt).tz_convert("UTC").normalize() if getattr(dt, "tzinfo", None) else _as_utc(dt).normalize()
+            names = members.get(key, [])
             names = [s for s in names if s in excess.columns and s != "BTC"]
             if names and dt in excess.index:
                 ex = excess.loc[dt, names].astype(float)
@@ -152,7 +166,7 @@ def naive_rotation(
     by_year = {y: _sharpe(rets[rets.index.year == y]) for y in years}
     cycles = {}
     for name, a, b in CYCLES:
-        t0, t1 = pd.Timestamp(a, tz="UTC"), pd.Timestamp(b, tz="UTC")
+        t0, t1 = _as_utc(a), _as_utc(b)
         sl = rets[(rets.index >= t0) & (rets.index <= t1)]
         if sl.empty:
             continue
