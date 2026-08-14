@@ -320,3 +320,181 @@ def run_hysteresis_book(
         }
     )
     return packed
+
+
+def run_gated_book(
+    panel: pd.DataFrame,
+    pit50: pd.DataFrame,
+    preds: pd.DataFrame,
+    feat: pd.DataFrame,
+    btc_id: int,
+    p_enter: float,
+    h: int,
+    gate_on: pd.Series,
+    *,
+    budget: float = 0.50,
+    name_cap: float = NAME_CAP,
+    n_hold: int = N_HOLD,
+    alt_bps: float = ALT_BPS,
+    btc_bps: float = BTC_BPS,
+    blowoff: float = BLOWOFF_RET_7,
+    cycles=PHASE2_CYCLES,
+) -> dict:
+    """Fill `budget` with top-K calibrated p when gate is ON; else 100% BTC. h-tranche."""
+    df = panel.copy()
+    df["date"] = pd.to_datetime(df["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
+    close = df.pivot(index="date", columns="id", values="close").sort_index()
+    close.index = pd.to_datetime(close.index, utc=True).tz_convert("UTC").normalize()
+    last_map = {int(i): pd.Timestamp(d).tz_convert("UTC").normalize() for i, d in df.groupby("id")["date"].max().items()}
+    id_to_sym = df.sort_values("date").groupby("id")["symbol"].last().to_dict()
+
+    pit = pit50.copy()
+    pit["date"] = pd.to_datetime(pit["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
+    pit["id"] = pit["id"].astype(int)
+    members = {
+        pd.Timestamp(d).tz_convert("UTC").normalize(): [int(x) for x in v]
+        for d, v in pit.groupby("date")["id"]
+    }
+
+    pr = preds.copy()
+    pr["date"] = pd.to_datetime(pr["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
+    pr["id"] = pr["id"].astype(int)
+    pr = pr.sort_values(["date", "id", "fold_id"]).drop_duplicates(["date", "id"], keep="last")
+    pwide = pr.pivot(index="date", columns="id", values="p").sort_index()
+    pwide.index = pd.to_datetime(pwide.index, utc=True).tz_convert("UTC").normalize()
+
+    ft = feat[["date", "id", "ret_7_raw"]].copy()
+    ft["date"] = pd.to_datetime(ft["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
+    ft["id"] = ft["id"].astype(int)
+    blow = ft.pivot(index="date", columns="id", values="ret_7_raw").sort_index()
+    blow.index = pd.to_datetime(blow.index, utc=True).tz_convert("UTC").normalize()
+
+    gon = gate_on.copy()
+    gon.index = pd.to_datetime(gon.index, utc=True).tz_convert("UTC").normalize()
+
+    oos_dates = [d for d in close.index if d in pwide.index]
+    if len(oos_dates) < h + 5:
+        return {"error": "not enough OOS dates", "p_enter": p_enter, "horizon": h}
+
+    alt_c = alt_bps * 1e-4
+    btc_c = btc_bps * 1e-4
+    slots = [pd.Series(dtype=float) for _ in range(h)]
+    prev_full = pd.Series({btc_id: 1.0}, dtype=float)
+    daily, btc_w, to_list, eq_dates, n_alt, gate_hist = [], [], [], [], [], []
+    forced_events = []
+    contrib: dict[int, float] = {}
+
+    def _picks(dt, prev_slot: pd.Series) -> list[int]:
+        names = [s for s in members.get(dt, []) if s in close.columns and int(s) != int(btc_id)]
+        held = set(int(i) for i in prev_slot.index) if len(prev_slot) else set()
+        scored = []
+        for iid in names:
+            if dt not in pwide.index or iid not in pwide.columns:
+                continue
+            pv = float(pwide.loc[dt, iid])
+            if not np.isfinite(pv) or pv < float(p_enter):
+                continue
+            if iid not in held:
+                r7 = np.nan
+                if dt in blow.index and iid in blow.columns:
+                    r7 = float(blow.loc[dt, iid])
+                if np.isfinite(r7) and r7 > blowoff:
+                    continue
+            scored.append((pv, iid))
+        scored.sort(reverse=True)
+        return [i for _, i in scored[: int(n_hold)]]
+
+    for i, dt in enumerate(oos_dates[:-1]):
+        k = i % h
+        nxt = oos_dates[i + 1]
+        is_on = bool(gon.reindex([dt]).fillna(0).iloc[0]) if dt in gon.index else bool(gon.asof(dt) if len(gon) else 0)
+        if not is_on:
+            slots[k] = pd.Series(dtype=float)
+        else:
+            pick = _picks(dt, slots[k])
+            if pick:
+                w = (float(budget) / h) / len(pick)
+                slots[k] = pd.Series({s: w for s in pick}, dtype=float)
+            else:
+                slots[k] = pd.Series(dtype=float)
+        for j in range(h):
+            if not len(slots[j]):
+                continue
+            drop = []
+            for iid in slots[j].index:
+                ld = last_map.get(int(iid))
+                if ld is None or nxt > ld:
+                    drop.append(int(iid))
+            if drop:
+                w_drop = float(slots[j].reindex(drop).fillna(0.0).sum())
+                slots[j] = slots[j].drop(labels=drop, errors="ignore")
+                if w_drop > 0:
+                    forced_events.append({"date": str(dt.date()), "ids": drop, "weight": w_drop, "slot": j})
+        full = pd.Series(dtype=float)
+        for sl in slots:
+            if len(sl):
+                full = full.add(sl, fill_value=0.0)
+        if len(full):
+            full = full.clip(upper=name_cap)
+        alt_gross = float(full.abs().sum()) if len(full) else 0.0
+        w_btc = max(0.0, 1.0 - alt_gross)
+        applied = full.copy()
+        applied.loc[btc_id] = float(applied.get(btc_id, 0.0)) + w_btc
+
+        idx = applied.index.union(prev_full.index)
+        a = applied.reindex(idx).fillna(0.0)
+        prev = prev_full.reindex(idx).fillna(0.0)
+        dw = (a - prev).abs()
+        cost = 0.0
+        for s, mag in dw.items():
+            cost += float(mag) * (btc_c if int(s) == int(btc_id) else alt_c)
+        turnover = 0.5 * float(dw.sum())
+
+        r = 0.0
+        if nxt in close.index and dt in close.index:
+            simple = close.loc[nxt] / close.loc[dt] - 1.0
+            for s, wi in applied.items():
+                if s in simple.index and np.isfinite(simple[s]):
+                    rs = float(simple[s])
+                    r += float(wi) * rs
+                    contrib[int(s)] = contrib.get(int(s), 0.0) + float(wi) * rs
+        net = r - cost
+        daily.append(net)
+        btc_w.append(float(applied.get(btc_id, 0.0)))
+        to_list.append(turnover)
+        eq_dates.append(nxt)
+        n_alt.append(int((full > 0).sum()) if len(full) else 0)
+        gate_hist.append(1.0 if is_on else 0.0)
+        prev_full = applied
+        if i % 60 == 0:
+            print(
+                f"[HB] gated h={h} p={p_enter:.2f} i={i}/{len(oos_dates)} dt={dt.date()} "
+                f"on={int(is_on)} nalts={n_alt[-1]} wbtc={w_btc:.2f} net={net:.5f}",
+                flush=True,
+            )
+
+    rets = pd.Series(daily, index=pd.DatetimeIndex(eq_dates), dtype=float)
+    btc_simple = close[btc_id].pct_change()
+    wbtc = pd.Series(btc_w, index=rets.index)
+    nn = pd.Series(n_alt, index=rets.index)
+    packed = summarize_book(rets, btc_simple, wbtc, nn, to_list, cycles=cycles)
+    n_events = len(forced_events)
+    ids_forced = sorted({i for e in forced_events for i in e["ids"]})
+    packed.update(
+        {
+            "p_enter": float(p_enter),
+            "horizon": int(h),
+            "budget": float(budget),
+            "gate_on_frac": float(np.mean(gate_hist)) if gate_hist else float("nan"),
+            "gate_on": pd.Series(gate_hist, index=rets.index),
+            "contrib": contrib,
+            "forced_exits": {
+                "n_events": n_events,
+                "n_ids": len(ids_forced),
+                "ids": ids_forced[:40],
+                "symbols": [id_to_sym.get(i) for i in ids_forced[:40]],
+                "weight_sum": float(sum(e["weight"] for e in forced_events)),
+            },
+        }
+    )
+    return packed

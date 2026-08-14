@@ -235,3 +235,34 @@ PHASE2_CYCLES = (
     ("2023-24", "2023-01-01", "2024-12-31"),
     ("2025-26", "2025-01-01", "2026-12-31"),
 )
+
+# ---------------------------------------------------------------------------
+# Phase 2.b — hygiene + two-stage model (frozen a priori; no sweeps)
+# ---------------------------------------------------------------------------
+
+PHASE2B_CRITERION = (
+    "STAGE-S has SELECTION SKILL if, at h=14, full-OOS mean per-date AUC ≥ 0.52 "
+    "with the empirical-null gates passing. MODEL-V2 is VIABLE if, on the full "
+    "OOS window: (a) relative-line Sharpe > 0; (b) total return ≥ BTC B&H; "
+    "(c) MaxDD ≤ BTC B&H MaxDD. It REPLACES the naive v4 floor if additionally "
+    "relative-line Sharpe ≥ naive v4 + 0.15. Per-cycle honesty table mandatory; "
+    "no single cycle overrides. Mechanical, no post-hoc adjustment."
+)
+
+JUMP_ABS_RET = 5.0  # |daily ret| > 5 flags redenom/split suspects
+FLOOR_DV_MED_30 = 2_000_000.0
+FLOOR_MIN_PRICE = 1e-6
+FLOOR_MIN_SESSIONS = 60
+FLOOR_MAX_ABS_RET_30 = 2.0  # 200%
+CONTRIB_SHARE_FLAG = 0.25
+STAGE_S_QUINTILE = 0.80  # y=1 if excess rank ≥ this quantile (top quintile)
+REGIME_BREADTH = 0.50
+REGIME_BUDGET = 0.50
+REGIME_OFF_HYSTERESIS = 5
+P_ENTER_V2 = 0.55  # names must clear this calibrated p to fill K
+STAGE_S_AUC_SKILL = 0.52
+AUTOPSY_START = "2019-10-19"  # the +9.98M% same-window naive v3 book
+
+STAGE_S_COLS = PRICE_COLS + NEW_COLS
+assert len(STAGE_S_COLS) == 33, len(STAGE_S_COLS)
+assert not set(CTX_COLS) & set(STAGE_S_COLS)

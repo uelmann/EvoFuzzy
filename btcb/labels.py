@@ -34,3 +34,29 @@ def add_binary_excess_labels(
         out[f"y_h{h}"] = (out[f"excess_h{h}"] > 0).astype(float)
         out.loc[out[f"excess_h{h}"].isna(), f"y_h{h}"] = np.nan
     return out
+
+
+def add_quintile_excess_labels(
+    feat: pd.DataFrame,
+    panel: pd.DataFrame,
+    btc_id: int,
+    horizons: tuple[int, ...] = PHASE2_HORIZONS,
+    q: float = 0.80,
+) -> pd.DataFrame:
+    """y=1 iff h-day excess is in the top quintile of that date's cross-section (feat rows)."""
+    out = add_binary_excess_labels(feat, panel, btc_id, horizons=horizons)
+    for h in horizons:
+        ex = f"excess_h{h}"
+        yq = f"y_h{h}"
+
+        def _topq(s: pd.Series) -> pd.Series:
+            m = s.notna()
+            if int(m.sum()) < 10:
+                return pd.Series(np.nan, index=s.index)
+            thr = np.nanquantile(s.to_numpy(), float(q))
+            out_s = pd.Series(np.nan, index=s.index)
+            out_s[m] = (s[m] >= thr).astype(float)
+            return out_s
+
+        out[yq] = out.groupby("date", sort=False)[ex].transform(_topq)
+    return out

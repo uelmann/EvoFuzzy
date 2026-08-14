@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 from sklearn.isotonic import IsotonicRegression
 from sklearn.metrics import roc_auc_score
+from scipy import stats
 
 from baseline.seedutil import seed_everything
 from btcb.constants import (
@@ -127,6 +128,104 @@ def _auc(y: np.ndarray, p: np.ndarray) -> float:
     return float(roc_auc_score(y, p))
 
 
+def mean_per_date_auc(y: np.ndarray, p: np.ndarray, dates: np.ndarray, min_n: int = 8) -> tuple[float, list[float]]:
+    y = np.asarray(y, dtype=float)
+    p = np.asarray(p, dtype=float)
+    dates = np.asarray(dates)
+    order = np.argsort(dates, kind="mergesort")
+    y, p, dates = y[order], p[order], dates[order]
+    aucs = []
+    i, n = 0, len(dates)
+    while i < n:
+        j = i + 1
+        while j < n and dates[j] == dates[i]:
+            j += 1
+        yy, pp = y[i:j], p[i:j]
+        m = np.isfinite(yy) & np.isfinite(pp)
+        yy, pp = yy[m], pp[m]
+        if len(yy) >= min_n and np.unique(yy).size > 1 and np.unique(pp).size > 1:
+            try:
+                aucs.append(float(roc_auc_score(yy, pp)))
+            except ValueError:
+                pass
+        i = j
+    if not aucs:
+        return float("nan"), []
+    return float(np.mean(aucs)), aucs
+
+
+def per_date_auc_series(y: np.ndarray, p: np.ndarray, dates: np.ndarray, min_n: int = 8) -> pd.Series:
+    """One AUC per date (NaN if the cross-section is degenerate)."""
+    y = np.asarray(y, dtype=float)
+    p = np.asarray(p, dtype=float)
+    dates = pd.to_datetime(np.asarray(dates), utc=True)
+    order = np.argsort(dates, kind="mergesort")
+    y, p, dates = y[order], p[order], dates[order]
+    rows = []
+    i, n = 0, len(dates)
+    while i < n:
+        j = i + 1
+        while j < n and dates[j] == dates[i]:
+            j += 1
+        yy, pp = y[i:j], p[i:j]
+        m = np.isfinite(yy) & np.isfinite(pp)
+        yy, pp = yy[m], pp[m]
+        val = float("nan")
+        if len(yy) >= min_n and np.unique(yy).size > 1 and np.unique(pp).size > 1:
+            try:
+                val = float(roc_auc_score(yy, pp))
+            except ValueError:
+                val = float("nan")
+        rows.append((pd.Timestamp(dates[i]).tz_convert("UTC").normalize(), val))
+        i = j
+    if not rows:
+        return pd.Series(dtype=float)
+    s = pd.Series({d: v for d, v in rows}).sort_index()
+    s.index = pd.DatetimeIndex(s.index).tz_convert("UTC").normalize()
+    return s
+
+
+def mean_per_date_rank_ic(p: np.ndarray, excess: np.ndarray, dates: np.ndarray, min_n: int = 8) -> float:
+    p = np.asarray(p, dtype=float)
+    excess = np.asarray(excess, dtype=float)
+    dates = np.asarray(dates)
+    order = np.argsort(dates, kind="mergesort")
+    p, excess, dates = p[order], excess[order], dates[order]
+    ics = []
+    i, n = 0, len(dates)
+    while i < n:
+        j = i + 1
+        while j < n and dates[j] == dates[i]:
+            j += 1
+        x, y = p[i:j], excess[i:j]
+        m = np.isfinite(x) & np.isfinite(y)
+        x, y = x[m], y[m]
+        if len(x) >= min_n and np.unique(x).size > 1 and np.unique(y).size > 1:
+            res = stats.spearmanr(x, y)
+            c = getattr(res, "correlation", None)
+            if c is None:
+                c = getattr(res, "statistic", np.nan)
+            c = float(np.asarray(c, dtype=float).reshape(-1)[0])
+            if np.isfinite(c):
+                ics.append(c)
+        i = j
+    return float(np.mean(ics)) if ics else float("nan")
+
+
+def _make_per_date_auc_feval(dates: np.ndarray):
+    dates = np.asarray(dates)
+
+    def _feval(preds, dataset):
+        y = dataset.get_label()
+        n = len(y)
+        val, _ = mean_per_date_auc(y, preds[:n], dates[:n])
+        if not np.isfinite(val):
+            val = 0.5
+        return "pdauc", float(val), True
+
+    return _feval
+
+
 def fit_isotonic(raw: np.ndarray, y: np.ndarray) -> IsotonicRegression | None:
     raw = np.asarray(raw, dtype=float)
     y = np.asarray(y, dtype=float)
@@ -156,6 +255,7 @@ def fit_predict_fold(
     shuffle_labels: bool = False,
     shuffle_seed: int | None = None,
     lgbm_params: dict | None = None,
+    early_stop: str = "auc",
 ) -> tuple[pd.DataFrame, dict]:
     seed_everything(seed + fold.fold_id + (0 if shuffle_seed is None else int(shuffle_seed)))
     ycol = f"y_h{fold.horizon}"
@@ -204,7 +304,7 @@ def fit_predict_fold(
 
     params = {
         "objective": cfg.get("objective", "binary"),
-        "metric": cfg.get("metric", "auc"),
+        "metric": "None" if str(early_stop) == "per_date_auc" else cfg.get("metric", "auc"),
         "num_leaves": cfg.get("num_leaves", 31),
         "learning_rate": cfg.get("learning_rate", 0.03),
         "min_data_in_leaf": cfg.get("min_data_in_leaf", 200),
@@ -228,12 +328,16 @@ def fit_predict_fold(
         lgb.early_stopping(stopping_rounds=patience, first_metric_only=True, verbose=False),
         lgb.log_evaluation(period=0),
     ]
+    feval = None
+    if str(early_stop) == "per_date_auc":
+        feval = _make_per_date_auc_feval(inner_ho["date"].to_numpy())
     booster = lgb.train(
         params,
         dtrain,
         num_boost_round=n_estimators,
         valid_sets=[dvalid],
         valid_names=["inner_ho"],
+        feval=feval,
         callbacks=callbacks,
     )
     best_iteration = int(booster.best_iteration or 0) or n_estimators
@@ -249,12 +353,20 @@ def fit_predict_fold(
     pred_df["horizon"] = fold.horizon
     pred_df["fold_id"] = fold.fold_id
     pred_df[ycol] = valid[ycol].to_numpy()
+    excol = f"excess_h{fold.horizon}"
+    if excol in valid.columns:
+        pred_df[excol] = valid[excol].to_numpy()
 
     gain = booster.feature_importance(importance_type="gain")
     gain_map = {f: float(g) for f, g in zip(feats, gain)}
     auc_ho = _auc(inner_ho[ycol].to_numpy(), apply_calibrator(ir, raw_ho) if ir is not None else raw_ho)
     auc_val = _auc(valid[ycol].to_numpy(), p_val)
     auc_val_raw = _auc(valid[ycol].to_numpy(), raw_val)
+    pdauc, pdauc_list = mean_per_date_auc(valid[ycol].to_numpy(), p_val, valid["date"].to_numpy())
+    pdauc_raw, _ = mean_per_date_auc(valid[ycol].to_numpy(), raw_val, valid["date"].to_numpy())
+    ric = float("nan")
+    if excol in valid.columns:
+        ric = mean_per_date_rank_ic(p_val, valid[excol].to_numpy(), valid["date"].to_numpy())
 
     reliability = _reliability(valid[ycol].to_numpy(), p_val)
     elapsed = time.time() - t0
@@ -272,6 +384,10 @@ def fit_predict_fold(
         "auc_holdout": auc_ho,
         "auc_oos": auc_val,
         "auc_oos_raw": auc_val_raw,
+        "pdauc_oos": pdauc,
+        "pdauc_oos_raw": pdauc_raw,
+        "pdauc_n_days": int(len(pdauc_list)),
+        "rankic_oos": ric,
         "feature_importance_gain": gain_map,
         "feature_cols": feats,
         "shuffle_labels": bool(shuffle_labels),
@@ -308,9 +424,11 @@ def train_all_folds(
     df: pd.DataFrame,
     horizon: int,
     out_dir=None,
+    feature_cols: list[str] | None = None,
+    early_stop: str = "auc",
 ) -> tuple[pd.DataFrame, list[dict], list[FoldSpec]]:
     folds = make_expanding_folds(pd.DatetimeIndex(df["date"].unique()), horizon=horizon)
-    print(f"[HB] h={horizon} folds={len(folds)}", flush=True)
+    print(f"[HB] h={horizon} folds={len(folds)} early_stop={early_stop}", flush=True)
     all_preds = []
     metas = []
     for fold in folds:
@@ -320,7 +438,7 @@ def train_all_folds(
             f"val={pd.Timestamp(fold.val_start).date()}→{pd.Timestamp(fold.val_end).date()}",
             flush=True,
         )
-        pred_df, meta = fit_predict_fold(df, fold)
+        pred_df, meta = fit_predict_fold(df, fold, feature_cols=feature_cols, early_stop=early_stop)
         metas.append(meta)
         if not pred_df.empty:
             all_preds.append(pred_df)
@@ -328,8 +446,8 @@ def train_all_folds(
                 pred_df.to_parquet(out_dir / f"preds_h{horizon}_fold{fold.fold_id}.parquet", index=False)
         print(
             f"[HB] fold {fold.fold_id} status={meta.get('status')} "
-            f"auc_oos={meta.get('auc_oos')} best_iter={meta.get('best_iteration')} "
-            f"elapsed={meta.get('elapsed'):.1f}s",
+            f"pdauc={meta.get('pdauc_oos')} auc_oos={meta.get('auc_oos')} "
+            f"best_iter={meta.get('best_iteration')} elapsed={meta.get('elapsed'):.1f}s",
             flush=True,
         )
     preds = pd.concat(all_preds, ignore_index=True) if all_preds else pd.DataFrame()

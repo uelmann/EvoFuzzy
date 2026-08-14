@@ -260,8 +260,9 @@ def naive_rotation_v3(
     btc_c = btc_bps * 1e-4
     slots = [pd.Series(dtype=float) for _ in range(h)]
     prev_full = pd.Series({btc_id: 1.0}, dtype=float)
-    daily, btc_w, to_list, eq_dates = [], [], [], []
+    daily, btc_w, to_list, eq_dates, n_alt = [], [], [], [], []
     forced_events = []
+    contrib: dict[int, float] = {}
 
     for i, dt in enumerate(dates[:-1]):
         k = i % h
@@ -332,15 +333,17 @@ def naive_rotation_v3(
             simple = (close.loc[nxt] / close.loc[dt] - 1.0)
             for s, wi in applied.items():
                 if s in simple.index and np.isfinite(simple[s]):
-                    r += float(wi) * float(simple[s])
+                    rs = float(simple[s])
+                    r += float(wi) * rs
+                    contrib[int(s)] = contrib.get(int(s), 0.0) + float(wi) * rs
                 elif int(s) != btc_id and wi and not (s in simple.index and np.isfinite(simple.get(s, np.nan))):
-                    # dead name should already have been dropped; if not, 0 return
                     pass
         net = r - cost
         daily.append(net)
         btc_w.append(float(applied.get(btc_id, 0.0)))
         to_list.append(turnover)
         eq_dates.append(nxt)
+        n_alt.append(int((full > 0).sum()) if len(full) else 0)
         prev_full = applied
         if i % 60 == 0:
             print(
@@ -430,6 +433,7 @@ def naive_rotation_v3(
         "w_btc": wbtc,
         "degenerate": bool(degenerate_btc),
         "btc_id": btc_id,
+        "avg_n_names": float(np.mean(n_alt)) if n_alt else float("nan"),
         "forced_exits": {
             "n_events": n_events,
             "n_ids": len(ids_forced),
@@ -440,4 +444,6 @@ def naive_rotation_v3(
             "pnl_impact_vs_ghost": impact,
             "note": "vs ghost (0 return until slot refresh): pay exit+BTC entry costs, recycle into BTC for h days",
         },
+        "contrib": contrib,
+        "id_to_sym": {int(k): v for k, v in id_to_sym.items()},
     }

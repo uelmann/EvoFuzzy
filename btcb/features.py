@@ -365,6 +365,34 @@ def assemble_feature_table(
     return key
 
 
+def assemble_stage_s_features(
+    panel: pd.DataFrame,
+    pit100: pd.DataFrame,
+    btc_id: int,
+    clip: float = CS_CLIP,
+) -> pd.DataFrame:
+    """Per-coin features only. Context columns are not computed (Stage S law)."""
+    from btcb.constants import CTX_COLS, STAGE_S_COLS
+
+    pit100 = pit100.copy()
+    pit100["date"] = pd.to_datetime(pit100["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
+    pit100["id"] = pit100["id"].astype(int)
+    keep = set(int(x) for x in pit100["id"].unique())
+    print(f"[HB] Stage-S features on n_ids={len(keep)+1} (no context)", flush=True)
+    feat = build_price_new_panel(panel, btc_id, keep)
+    key = feat.merge(pit100[["date", "id"]], on=["date", "id"], how="inner")
+    zcols = [c for c in STAGE_S_COLS if c in key.columns]
+    key = apply_cs_zscore(key, zcols, clip=clip)
+    leaked = [c for c in CTX_COLS if c in key.columns]
+    if leaked:
+        raise RuntimeError(f"context leaked into Stage S: {leaked}")
+    missing = [c for c in STAGE_S_COLS if c not in key.columns]
+    if missing:
+        raise RuntimeError(f"missing Stage-S cols: {missing}")
+    print(f"[HB] Stage-S rows={len(key)} n_feat={len(STAGE_S_COLS)}", flush=True)
+    return key
+
+
 __all__ = [
     "FEATURE_COLS_V1",
     "PRICE_COLS",

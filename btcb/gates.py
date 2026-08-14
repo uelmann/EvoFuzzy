@@ -5,9 +5,9 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from btcb.constants import FEATURE_COLS_V1, NULL_REPLICATES, NULL_SHUFFLE_SEEDS, PIT_DV_WINDOW, SEED
+from btcb.constants import FEATURE_COLS_V1, NULL_REPLICATES, NULL_SHUFFLE_SEEDS, PIT_DV_WINDOW, SEED, STAGE_S_COLS
 from btcb.features import btc_id_from_panel, features_for_id
-from btcb.model import FoldSpec, _auc, fit_predict_fold
+from btcb.model import FoldSpec, _auc, fit_predict_fold, mean_per_date_auc
 from btcb.universe import build_pit_topn_ids, trailing_rank_frame_by_id
 
 
@@ -29,7 +29,7 @@ def gate_feature_lookahead(panel: pd.DataFrame, btc_id: int) -> dict:
     g["date"] = pd.to_datetime(g["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
     mid = len(g) // 2
     t_date = g.loc[mid, "date"]
-    cols = [c for c in FEATURE_COLS_V1 if c in features_for_id(g, btc_close).columns]
+    cols = [c for c in STAGE_S_COLS if c in features_for_id(g, btc_close).columns]
     base = features_for_id(g, btc_close)
     base_row = base.loc[base["date"] == t_date, cols]
     if base_row.empty:
@@ -55,24 +55,35 @@ def gate_feature_lookahead(panel: pd.DataFrame, btc_id: int) -> dict:
     }
 
 
-def gate_universe_lookahead(panel: pd.DataFrame, n: int, window: int = PIT_DV_WINDOW) -> dict:
-    name = f"universe_lookahead_top{n}"
+def gate_universe_lookahead(panel: pd.DataFrame, n: int, window: int = PIT_DV_WINDOW, floored: bool = False) -> dict:
+    name = f"universe_lookahead_top{n}" + ("_floor" if floored else "")
     p = panel.copy()
     p["date"] = pd.to_datetime(p["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
     dates = sorted(p["date"].unique())
     if len(dates) < window + 50:
         return {"name": name, "passed": False, "reason": "short history"}
     t = dates[len(dates) // 2]
-    score, _, _, last_sym = trailing_rank_frame_by_id(p, window=window)
-    base = build_pit_topn_ids(score, n=n, last_sym=last_sym)
-    base_set = set(int(x) for x in base.loc[base["date"] == t, "id"])
-    p2 = p.copy()
-    fut = p2["date"] > t
-    rng = np.random.default_rng(1)
-    p2.loc[fut, "dv"] = p2.loc[fut, "dv"].to_numpy(dtype=float) * (1 + rng.normal(0, 0.5, size=int(fut.sum())))
-    score2, _, _, last2 = trailing_rank_frame_by_id(p2, window=window)
-    alt = build_pit_topn_ids(score2, n=n, last_sym=last2)
-    alt_set = set(int(x) for x in alt.loc[alt["date"] == t, "id"])
+    if floored:
+        from btcb.hygiene import build_floored_pit
+        base, _ = build_floored_pit(p, n=n)
+        p2 = p.copy()
+        fut = p2["date"] > t
+        rng = np.random.default_rng(1)
+        p2.loc[fut, "dv"] = p2.loc[fut, "dv"].to_numpy(dtype=float) * (1 + rng.normal(0, 0.5, size=int(fut.sum())))
+        alt, _ = build_floored_pit(p2, n=n)
+        base_set = set(int(x) for x in base.loc[base["date"] == t, "id"])
+        alt_set = set(int(x) for x in alt.loc[alt["date"] == t, "id"])
+    else:
+        score, _, _, last_sym = trailing_rank_frame_by_id(p, window=window)
+        base = build_pit_topn_ids(score, n=n, last_sym=last_sym)
+        base_set = set(int(x) for x in base.loc[base["date"] == t, "id"])
+        p2 = p.copy()
+        fut = p2["date"] > t
+        rng = np.random.default_rng(1)
+        p2.loc[fut, "dv"] = p2.loc[fut, "dv"].to_numpy(dtype=float) * (1 + rng.normal(0, 0.5, size=int(fut.sum())))
+        score2, _, _, last2 = trailing_rank_frame_by_id(p2, window=window)
+        alt = build_pit_topn_ids(score2, n=n, last_sym=last2)
+        alt_set = set(int(x) for x in alt.loc[alt["date"] == t, "id"])
     passed = base_set == alt_set and len(base_set) > 0
     return {
         "name": name,
@@ -81,12 +92,19 @@ def gate_universe_lookahead(panel: pd.DataFrame, n: int, window: int = PIT_DV_WI
         "date": str(pd.Timestamp(t).date()),
         "base_n": len(base_set),
         "symmetric_diff": len(base_set.symmetric_difference(alt_set)),
+        "floored": bool(floored),
     }
 
 
-def gate_seed_determinism(df: pd.DataFrame, fold: FoldSpec, seed: int = SEED) -> dict:
-    p1, m1 = fit_predict_fold(df, fold, seed=seed)
-    p2, m2 = fit_predict_fold(df, fold, seed=seed)
+def gate_seed_determinism(
+    df: pd.DataFrame,
+    fold: FoldSpec,
+    seed: int = SEED,
+    feature_cols: list[str] | None = None,
+    early_stop: str = "auc",
+) -> dict:
+    p1, m1 = fit_predict_fold(df, fold, seed=seed, feature_cols=feature_cols, early_stop=early_stop)
+    p2, m2 = fit_predict_fold(df, fold, seed=seed, feature_cols=feature_cols, early_stop=early_stop)
     if p1.empty or p2.empty:
         return {"name": "seed_determinism", "passed": False, "reason": "empty preds"}
     s1 = p1.sort_values(["date", "id"])["p"].to_numpy()
@@ -133,6 +151,8 @@ def gate_label_shuffle_null(
     real_aucs: dict[int, float],
     n_replicates: int = NULL_REPLICATES,
     seeds: tuple[int, ...] = NULL_SHUFFLE_SEEDS,
+    feature_cols: list[str] | None = None,
+    early_stop: str = "per_date_auc",
 ) -> dict:
     """Retrain with within-date shuffled train labels; compare real OOS AUC to null."""
     cells = []
@@ -144,12 +164,21 @@ def gate_label_shuffle_null(
                 f"[HB] null fold={fold.fold_id} h={fold.horizon} rep={i+1}/{len(use_seeds)} seed={ss}",
                 flush=True,
             )
-            pred, meta = fit_predict_fold(df, fold, seed=SEED, shuffle_labels=True, shuffle_seed=int(ss))
+            pred, meta = fit_predict_fold(
+                df,
+                fold,
+                seed=SEED,
+                shuffle_labels=True,
+                shuffle_seed=int(ss),
+                feature_cols=feature_cols,
+                early_stop=early_stop,
+            )
             if pred.empty or meta.get("status") != "ok":
                 aucs.append(float("nan"))
                 continue
             ycol = f"y_h{fold.horizon}"
-            aucs.append(_auc(pred[ycol].to_numpy(), pred["p_raw"].to_numpy()))
+            val, _ = mean_per_date_auc(pred[ycol].to_numpy(), pred["p_raw"].to_numpy(), pred["date"].to_numpy())
+            aucs.append(val)
         st = _cell_stats(aucs)
         real = float(real_aucs.get(fold.fold_id, float("nan")))
         st.update(
@@ -189,13 +218,25 @@ def gate_label_shuffle_null(
     }
 
 
-def run_cheap_gates(panel: pd.DataFrame, btc_id: int | None = None) -> list[dict]:
+def assert_no_context(feature_cols: list[str]) -> dict:
+    from btcb.constants import CTX_COLS
+
+    leaked = sorted(set(feature_cols) & set(CTX_COLS))
+    passed = len(leaked) == 0
+    rec = {"name": "no_context_in_stage_s", "passed": passed, "leaked": leaked, "n_feat": len(feature_cols)}
+    print(f"[gates] {rec['name']}: {'PASS' if passed else 'FAIL'} {rec}", flush=True)
+    if not passed:
+        raise RuntimeError(f"context features in Stage S: {leaked}")
+    return rec
+
+
+def run_cheap_gates(panel: pd.DataFrame, btc_id: int | None = None, floored: bool = False) -> list[dict]:
     if btc_id is None:
         btc_id = btc_id_from_panel(panel)
     results = [
         gate_feature_lookahead(panel, btc_id),
-        gate_universe_lookahead(panel, n=50),
-        gate_universe_lookahead(panel, n=100),
+        gate_universe_lookahead(panel, n=50, floored=floored),
+        gate_universe_lookahead(panel, n=100, floored=floored),
     ]
     for r in results:
         print(f"[gates] {r['name']}: {'PASS' if r.get('passed') else 'FAIL'} {r}", flush=True)
