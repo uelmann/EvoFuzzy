@@ -36,3 +36,5 @@ The 1.401 figure is the Phase D published tranche number and the D.2 isolation r
 | COMBO′ | ADOPTED reference | 50/50 P1+C0 | mixed | 7+10 | causal | 1.711 | 0.997 | 1.097 | 2.544 | 2.843 | 1.444 | 0.441 | nan | nan | nan | nan | nan | nan | 26.48 |
 
 Changelog (2026-08-13): Round F5: P2 sleeve INCUMBENT → C0 (full=1.470 trail=0.723); COMBO′ ADOPTED → reference COMBO′ (full=1.711 trail=0.997).
+
+Program closed at v2.0-combo-final; reference book = COMBO (Round F, confirmed F5); all future numbers must cite this ledger.
