@@ -1,0 +1,898 @@
+{
+  "schema": {
+    "n_rows": 4446095,
+    "n_ids": 2447,
+    "n_symbols": 2332,
+    "n_slugs": 2447,
+    "date_min": "2014-04-19 00:00:00+00:00",
+    "date_max": "2026-08-13 00:00:00+00:00",
+    "columns": [
+      "cryptocurrency_id",
+      "timestamp",
+      "open",
+      "high",
+      "low",
+      "close",
+      "volume",
+      "marketCap",
+      "currency_name",
+      "currency_symbol",
+      "currency_slug"
+    ],
+    "null_frac": {
+      "open": 0.0,
+      "high": 0.0,
+      "low": 0.0,
+      "close": 0.0,
+      "volume": 0.0,
+      "mcap": 0.0
+    },
+    "dup_symbol_ids": 108,
+    "dup_id_symbols": 0
+  },
+  "graveyard": [
+    {
+      "query": "SRM",
+      "event": "Serum / FTX complex 2022",
+      "present": true,
+      "present_with_terminal": true,
+      "id": 6187,
+      "symbol": "SRM",
+      "slug": "serum",
+      "name": "Serum",
+      "first": "2020-08-11",
+      "last": "2026-08-13",
+      "n": 2190,
+      "terminal": "SURVIVOR",
+      "listing_status": "active"
+    },
+    {
+      "query": "CEL",
+      "event": "Celsius bankruptcy 2022",
+      "present": true,
+      "present_with_terminal": true,
+      "id": 2700,
+      "symbol": "CEL",
+      "slug": "celsius",
+      "name": "Celsius",
+      "first": "2018-05-03",
+      "last": "2026-08-13",
+      "n": 2874,
+      "terminal": "SURVIVOR",
+      "listing_status": "active"
+    },
+    {
+      "query": "UST",
+      "event": "TerraUSD collapse May 2022",
+      "present": true,
+      "present_with_terminal": true,
+      "id": 7129,
+      "symbol": "USTC",
+      "slug": "terrausd",
+      "name": "TerraClassicUSD",
+      "first": "2020-11-25",
+      "last": "2026-08-08",
+      "n": 2083,
+      "terminal": "SURVIVOR",
+      "listing_status": "active"
+    },
+    {
+      "query": "ANC",
+      "event": "Anchor Protocol / Terra 2022",
+      "present": true,
+      "present_with_terminal": true,
+      "id": 8857,
+      "symbol": "ANC",
+      "slug": "anchor-protocol",
+      "name": "Anchor Protocol",
+      "first": "2021-03-17",
+      "last": "2025-06-26",
+      "n": 1563,
+      "terminal": "ENDED",
+      "listing_status": "inactive"
+    },
+    {
+      "query": "SAFEMOON",
+      "event": "SafeMoon collapse / delist",
+      "present": true,
+      "present_with_terminal": true,
+      "id": 8757,
+      "symbol": "SAFEMOON",
+      "slug": "safemoon",
+      "name": "SafeMoon",
+      "first": "2021-03-13",
+      "last": "2024-01-25",
+      "n": 983,
+      "terminal": "ENDED",
+      "listing_status": "inactive"
+    },
+    {
+      "query": "BCC",
+      "event": "BitConnect era 2017\u201318",
+      "present": false,
+      "present_with_terminal": false,
+      "id": null,
+      "symbol": null,
+      "slug": null,
+      "first": null,
+      "last": null,
+      "n": 0,
+      "terminal": "MISSING",
+      "listing_status": null
+    },
+    {
+      "query": "XEM",
+      "event": "XEM secular decline",
+      "present": true,
+      "present_with_terminal": true,
+      "id": 873,
+      "symbol": "XEM",
+      "slug": "nem",
+      "name": "NEM",
+      "first": "2015-04-01",
+      "last": "2026-08-13",
+      "n": 4153,
+      "terminal": "SURVIVOR",
+      "listing_status": "active"
+    },
+    {
+      "query": "FTT",
+      "event": "FTX collapse Nov 2022 (continuity)",
+      "present": true,
+      "present_with_terminal": true,
+      "id": 4195,
+      "symbol": "FTT",
+      "slug": "ftx-token",
+      "name": "FTX Token",
+      "first": "2019-08-01",
+      "last": "2026-08-08",
+      "n": 2565,
+      "terminal": "SURVIVOR",
+      "listing_status": "active"
+    },
+    {
+      "query": "LUNC",
+      "event": "Terra Classic after May 2022 (continuity)",
+      "present": true,
+      "present_with_terminal": true,
+      "id": 4172,
+      "symbol": "LUNC",
+      "slug": "terra-luna",
+      "name": "Terra Classic",
+      "first": "2019-07-26",
+      "last": "2026-08-08",
+      "n": 2571,
+      "terminal": "SURVIVOR",
+      "listing_status": "active"
+    }
+  ],
+  "ended": {
+    "n_ended": 554,
+    "n_ids": 2447,
+    "n_survivor": 1792,
+    "before": "2026-01-01",
+    "fail": false
+  },
+  "quality": {
+    "stables_in_panel": [
+      "AEUR",
+      "BUSD",
+      "DAI",
+      "EURC",
+      "EURT",
+      "FDUSD",
+      "FRAX",
+      "GUSD",
+      "PAXG",
+      "PYUSD",
+      "RETH",
+      "SAVAX",
+      "TUSD",
+      "USDC",
+      "USDD",
+      "USDP",
+      "USDT",
+      "WSTETH",
+      "XAUT"
+    ],
+    "wrapped_in_panel": [
+      "BTCB",
+      "CBETH",
+      "RENBTC",
+      "STETH",
+      "WBETH",
+      "WBTC",
+      "WETH"
+    ],
+    "dup_tickers": [
+      {
+        "symbol": "ACT",
+        "n_ids": 2
+      },
+      {
+        "symbol": "AEON",
+        "n_ids": 2
+      },
+      {
+        "symbol": "AI",
+        "n_ids": 2
+      },
+      {
+        "symbol": "ALT",
+        "n_ids": 2
+      },
+      {
+        "symbol": "AMA",
+        "n_ids": 2
+      },
+      {
+        "symbol": "ANC",
+        "n_ids": 2
+      },
+      {
+        "symbol": "ARB",
+        "n_ids": 2
+      },
+      {
+        "symbol": "ART",
+        "n_ids": 2
+      },
+      {
+        "symbol": "AURA",
+        "n_ids": 2
+      },
+      {
+        "symbol": "BABY",
+        "n_ids": 2
+      },
+      {
+        "symbol": "BANANA",
+        "n_ids": 2
+      },
+      {
+        "symbol": "BDP",
+        "n_ids": 2
+      },
+      {
+        "symbol": "BEAM",
+        "n_ids": 2
+      },
+      {
+        "symbol": "BITS",
+        "n_ids": 2
+      },
+      {
+        "symbol": "BLUE",
+        "n_ids": 2
+      },
+      {
+        "symbol": "BTR",
+        "n_ids": 2
+      },
+      {
+        "symbol": "CHESS",
+        "n_ids": 2
+      },
+      {
+        "symbol": "CLO",
+        "n_ids": 2
+      },
+      {
+        "symbol": "CORE",
+        "n_ids": 2
+      },
+      {
+        "symbol": "CXT",
+        "n_ids": 2
+      },
+      {
+        "symbol": "D",
+        "n_ids": 2
+      },
+      {
+        "symbol": "DATA",
+        "n_ids": 2
+      },
+      {
+        "symbol": "DG",
+        "n_ids": 2
+      },
+      {
+        "symbol": "DLC",
+        "n_ids": 2
+      },
+      {
+        "symbol": "DNA",
+        "n_ids": 2
+      },
+      {
+        "symbol": "DOGE",
+        "n_ids": 2
+      },
+      {
+        "symbol": "DORA",
+        "n_ids": 3
+      },
+      {
+        "symbol": "EDG",
+        "n_ids": 2
+      },
+      {
+        "symbol": "EDGE",
+        "n_ids": 2
+      },
+      {
+        "symbol": "ESP",
+        "n_ids": 2
+      },
+      {
+        "symbol": "FCT",
+        "n_ids": 2
+      },
+      {
+        "symbol": "FUEL",
+        "n_ids": 2
+      },
+      {
+        "symbol": "FUN",
+        "n_ids": 2
+      },
+      {
+        "symbol": "GAL",
+        "n_ids": 2
+      },
+      {
+        "symbol": "GAME",
+        "n_ids": 2
+      },
+      {
+        "symbol": "GCC",
+        "n_ids": 2
+      },
+      {
+        "symbol": "GF",
+        "n_ids": 2
+      },
+      {
+        "symbol": "GHOST",
+        "n_ids": 2
+      },
+      {
+        "symbol": "GTC",
+        "n_ids": 2
+      },
+      {
+        "symbol": "GUSD",
+        "n_ids": 2
+      },
+      {
+        "symbol": "HOT",
+        "n_ids": 2
+      },
+      {
+        "symbol": "ID",
+        "n_ids": 2
+      },
+      {
+        "symbol": "INX",
+        "n_ids": 2
+      },
+      {
+        "symbol": "ION",
+        "n_ids": 2
+      },
+      {
+        "symbol": "JOE",
+        "n_ids": 2
+      },
+      {
+        "symbol": "JUP",
+        "n_ids": 2
+      },
+      {
+        "symbol": "KAT",
+        "n_ids": 3
+      },
+      {
+        "symbol": "LA",
+        "n_ids": 2
+      },
+      {
+        "symbol": "LBTC",
+        "n_ids": 2
+      },
+      {
+        "symbol": "LIGHT",
+        "n_ids": 2
+      },
+      {
+        "symbol": "LINA",
+        "n_ids": 2
+      },
+      {
+        "symbol": "LIT",
+        "n_ids": 3
+      },
+      {
+        "symbol": "LUNA",
+        "n_ids": 2
+      },
+      {
+        "symbol": "MEME",
+        "n_ids": 4
+      },
+      {
+        "symbol": "MET",
+        "n_ids": 2
+      },
+      {
+        "symbol": "MIN",
+        "n_ids": 2
+      },
+      {
+        "symbol": "MIR",
+        "n_ids": 2
+      },
+      {
+        "symbol": "MNT",
+        "n_ids": 2
+      },
+      {
+        "symbol": "MTC",
+        "n_ids": 2
+      },
+      {
+        "symbol": "NEX",
+        "n_ids": 2
+      },
+      {
+        "symbol": "NOM",
+        "n_ids": 2
+      },
+      {
+        "symbol": "NTRN",
+        "n_ids": 2
+      },
+      {
+        "symbol": "OMNI",
+        "n_ids": 2
+      },
+      {
+        "symbol": "ONE",
+        "n_ids": 2
+      },
+      {
+        "symbol": "OPEN",
+        "n_ids": 2
+      },
+      {
+        "symbol": "PI",
+        "n_ids": 2
+      },
+      {
+        "symbol": "PIN",
+        "n_ids": 3
+      },
+      {
+        "symbol": "PLA",
+        "n_ids": 3
+      },
+      {
+        "symbol": "PNT",
+        "n_ids": 2
+      },
+      {
+        "symbol": "POLIS",
+        "n_ids": 2
+      },
+      {
+        "symbol": "PROPS",
+        "n_ids": 2
+      },
+      {
+        "symbol": "PUPS",
+        "n_ids": 2
+      },
+      {
+        "symbol": "PUT",
+        "n_ids": 2
+      },
+      {
+        "symbol": "PVT",
+        "n_ids": 2
+      },
+      {
+        "symbol": "QUICK",
+        "n_ids": 2
+      },
+      {
+        "symbol": "REAL",
+        "n_ids": 2
+      },
+      {
+        "symbol": "REV",
+        "n_ids": 2
+      },
+      {
+        "symbol": "SAFE",
+        "n_ids": 2
+      },
+      {
+        "symbol": "SCR",
+        "n_ids": 2
+      },
+      {
+        "symbol": "SEND",
+        "n_ids": 2
+      },
+      {
+        "symbol": "SFI",
+        "n_ids": 2
+      },
+      {
+        "symbol": "SHARE",
+        "n_ids": 2
+      },
+      {
+        "symbol": "SKY",
+        "n_ids": 2
+      },
+      {
+        "symbol": "SOL",
+        "n_ids": 2
+      },
+      {
+        "symbol": "SOS",
+        "n_ids": 2
+      },
+      {
+        "symbol": "STAR",
+        "n_ids": 2
+      },
+      {
+        "symbol": "STC",
+        "n_ids": 2
+      },
+      {
+        "symbol": "STO",
+        "n_ids": 2
+      },
+      {
+        "symbol": "STRAX",
+        "n_ids": 2
+      },
+      {
+        "symbol": "STREAM",
+        "n_ids": 2
+      },
+      {
+        "symbol": "STRK",
+        "n_ids": 2
+      },
+      {
+        "symbol": "STRX",
+        "n_ids": 2
+      },
+      {
+        "symbol": "STX",
+        "n_ids": 2
+      },
+      {
+        "symbol": "SUPER",
+        "n_ids": 2
+      },
+      {
+        "symbol": "TAG",
+        "n_ids": 2
+      },
+      {
+        "symbol": "TNC",
+        "n_ids": 2
+      },
+      {
+        "symbol": "TRADE",
+        "n_ids": 2
+      },
+      {
+        "symbol": "TROLL",
+        "n_ids": 2
+      },
+      {
+        "symbol": "TRUMP",
+        "n_ids": 2
+      },
+      {
+        "symbol": "UFO",
+        "n_ids": 2
+      },
+      {
+        "symbol": "UP",
+        "n_ids": 2
+      },
+      {
+        "symbol": "USDS",
+        "n_ids": 2
+      },
+      {
+        "symbol": "VAI",
+        "n_ids": 2
+      },
+      {
+        "symbol": "VELO",
+        "n_ids": 2
+      },
+      {
+        "symbol": "WELL",
+        "n_ids": 2
+      },
+      {
+        "symbol": "XCN",
+        "n_ids": 2
+      },
+      {
+        "symbol": "XLAB",
+        "n_ids": 2
+      },
+      {
+        "symbol": "XRP",
+        "n_ids": 2
+      }
+    ],
+    "n_redenom_suspects": 610,
+    "gap_p50": 0.0,
+    "gap_p90": 0.0029372993368984614,
+    "n_high_gap": 67
+  },
+  "gate": {
+    "verdict": "USABLE-FROM-2017-09",
+    "blocked": false,
+    "fiction_2018_2020": false,
+    "usable_from": "2017-09-30",
+    "usable_from_month": "2017-09",
+    "threshold": 0.85,
+    "n_snapshots": 36
+  },
+  "extra": {
+    "plan": "public-data-api (existing download_cmc_kucoin.py; credit_count=0; no plan meter)",
+    "credits_projected": 0,
+    "credits_available": null,
+    "credit_count": 0,
+    "http_remaining": 0,
+    "http_count": 1,
+    "hard_stop": false,
+    "n_target": 3159,
+    "n_cached": 3159,
+    "n_map": 36469,
+    "n_active": 8062,
+    "n_inactive": 28407,
+    "n_untracked": 0,
+    "pit_method": "trailing_30d_median_dollar_volume",
+    "dv_window": 30,
+    "snapshot_provenance": [
+      {
+        "quarter_end": "2017-03-31",
+        "used_date": "2017-03-31",
+        "n": 500,
+        "n_new": 482
+      },
+      {
+        "quarter_end": "2017-06-30",
+        "used_date": "2017-06-30",
+        "n": 500,
+        "n_new": 122
+      },
+      {
+        "quarter_end": "2017-09-30",
+        "used_date": "2017-09-30",
+        "n": 500,
+        "n_new": 127
+      },
+      {
+        "quarter_end": "2017-12-31",
+        "used_date": "2017-12-31",
+        "n": 500,
+        "n_new": 144
+      },
+      {
+        "quarter_end": "2018-03-31",
+        "used_date": "2018-03-31",
+        "n": 500,
+        "n_new": 136
+      },
+      {
+        "quarter_end": "2018-06-30",
+        "used_date": "2018-06-30",
+        "n": 500,
+        "n_new": 73
+      },
+      {
+        "quarter_end": "2018-09-30",
+        "used_date": "2018-09-30",
+        "n": 500,
+        "n_new": 73
+      },
+      {
+        "quarter_end": "2018-12-31",
+        "used_date": "2018-12-31",
+        "n": 500,
+        "n_new": 57
+      },
+      {
+        "quarter_end": "2019-03-31",
+        "used_date": "2019-03-31",
+        "n": 500,
+        "n_new": 52
+      },
+      {
+        "quarter_end": "2019-06-30",
+        "used_date": "2019-06-30",
+        "n": 500,
+        "n_new": 57
+      },
+      {
+        "quarter_end": "2019-09-30",
+        "used_date": "2019-09-30",
+        "n": 500,
+        "n_new": 77
+      },
+      {
+        "quarter_end": "2019-12-31",
+        "used_date": "2019-12-31",
+        "n": 500,
+        "n_new": 43
+      },
+      {
+        "quarter_end": "2020-03-31",
+        "used_date": "2020-03-31",
+        "n": 500,
+        "n_new": 54
+      },
+      {
+        "quarter_end": "2020-06-30",
+        "used_date": "2020-06-30",
+        "n": 500,
+        "n_new": 39
+      },
+      {
+        "quarter_end": "2020-09-30",
+        "used_date": "2020-09-30",
+        "n": 500,
+        "n_new": 87
+      },
+      {
+        "quarter_end": "2020-12-31",
+        "used_date": "2020-12-31",
+        "n": 500,
+        "n_new": 55
+      },
+      {
+        "quarter_end": "2021-03-31",
+        "used_date": "2021-03-31",
+        "n": 500,
+        "n_new": 74
+      },
+      {
+        "quarter_end": "2021-06-30",
+        "used_date": "2021-06-30",
+        "n": 500,
+        "n_new": 31
+      },
+      {
+        "quarter_end": "2021-09-30",
+        "used_date": "2021-09-30",
+        "n": 500,
+        "n_new": 35
+      },
+      {
+        "quarter_end": "2021-12-31",
+        "used_date": "2021-12-31",
+        "n": 500,
+        "n_new": 50
+      },
+      {
+        "quarter_end": "2022-03-31",
+        "used_date": "2022-03-31",
+        "n": 500,
+        "n_new": 20
+      },
+      {
+        "quarter_end": "2022-06-30",
+        "used_date": "2022-06-30",
+        "n": 500,
+        "n_new": 20
+      },
+      {
+        "quarter_end": "2022-09-30",
+        "used_date": "2022-09-30",
+        "n": 500,
+        "n_new": 20
+      },
+      {
+        "quarter_end": "2022-12-31",
+        "used_date": "2022-12-31",
+        "n": 500,
+        "n_new": 13
+      },
+      {
+        "quarter_end": "2023-03-31",
+        "used_date": "2023-03-31",
+        "n": 500,
+        "n_new": 31
+      },
+      {
+        "quarter_end": "2023-06-30",
+        "used_date": "2023-06-30",
+        "n": 500,
+        "n_new": 20
+      },
+      {
+        "quarter_end": "2023-09-30",
+        "used_date": "2023-09-30",
+        "n": 500,
+        "n_new": 20
+      },
+      {
+        "quarter_end": "2023-12-31",
+        "used_date": "2023-12-31",
+        "n": 500,
+        "n_new": 35
+      },
+      {
+        "quarter_end": "2024-03-31",
+        "used_date": "2024-03-31",
+        "n": 500,
+        "n_new": 22
+      },
+      {
+        "quarter_end": "2024-06-30",
+        "used_date": "2024-06-30",
+        "n": 500,
+        "n_new": 31
+      },
+      {
+        "quarter_end": "2024-09-30",
+        "used_date": "2024-09-30",
+        "n": 500,
+        "n_new": 19
+      },
+      {
+        "quarter_end": "2024-12-31",
+        "used_date": "2024-12-31",
+        "n": 500,
+        "n_new": 33
+      },
+      {
+        "quarter_end": "2025-03-31",
+        "used_date": "2025-03-31",
+        "n": 500,
+        "n_new": 76
+      },
+      {
+        "quarter_end": "2025-06-30",
+        "used_date": "2025-06-30",
+        "n": 500,
+        "n_new": 31
+      },
+      {
+        "quarter_end": "2025-09-30",
+        "used_date": "2025-09-30",
+        "n": 500,
+        "n_new": 32
+      },
+      {
+        "quarter_end": "2025-12-31",
+        "used_date": "2025-12-31",
+        "n": 500,
+        "n_new": 40
+      }
+    ],
+    "elapsed_sec": 93.39784073829651,
+    "download_empty": 692,
+    "download_failed": []
+  },
+  "pit_files": {
+    "50": "/data/quant/btcb/universe/btcb_top50_pit.parquet",
+    "100": "/data/quant/btcb/universe/btcb_top100_pit.parquet"
+  },
+  "gpu_used": false
+}
