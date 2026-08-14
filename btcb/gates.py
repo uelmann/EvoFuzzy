@@ -105,7 +105,7 @@ def gate_seed_determinism(df: pd.DataFrame, fold: FoldSpec, seed: int = SEED) ->
     }
 
 
-def _cell_stats(ics: list[float]) -> dict:
+def _cell_stats(ics: list[float], center: float = 0.5) -> dict:
     arr = np.asarray([x for x in ics if np.isfinite(x)], dtype=float)
     n = int(len(arr))
     mean = float(arr.mean()) if n else float("nan")
@@ -113,10 +113,11 @@ def _cell_stats(ics: list[float]) -> dict:
     p95 = float(np.percentile(arr, 95)) if n else float("nan")
     se = (sd / np.sqrt(n)) if n and np.isfinite(sd) else float("nan")
     bias_lim = 2.0 * se if np.isfinite(se) else float("nan")
-    bias_ok = bool(np.isfinite(mean) and np.isfinite(bias_lim) and abs(mean) <= bias_lim)
+    bias_ok = bool(np.isfinite(mean) and np.isfinite(bias_lim) and abs(mean - center) <= bias_lim)
     return {
         "n": n,
         "mean": mean,
+        "center": float(center),
         "sd": sd,
         "p95": p95,
         "se": float(se) if np.isfinite(se) else float("nan"),

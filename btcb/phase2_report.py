@@ -89,7 +89,8 @@ def write_phase2(
     lines += [
         "",
         f"Label-shuffle null (E.1b design, h={PHASE2_PRIMARY_H}, 2 folds, 25 replicates): "
-        f"**{ng.get('verdict')}** bias_pass={ng.get('bias_pass')} skill_pass={ng.get('skill_pass')}.",
+        f"**{ng.get('verdict')}** bias_pass={ng.get('bias_pass')} skill_pass={ng.get('skill_pass')}. "
+        "Bias uses |null-mean AUC − 0.5| ≤ 2·(SD/√R), the AUC analogue of E.1b’s RankIC centering.",
         "",
         "| fold | n | null mean | SD | 95th | real AUC | bias_ok | exceeds_p95 |",
         "|------|---|-----------|----|------|----------|---------|-------------|",
