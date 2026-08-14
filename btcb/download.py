@@ -299,8 +299,14 @@ def assemble_panel(ohlcv_dir: Path, cmap: pd.DataFrame, out_path: Path) -> pd.Da
     if not chunks:
         raise RuntimeError("no OHLCV parquet files to assemble")
     panel = pd.concat(chunks, ignore_index=True)
-    panel["date"] = pd.to_datetime(panel["timestamp"], utc=True).dt.normalize()
+    panel["timestamp"] = pd.to_datetime(panel["timestamp"], utc=True, errors="coerce")
+    panel["date"] = panel["timestamp"].dt.tz_convert("UTC").dt.normalize()
+    panel["cryptocurrency_id"] = pd.to_numeric(panel["cryptocurrency_id"], errors="coerce").astype("Int64")
+    panel = panel.dropna(subset=["cryptocurrency_id", "timestamp"])
     panel["id"] = panel["cryptocurrency_id"].astype(int)
+    for c in ("currency_symbol", "currency_name", "currency_slug"):
+        if c in panel.columns:
+            panel[c] = panel[c].astype(str)
     panel["symbol"] = panel["currency_symbol"].astype(str)
     panel["name"] = panel["currency_name"].astype(str)
     panel["slug"] = panel["currency_slug"].astype(str)
@@ -312,7 +318,8 @@ def assemble_panel(ohlcv_dir: Path, cmap: pd.DataFrame, out_path: Path) -> pd.Da
     ls = cmap[["id", "listing_status"]].drop_duplicates("id") if "listing_status" in cmap.columns else pd.DataFrame(columns=["id", "listing_status"])
     panel = panel.merge(ls, on="id", how="left")
     panel = panel.merge(last.reset_index(), on="id", how="left")
-    panel["listing_status"] = panel["listing_status"].fillna("unknown")
+    panel["listing_status"] = panel["listing_status"].fillna("unknown").astype(str)
+    panel["last_available_date"] = pd.to_datetime(panel["last_available_date"], utc=True, errors="coerce")
     panel = panel.sort_values(["id", "date"]).drop_duplicates(["id", "date"], keep="last")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     panel.to_parquet(out_path, index=False)
