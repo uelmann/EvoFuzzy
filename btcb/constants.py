@@ -266,3 +266,34 @@ AUTOPSY_START = "2019-10-19"  # the +9.98M% same-window naive v3 book
 STAGE_S_COLS = PRICE_COLS + NEW_COLS
 assert len(STAGE_S_COLS) == 33, len(STAGE_S_COLS)
 assert not set(CTX_COLS) & set(STAGE_S_COLS)
+
+# ---------------------------------------------------------------------------
+# Phase 2.c — twin-head spread + repowered skill null (frozen a priori)
+# ---------------------------------------------------------------------------
+
+PHASE2C_CRITERION = (
+    "SPREAD has SELECTION SKILL if, at h=14 or h=30: mean per-date RankIC(spread) "
+    "≥ +0.01 AND mean per-date AUC ≥ 0.52 AND the §2 gate passes for the spread "
+    "metric. MODEL-V3 is VIABLE if on the full OOS window at median θ: (a) "
+    "relative-line Sharpe > 0; (b) total ≥ BTC B&H; (c) MaxDD ≤ BTC B&H. "
+    "MODEL-V3 is PRODUCT-GRADE if additionally relative-line Sharpe ≥ 0.30 AND "
+    "average alt allocation ≥ 5% (non-degenerate book). Per-cycle honesty table "
+    "mandatory; no single cycle overrides. Mechanical, no post-hoc adjustment."
+)
+
+PHASE2C_NULL_GATE = (
+    "Bias: every fold's null mean must satisfy the E.1b centering bound "
+    "(AUC around 0.5, RankIC around 0). Skill passes if, for the judged signal, "
+    "≥5 of 6 folds exceed their null 95th percentile OR the Stouffer-combined z "
+    "across the 6 folds is ≥ 3.0. Symmetric: failure = PARKED, no override, "
+    "no retest with different folds."
+)
+
+STAGE_S_BOT_QUINTILE = 0.20  # y=1 if excess rank ≤ this quantile (bottom quintile)
+THETA_GRID = (0.10, 0.15, 0.20)
+NULL_FOLD_IDS_2C = (0, 5, 9, 15, 21, 24)
+NULL_K_EXCEED = 5
+STOUFFER_Z_MIN = 3.0
+SPREAD_RANKIC_SKILL = 0.01
+PRODUCT_REL_SHARPE = 0.30
+PRODUCT_ALT_MIN = 0.05  # average alt allocation = 1 - avg_w_btc

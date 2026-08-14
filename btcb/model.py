@@ -212,6 +212,39 @@ def mean_per_date_rank_ic(p: np.ndarray, excess: np.ndarray, dates: np.ndarray, 
     return float(np.mean(ics)) if ics else float("nan")
 
 
+def per_date_rank_ic_series(p: np.ndarray, excess: np.ndarray, dates: np.ndarray, min_n: int = 8) -> pd.Series:
+    p = np.asarray(p, dtype=float)
+    excess = np.asarray(excess, dtype=float)
+    dates = pd.to_datetime(np.asarray(dates), utc=True)
+    order = np.argsort(dates, kind="mergesort")
+    p, excess, dates = p[order], excess[order], dates[order]
+    rows = []
+    i, n = 0, len(dates)
+    while i < n:
+        j = i + 1
+        while j < n and dates[j] == dates[i]:
+            j += 1
+        x, y = p[i:j], excess[i:j]
+        m = np.isfinite(x) & np.isfinite(y)
+        x, y = x[m], y[m]
+        val = float("nan")
+        if len(x) >= min_n and np.unique(x).size > 1 and np.unique(y).size > 1:
+            res = stats.spearmanr(x, y)
+            c = getattr(res, "correlation", None)
+            if c is None:
+                c = getattr(res, "statistic", np.nan)
+            c = float(np.asarray(c, dtype=float).reshape(-1)[0])
+            if np.isfinite(c):
+                val = c
+        rows.append((pd.Timestamp(dates[i]).tz_convert("UTC").normalize(), val))
+        i = j
+    if not rows:
+        return pd.Series(dtype=float)
+    s = pd.Series({d: v for d, v in rows}).sort_index()
+    s.index = pd.DatetimeIndex(s.index).tz_convert("UTC").normalize()
+    return s
+
+
 def _make_per_date_auc_feval(dates: np.ndarray):
     dates = np.asarray(dates)
 
@@ -256,9 +289,10 @@ def fit_predict_fold(
     shuffle_seed: int | None = None,
     lgbm_params: dict | None = None,
     early_stop: str = "auc",
+    ycol: str | None = None,
 ) -> tuple[pd.DataFrame, dict]:
     seed_everything(seed + fold.fold_id + (0 if shuffle_seed is None else int(shuffle_seed)))
-    ycol = f"y_h{fold.horizon}"
+    ycol = ycol or f"y_h{fold.horizon}"
     feats = list(feature_cols) if feature_cols is not None else list(FEATURE_COLS_V1)
     cfg = dict(LGBM_V1)
     if lgbm_params:
@@ -390,6 +424,7 @@ def fit_predict_fold(
         "rankic_oos": ric,
         "feature_importance_gain": gain_map,
         "feature_cols": feats,
+        "ycol": ycol,
         "shuffle_labels": bool(shuffle_labels),
         "shuffle_seed": int(shuffle_seed) if shuffle_seed is not None else None,
         "calibrated": ir is not None,
@@ -426,24 +461,29 @@ def train_all_folds(
     out_dir=None,
     feature_cols: list[str] | None = None,
     early_stop: str = "auc",
+    ycol: str | None = None,
+    tag: str | None = None,
 ) -> tuple[pd.DataFrame, list[dict], list[FoldSpec]]:
     folds = make_expanding_folds(pd.DatetimeIndex(df["date"].unique()), horizon=horizon)
-    print(f"[HB] h={horizon} folds={len(folds)} early_stop={early_stop}", flush=True)
+    print(f"[HB] h={horizon} folds={len(folds)} early_stop={early_stop} ycol={ycol or f'y_h{horizon}'} tag={tag}", flush=True)
     all_preds = []
     metas = []
     for fold in folds:
         print(
-            f"[HB] fold {fold.fold_id+1}/{len(folds)} h={horizon} "
+            f"[HB] fold {fold.fold_id+1}/{len(folds)} h={horizon} tag={tag} "
             f"train≤{pd.Timestamp(fold.train_end).date()} "
             f"val={pd.Timestamp(fold.val_start).date()}→{pd.Timestamp(fold.val_end).date()}",
             flush=True,
         )
-        pred_df, meta = fit_predict_fold(df, fold, feature_cols=feature_cols, early_stop=early_stop)
+        pred_df, meta = fit_predict_fold(
+            df, fold, feature_cols=feature_cols, early_stop=early_stop, ycol=ycol
+        )
         metas.append(meta)
         if not pred_df.empty:
             all_preds.append(pred_df)
             if out_dir is not None:
-                pred_df.to_parquet(out_dir / f"preds_h{horizon}_fold{fold.fold_id}.parquet", index=False)
+                stem = f"preds_{tag}_h{horizon}_fold{fold.fold_id}" if tag else f"preds_h{horizon}_fold{fold.fold_id}"
+                pred_df.to_parquet(out_dir / f"{stem}.parquet", index=False)
         print(
             f"[HB] fold {fold.fold_id} status={meta.get('status')} "
             f"pdauc={meta.get('pdauc_oos')} auc_oos={meta.get('auc_oos')} "
@@ -452,8 +492,31 @@ def train_all_folds(
         )
     preds = pd.concat(all_preds, ignore_index=True) if all_preds else pd.DataFrame()
     if out_dir is not None:
-        (out_dir / f"fold_meta_h{horizon}.json").write_text(json.dumps(metas, indent=2, default=str))
+        meta_name = f"fold_meta_{tag}_h{horizon}.json" if tag else f"fold_meta_h{horizon}.json"
+        (out_dir / meta_name).write_text(json.dumps(metas, indent=2, default=str))
     return preds, metas, folds
+
+
+def merge_twin_preds(top: pd.DataFrame, bot: pd.DataFrame, horizon: int) -> pd.DataFrame:
+    """Join calibrated heads; spread = p_top − p_bottom."""
+    y_top = f"y_h{horizon}"
+    y_bot = f"y_bot_h{horizon}"
+    excol = f"excess_h{horizon}"
+    t = top.rename(columns={"p": "p_top", "p_raw": "p_top_raw"})
+    if y_top in t.columns:
+        t = t.rename(columns={y_top: "y_top"})
+    b = bot.rename(columns={"p": "p_bot", "p_raw": "p_bot_raw"})
+    if y_bot in b.columns:
+        b = b.rename(columns={y_bot: "y_bot"})
+    keep_b = ["date", "id", "fold_id", "p_bot", "p_bot_raw"]
+    if "y_bot" in b.columns:
+        keep_b.append("y_bot")
+    m = t.merge(b[keep_b], on=["date", "id", "fold_id"], how="inner")
+    m["spread"] = m["p_top"].astype(float) - m["p_bot"].astype(float)
+    m["spread_raw"] = m["p_top_raw"].astype(float) - m["p_bot_raw"].astype(float)
+    m["uncertainty"] = m["p_top"].astype(float) + m["p_bot"].astype(float)
+    m["horizon"] = int(horizon)
+    return m
 
 
 def mean_gain(metas: list[dict], top_n: int = 15) -> list[tuple[str, float]]:

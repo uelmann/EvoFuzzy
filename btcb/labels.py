@@ -60,3 +60,30 @@ def add_quintile_excess_labels(
 
         out[yq] = out.groupby("date", sort=False)[ex].transform(_topq)
     return out
+
+
+def add_twin_quintile_labels(
+    feat: pd.DataFrame,
+    panel: pd.DataFrame,
+    btc_id: int,
+    horizons: tuple[int, ...] = PHASE2_HORIZONS,
+    q_top: float = 0.80,
+    q_bot: float = 0.20,
+) -> pd.DataFrame:
+    """Top and bottom quintile labels on the same date's feat cross-section."""
+    out = add_quintile_excess_labels(feat, panel, btc_id, horizons=horizons, q=q_top)
+    for h in horizons:
+        ex = f"excess_h{h}"
+        yb = f"y_bot_h{h}"
+
+        def _botq(s: pd.Series) -> pd.Series:
+            m = s.notna()
+            if int(m.sum()) < 10:
+                return pd.Series(np.nan, index=s.index)
+            thr = np.nanquantile(s.to_numpy(), float(q_bot))
+            out_s = pd.Series(np.nan, index=s.index)
+            out_s[m] = (s[m] <= thr).astype(float)
+            return out_s
+
+        out[yb] = out.groupby("date", sort=False)[ex].transform(_botq)
+    return out

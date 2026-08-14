@@ -141,6 +141,46 @@ def mechanical_verdicts(model: dict, naive: dict, margin: float = REPLACES_MARGI
     }
 
 
+def mechanical_verdicts_v3(model: dict) -> dict:
+    """VIABLE / PRODUCT-GRADE vs BTC. Operative floor is BTC (naive v4 is record-only)."""
+    from btcb.constants import PRODUCT_ALT_MIN, PRODUCT_REL_SHARPE
+
+    rel = float(model.get("rel_sharpe") or 0.0)
+    book_tot = float(model.get("book_total") or 0.0)
+    btc_tot = float(model.get("btc_total") or 0.0)
+    mdd = float(model.get("maxdd") or 0.0)
+    btc_mdd = float(model.get("btc_maxdd") or 0.0)
+    wbtc = float(model.get("avg_w_btc") or 1.0)
+    alt = 1.0 - wbtc
+    a = bool(np.isfinite(rel) and rel > 0)
+    b = bool(np.isfinite(book_tot) and np.isfinite(btc_tot) and book_tot >= btc_tot)
+    c = bool(np.isfinite(mdd) and np.isfinite(btc_mdd) and mdd >= btc_mdd)
+    viable = bool(a and b and c)
+    product = bool(
+        viable
+        and np.isfinite(rel)
+        and rel >= float(PRODUCT_REL_SHARPE)
+        and np.isfinite(alt)
+        and alt >= float(PRODUCT_ALT_MIN)
+    )
+    return {
+        "a_rel_sharpe_gt0": a,
+        "b_total_ge_btc": b,
+        "c_maxdd_le_btc": c,
+        "viable": viable,
+        "product_grade": product,
+        "rel_sharpe": rel,
+        "book_total": book_tot,
+        "btc_total": btc_tot,
+        "maxdd": mdd,
+        "btc_maxdd": btc_mdd,
+        "avg_w_btc": wbtc,
+        "avg_alt": float(alt),
+        "need_product_rel": float(PRODUCT_REL_SHARPE),
+        "need_product_alt": float(PRODUCT_ALT_MIN),
+    }
+
+
 def run_hysteresis_book(
     panel: pd.DataFrame,
     pit50: pd.DataFrame,
