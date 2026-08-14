@@ -100,8 +100,6 @@ def find_named(span: pd.DataFrame, df: pd.DataFrame, data_end: pd.Timestamp) -> 
         slugs = {s.lower() for s in spec["slugs"]}
         hit = span[(span["symbol"].str.upper() == q) | (span["slug"].str.lower().isin(slugs))]
         if hit.empty:
-            hit = span[span["name"].str.contains(spec["query"], case=False, na=False)]
-        if hit.empty:
             rows.append(
                 {
                     "query": spec["query"],

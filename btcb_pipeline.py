@@ -63,6 +63,7 @@ def run_btcb() -> dict:
         scan_usable_start,
         schema_report,
         draw_sample,
+        year_end_top,
         _terminal,
     )
     from btcb.benchmark import naive_rotation
@@ -73,6 +74,8 @@ def run_btcb() -> dict:
         PHASE1_LABEL,
         PIT_DV_WINDOW,
         PIT_NS,
+        SAMPLE_TOPN,
+        SAMPLE_YEARS,
         SEED,
     )
     from btcb.report import plot_benchmark, write_phase0, write_phase1
@@ -183,6 +186,9 @@ def run_btcb() -> dict:
         "data_end": str(data_end.date()),
         "n_survivor": int((span["terminal"] == "SURVIVOR").sum()),
         "n_ended": int((span["terminal"] == "ENDED").sum()),
+        "year_end_top200_n": {
+            str(y): int(len(year_end_top(panel, y, SAMPLE_TOPN))) for y in SAMPLE_YEARS
+        },
         "elapsed_sec": time.time() - t0,
         "source_sha256": hashlib.sha256(src.read_bytes() if src.stat().st_size < 50_000_000 else str(src.stat().st_size).encode()).hexdigest()
         if src.stat().st_size < 50_000_000
@@ -357,10 +363,11 @@ def main():
         dest = art / kind / name
         dest.parent.mkdir(parents=True, exist_ok=True)
         subprocess.run(["modal", "volume", "get", VOL_Q, remote, str(dest), "--force"], check=False)
-        if dest.exists() and dest.is_file():
+        candidate = dest if dest.is_file() else dest / name
+        if candidate.exists() and candidate.is_file():
             out = Path(kind) / name
             out.parent.mkdir(exist_ok=True)
-            shutil.copy2(dest, out)
+            shutil.copy2(candidate, out)
     opt = Path("/opt/cursor/artifacts")
     if opt.exists():
         for sub in ("reports", "charts", "screenshots"):

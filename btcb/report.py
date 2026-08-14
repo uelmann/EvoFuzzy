@@ -79,7 +79,9 @@ def write_phase0(path: Path, *, schema, graveyard, sample, quality, agree, gate,
         "",
         f"## Historical top-200 sample (n={n_sample}, seed=42)",
         "",
-        f"Drawn from the union of year-end mcap top-200 in 2018/2019/2020 (BTC, stables, wrapped excluded).",
+        f"Drawn from the union of year-end mcap top-200 in 2018/2019/2020 (BTC, stables, wrapped excluded). "
+        f"In-file year-end pool sizes (survivors only): `{extra.get('year_end_top200_n')}`. "
+        f"A 2018–2020 top-200 that never appears in this archive cannot enter the sample — the 80% present test is nearly tautological; named-list misses are the real graveyard check.",
         "",
         "| id | symbol | name | slug | first | last | n | gap_frac | terminal | in_years |",
         "|----|--------|------|------|-------|------|---|----------|----------|----------|",
@@ -175,11 +177,11 @@ def write_phase1(path: Path, *, naive, control, gate, extra) -> str:
         text = "\n".join(lines) + "\n"
         path.write_text(text)
         return text
-    live = "LIVE BENCHMARK" if naive.get("live_benchmark") else "NOT A LIVE BENCHMARK"
+    live_phrase = "a LIVE BENCHMARK" if naive.get("live_benchmark") else "NOT A LIVE BENCHMARK"
     lines += [
         "## Mechanical verdict",
         "",
-        f"- **NAIVE-ROTATION is a {live}**",
+        f"- **NAIVE-ROTATION is {live_phrase}**",
         f"- Relative-line Sharpe (book/BTC) = {_fmt(naive.get('rel_sharpe'))} (need > 0: {bool(naive.get('rel_sharpe', 0) > 0)})",
         f"- Book total return = {_pct(naive.get('book_total'))} vs BTC B&H {_pct(naive.get('btc_total'))} "
         f"(need book ≥ BTC: {bool(naive.get('book_total', 0) >= naive.get('btc_total', 1e9))})",
