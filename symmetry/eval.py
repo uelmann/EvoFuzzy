@@ -39,12 +39,6 @@ def assign_buckets(scores: pd.Series, n_buckets: int) -> pd.Series | None:
     return out
 
 
-def _window_mask(idx: pd.DatetimeIndex, window: str) -> np.ndarray:
-    dummy = pd.Series(1.0, index=idx)
-    sl = window_slice(dummy, window)
-    return idx.isin(sl.index)
-
-
 def daily_bucket_panel(df: pd.DataFrame, ycol: str, n_buckets: int) -> pd.DataFrame:
     """One row per (date, bucket): mean residual, hit rate, n."""
     rows: list[dict] = []
