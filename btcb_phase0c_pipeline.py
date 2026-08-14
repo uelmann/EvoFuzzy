@@ -71,6 +71,7 @@ def run_btcb_0c() -> dict:
         credit_guard,
         download_ohlcv,
         load_current_828,
+        seed_from_existing_panel,
     )
     from btcb.report import plot_benchmark_v3, plot_coverage, write_phase0c, write_phase1_v3
     from btcb.universe import build_pit_topn_ids, trailing_rank_frame_by_id
@@ -113,6 +114,8 @@ def run_btcb_0c() -> dict:
     (root / "target_ids.json").write_text(json.dumps({"n": len(target_ids), "ids": target_ids}))
     commit()
     print(f"[HB] target union n={len(target_ids)}", flush=True)
+    seed_from_existing_panel(Path("/data/quant/btcb/cmc_panel.parquet"), ohlcv_dir, set(target_ids))
+    commit()
 
     cached = {p.stem for p in ohlcv_dir.glob("*.parquet") if p.stem.isdigit()}
     cached |= {p.stem for p in ohlcv_dir.glob("*.empty") if p.stem.isdigit()}

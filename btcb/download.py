@@ -240,6 +240,49 @@ def download_ohlcv(
     return state
 
 
+def seed_from_existing_panel(panel_path: Path, ohlcv_dir: Path, target_ids: set[int]) -> int:
+    """Copy already-downloaded 828-coin history into per-id cache (resume)."""
+    if not panel_path.exists():
+        return 0
+    ohlcv_dir.mkdir(parents=True, exist_ok=True)
+    df = pd.read_parquet(panel_path)
+    if "id" not in df.columns and "cryptocurrency_id" in df.columns:
+        df["id"] = df["cryptocurrency_id"].astype(int)
+    n = 0
+    want = set(int(x) for x in target_ids)
+    cols = [
+        "cryptocurrency_id", "timestamp", "open", "high", "low", "close", "volume", "marketCap",
+        "currency_name", "currency_symbol", "currency_slug",
+    ]
+    for cid, g in df.groupby("id"):
+        cid = int(cid)
+        if cid not in want:
+            continue
+        dest = ohlcv_dir / f"{cid}.parquet"
+        if dest.exists() or (ohlcv_dir / f"{cid}.empty").exists():
+            continue
+        gg = g.copy()
+        if "cryptocurrency_id" not in gg.columns:
+            gg["cryptocurrency_id"] = cid
+        if "timestamp" not in gg.columns:
+            gg["timestamp"] = gg["date"]
+        for c, src in (
+            ("currency_name", "name"),
+            ("currency_symbol", "symbol"),
+            ("currency_slug", "slug"),
+        ):
+            if c not in gg.columns and src in gg.columns:
+                gg[c] = gg[src]
+        keep = [c for c in cols if c in gg.columns]
+        out = gg[keep].drop_duplicates("timestamp").sort_values("timestamp")
+        if out.empty:
+            continue
+        out.to_parquet(dest, index=False)
+        n += 1
+    print(f"[HB] seeded {n} ids from existing panel {panel_path}", flush=True)
+    return n
+
+
 def assemble_panel(ohlcv_dir: Path, cmap: pd.DataFrame, out_path: Path) -> pd.DataFrame:
     files = sorted(ohlcv_dir.glob("*.parquet"))
     chunks = []
