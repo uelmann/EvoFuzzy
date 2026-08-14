@@ -124,3 +124,114 @@ GRAVEYARD_0C = [
     {"query": "FTT", "slugs": ("ftx-token",), "event": "FTX collapse Nov 2022 (continuity)"},
     {"query": "LUNC", "slugs": ("terra-luna",), "event": "Terra Classic after May 2022 (continuity)"},
 ]
+
+# ---------------------------------------------------------------------------
+# Phase 2 — winner-tail classifier (frozen a priori; no sweeps)
+# ---------------------------------------------------------------------------
+
+PHASE2_CRITERION = (
+    "MODEL-V1 is VIABLE if, on the full OOS window at the median p_enter: "
+    "(a) the relative line (book/BTC) has Sharpe > 0; (b) total return ≥ BTC B&H; "
+    "(c) MaxDD ≤ BTC B&H MaxDD. MODEL-V1 REPLACES the naive rotation as the project "
+    "floor if additionally its relative-line Sharpe ≥ naive v3 relative-line Sharpe "
+    "+ 0.15 on the same window. Per-cycle honesty: report 2019–20, 2021, 2022, "
+    "2023–24, 2025–26 separately; a verdict is not overridden by any single cycle. "
+    "Mechanical, no post-hoc adjustment."
+)
+
+USABLE_FROM = "2017-09-30"
+PHASE2_HORIZONS = (14, 30)
+PHASE2_PRIMARY_H = 14
+P_ENTER_GRID = (0.55, 0.60, 0.65)
+P_EXIT_GAP = 0.05
+BLOWOFF_RET_7 = 0.50
+REPLACES_MARGIN = 0.15
+MIN_TRAIN_CALENDAR_DAYS = 730
+VAL_CALENDAR_DAYS = 90
+STEP_CALENDAR_DAYS = 90
+INNER_HOLDOUT_CALENDAR_DAYS = 90
+CS_CLIP = 5.0
+CTX_OWN_Z_WINDOW = 250
+CTX_OWN_Z_MINP = 60
+
+# 25 pruned survivors (A0 FEATURE_COLS minus Round-F eight)
+PRICE_MOM_TREND_DIST = (
+    "ret_14",
+    "ret_56",
+    "ret_90",
+    "mom_90_skip14",
+    "close_sma20",
+    "close_sma50",
+    "close_sma100",
+    "sma20_sma50",
+    "ema12_ema26",
+    "dist_high_90",
+    "dist_low_90",
+)
+PRICE_OWN_VOL_RANGE = (
+    "yz_vol_14",
+    "yz_vol_30",
+    "yz_vol_60",
+    "pk_vol_14",
+    "vol_ratio",
+    "vol_of_vol_30",
+    "max_ret_14",
+    "min_ret_14",
+    "range_pos_28",
+    "skew_60",
+    "beta_btc_60",
+    "idio_vol_60",
+    "corr_btc_28",
+    "amihud_14",
+)
+PRICE_COLS = PRICE_MOM_TREND_DIST + PRICE_OWN_VOL_RANGE
+assert len(PRICE_COLS) == 25, len(PRICE_COLS)
+
+CTX_COLS = (
+    "ctx_disp",
+    "ctx_excess_disp",
+    "ctx_btc_vol",
+    "ctx_btc_trend",
+    "ctx_breadth",
+    "ctx_corr",
+    "ctx_alt_btc_trend",
+)
+NEW_COLS = (
+    "log_mcap",
+    "mcap_rank",
+    "d_rank_30",
+    "d_rank_90",
+    "log_age",
+    "dist_ath",
+    "turnover",
+    "turnover_z30",
+)
+FEATURE_COLS_V1 = PRICE_COLS + CTX_COLS + NEW_COLS
+assert len(FEATURE_COLS_V1) == 40, len(FEATURE_COLS_V1)
+
+LGBM_V1 = dict(
+    objective="binary",
+    metric="auc",
+    num_leaves=31,
+    learning_rate=0.03,
+    min_data_in_leaf=200,
+    feature_fraction=0.8,
+    bagging_fraction=0.8,
+    bagging_freq=1,
+    lambda_l2=1.0,
+    n_estimators=3000,
+    early_stopping_rounds=100,
+    verbosity=-1,
+)
+
+NULL_REPLICATES = 25
+NULL_SHUFFLE_SEEDS = tuple(range(101, 126))  # 25 seeds
+NULL_FOLD_ANCHORS = ("first", "2022-01-01")  # fold 0 and fold nearest 2022-01-01 val_start
+
+PHASE2_CYCLES = (
+    ("2019-20", "2019-10-01", "2020-12-31"),
+    ("2021", "2021-01-01", "2021-12-31"),
+    ("2022", "2022-01-01", "2022-12-31"),
+    ("2023-24", "2023-01-01", "2024-12-31"),
+    ("2025-26", "2025-01-01", "2026-12-31"),
+)
