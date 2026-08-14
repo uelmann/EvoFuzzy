@@ -9,6 +9,7 @@ from btcb.constants import (
     BLOCK_BEFORE,
     ENDED_LAG_DAYS,
     FICTION_BEFORE,
+    GRAVEYARD_0C,
     LISTED_SLACK_DAYS,
     NAMED_GRAVEYARD,
     PIT_DATE_FRAC,
@@ -76,7 +77,7 @@ def schema_report(df: pd.DataFrame) -> dict:
 
 
 def per_coin_span(df: pd.DataFrame) -> pd.DataFrame:
-    g = df.groupby("id").agg(
+    agg = dict(
         symbol=("symbol", "last"),
         name=("name", "last"),
         slug=("slug", "last"),
@@ -86,6 +87,9 @@ def per_coin_span(df: pd.DataFrame) -> pd.DataFrame:
         last_close=("close", "last"),
         last_mcap=("mcap", "last"),
     )
+    if "listing_status" in df.columns:
+        agg["listing_status"] = ("listing_status", "last")
+    g = df.groupby("id").agg(**agg)
     cal = (g["last"] - g["first"]).dt.days + 1
     g["calendar_days"] = cal.astype(int)
     g["gap_days"] = (g["calendar_days"] - g["n"]).clip(lower=0).astype(int)
@@ -142,6 +146,57 @@ def find_named(span: pd.DataFrame, df: pd.DataFrame, data_end: pd.Timestamp) -> 
                     "crash_note": crash_note,
                 }
             )
+    return rows
+
+
+def find_named_0c(span: pd.DataFrame, data_end: pd.Timestamp) -> list[dict]:
+    """Exact listed CMC slug only. 9-name Phase 0.c graveyard."""
+    rows = []
+    for spec in GRAVEYARD_0C:
+        q = spec["query"].upper()
+        slugs = {s.lower() for s in spec["slugs"]}
+        hit = span[span["slug"].str.lower().isin(slugs)]
+        if hit.empty:
+            rows.append(
+                {
+                    "query": spec["query"],
+                    "event": spec["event"],
+                    "present": False,
+                    "present_with_terminal": False,
+                    "id": None,
+                    "symbol": None,
+                    "slug": None,
+                    "first": None,
+                    "last": None,
+                    "n": 0,
+                    "terminal": "MISSING",
+                    "listing_status": None,
+                }
+            )
+            continue
+        # prefer exact slug, then exact symbol
+        hit = hit.copy()
+        hit["_pref"] = hit["slug"].str.lower().isin(slugs).astype(int) * 2 + (hit["symbol"].str.upper() == q).astype(int)
+        r = hit.sort_values(["_pref", "n"], ascending=False).iloc[0]
+        term = _terminal(r["last"], data_end)
+        present_term = term in {"SURVIVOR", "ENDED"}
+        rows.append(
+            {
+                "query": spec["query"],
+                "event": spec["event"],
+                "present": True,
+                "present_with_terminal": bool(present_term),
+                "id": int(r["id"]),
+                "symbol": r["symbol"],
+                "slug": r["slug"],
+                "name": r.get("name"),
+                "first": str(pd.Timestamp(r["first"]).date()),
+                "last": str(pd.Timestamp(r["last"]).date()),
+                "n": int(r["n"]),
+                "terminal": term,
+                "listing_status": r["listing_status"] if "listing_status" in r.index else None,
+            }
+        )
     return rows
 
 

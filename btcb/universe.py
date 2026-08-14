@@ -35,6 +35,45 @@ def trailing_rank_frame(df: pd.DataFrame, window: int = PIT_DV_WINDOW) -> tuple[
     return score, mcap, method
 
 
+def trailing_rank_frame_by_id(df: pd.DataFrame, window: int = PIT_DV_WINDOW) -> tuple[pd.DataFrame, pd.DataFrame, str, pd.Series]:
+    """Wide trailing-30d median dollar volume keyed by cryptocurrency_id. BTC kept."""
+    panel = df.copy()
+    panel = panel[~panel["symbol"].str.upper().isin(STABLE_OR_WRAP)]
+    dv = panel.pivot(index="date", columns="id", values="dv").sort_index()
+    mcap = panel.pivot(index="date", columns="id", values="mcap").sort_index()
+    dv_med = dv.rolling(window, min_periods=min(PIT_DV_MIN_PERIODS, window)).median()
+    vol_cov = float(dv.notna().mean().mean()) if dv.size else 0.0
+    if vol_cov < 0.3:
+        method = "mcap"
+        score = mcap.rolling(window, min_periods=min(PIT_DV_MIN_PERIODS, window)).median()
+    else:
+        method = "trailing_30d_median_dollar_volume"
+        score = dv_med.where(dv_med.notna() & (dv_med > 0), mcap)
+        score = score.fillna(mcap)
+    last_sym = panel.sort_values("date").groupby("id")["symbol"].last()
+    return score, mcap, method, last_sym
+
+
+def build_pit_topn_ids(score: pd.DataFrame, n: int, last_sym: pd.Series | None = None) -> pd.DataFrame:
+    if score.empty:
+        return pd.DataFrame(columns=["date", "id", "symbol", "rank", "score"])
+    ranked = score.rank(axis=1, ascending=False, method="first")
+    mask = (ranked <= int(n)) & score.notna() & (score > 0)
+    long = score.where(mask).stack().rename("score").reset_index()
+    long.columns = ["date", "id", "score"]
+    rnk = ranked.where(mask).stack().rename("rank").reset_index()
+    rnk.columns = ["date", "id", "rank"]
+    out = long.merge(rnk, on=["date", "id"], how="inner")
+    out["date"] = pd.to_datetime(out["date"], utc=True)
+    out["id"] = out["id"].astype(int)
+    out["rank"] = out["rank"].astype(int)
+    if last_sym is not None:
+        out["symbol"] = out["id"].map(last_sym)
+    else:
+        out["symbol"] = out["id"].astype(str)
+    return out.sort_values(["date", "rank"]).reset_index(drop=True)
+
+
 def build_pit_topn(score: pd.DataFrame, n: int) -> pd.DataFrame:
     if score.empty:
         return pd.DataFrame(columns=["date", "symbol", "rank", "score"])

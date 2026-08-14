@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from btcb.constants import PHASE0_GATE, PHASE1_LABEL
+from btcb.constants import DEATH_CONVENTION, PHASE0_GATE, PHASE0C_GATE, PHASE1_LABEL
 
 
 def _fmt(x, nd=3):
@@ -229,7 +229,7 @@ def write_phase1(path: Path, *, naive, control, gate, extra) -> str:
     return text
 
 
-def plot_benchmark(naive: dict, start: str | None, out_path: Path) -> None:
+def plot_benchmark(naive: dict, start: str | None, out_path: Path, title: str | None = None) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     eq = naive.get("equity")
     eqb = naive.get("equity_btc")
@@ -241,7 +241,7 @@ def plot_benchmark(naive: dict, start: str | None, out_path: Path) -> None:
     axes[0].plot(eqb.index, eqb.values, label="BTC B&H", lw=1.3)
     axes[0].set_yscale("log")
     axes[0].set_ylabel("Equity (log, rebased)")
-    axes[0].set_title("BTC-BEATER Phase 1 — naive rotation vs BTC")
+    axes[0].set_title(title or "BTC-BEATER Phase 1 — naive rotation vs BTC")
     axes[0].legend(fontsize=8)
     axes[0].grid(True, which="both", alpha=0.3)
     if isinstance(rel, pd.Series) and len(rel):
@@ -260,3 +260,190 @@ def plot_benchmark(naive: dict, start: str | None, out_path: Path) -> None:
             ax.axvline(t0, color="#E45756", ls="--", lw=1.0, alpha=0.8)
     fig.savefig(out_path, dpi=120)
     plt.close(fig)
+
+
+def write_phase0c(path: Path, *, schema, graveyard, ended, quality, gate, extra) -> str:
+    lines = [
+        "# BTC-BEATER Phase 0.c — full-map rebuild + re-audit",
+        "",
+        "**DATA + ANALYSIS ONLY.** Frozen COMBO v2.0-combo-final is untouched. "
+        "The KuCoin-filtered 828-coin archive and its benchmarks are discarded unread.",
+        "",
+        "## Pre-registered gate v2 (verbatim)",
+        "",
+        f"> {PHASE0C_GATE}",
+        "",
+        "## Death-in-position convention (verbatim)",
+        "",
+        f"> {DEATH_CONVENTION}",
+        "",
+        "## Mechanical verdict",
+        "",
+        f"- **{gate.get('verdict')}**",
+        f"- BLOCKED: {gate.get('blocked')}. Usable start: `{gate.get('usable_from')}`.",
+        f"- Ended-count: **{ended.get('n_ended')}** / {ended.get('n_ids')} "
+        f"(histories ending before {ended.get('before')}). "
+        + ("**FAIL: ended=0 (survivorship still present).**" if ended.get("fail") else "ended>0 (graveyard retained)."),
+        "",
+        "## Download provenance + credit guard",
+        "",
+        f"- Plan: {extra.get('plan')}",
+        f"- Credits projected={extra.get('credits_projected')} available={extra.get('credits_available')} "
+        f"observed_credit_count={extra.get('credit_count')}",
+        f"- HTTP projected remaining={extra.get('http_remaining')} used={extra.get('http_count')} hard_stop={extra.get('hard_stop')}",
+        f"- Target ids={extra.get('n_target')} (snapshot union + 828). Cached before OHLCV={extra.get('n_cached')}.",
+        f"- Map: n={extra.get('n_map')} active={extra.get('n_active')} inactive={extra.get('n_inactive')} untracked={extra.get('n_untracked')}",
+        "",
+        "## Schema",
+        "",
+        f"- rows={schema.get('n_rows')} ids={schema.get('n_ids')} symbols={schema.get('n_symbols')}",
+        f"- date range {schema.get('date_min')} → {schema.get('date_max')}",
+        f"- extra columns: listing_status, last_available_date. Primary key=cryptocurrency_id.",
+        "",
+        "## Named graveyard (must be present with terminal dates)",
+        "",
+        "| query | present | with_terminal | id | symbol | slug | first | last | n | terminal | status | event |",
+        "|-------|---------|---------------|----|--------|------|-------|------|---|----------|--------|-------|",
+    ]
+    for r in graveyard:
+        lines.append(
+            f"| {r.get('query')} | {r.get('present')} | {r.get('present_with_terminal')} "
+            f"| {r.get('id')} | {r.get('symbol')} | {r.get('slug')} | {r.get('first')} | {r.get('last')} "
+            f"| {r.get('n')} | {r.get('terminal')} | {r.get('listing_status')} | {r.get('event')} |"
+        )
+    n_ok = sum(1 for r in graveyard if r.get("present_with_terminal"))
+    lines += [
+        "",
+        f"Graveyard one-liner input: **{n_ok}/{len(graveyard)} present-with-terminal**.",
+        "",
+        "## Coverage vs external snapshots (top-50/100/200)",
+        "",
+        f"Threshold 85% on true-top-100, sustained at all later snapshots. PIT method: **{extra.get('pit_method')}**.",
+        "",
+        "| D | used | top50 | top100 | top200 | pass100 |",
+        "|---|------|-------|--------|--------|---------|",
+    ]
+    for r in gate.get("scan") or []:
+        t50 = r.get("top50") or {}
+        t100 = r.get("top100") or {}
+        t200 = r.get("top200") or {}
+        lines.append(
+            f"| {r.get('quarter_end')} | {r.get('used_date')} "
+            f"| {_pct(t50.get('frac'))} | {_pct(t100.get('frac'))} | {_pct(t200.get('frac'))} "
+            f"| {r.get('pass100')} |"
+        )
+    lines += [
+        "",
+        f"PIT files: `universe/btcb_top50_pit.parquet`, `universe/btcb_top100_pit.parquet`.",
+        f"Elapsed s={_fmt(extra.get('elapsed_sec'), 1)}. GPU=false. COMBO untouched.",
+        "",
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    text = "\n".join(lines) + "\n"
+    path.write_text(text)
+    return text
+
+
+def write_phase1_v3(path: Path, *, naive, control, gate, extra) -> str:
+    lines = [
+        "# BTC-BEATER Phase 1 v3 — honest-window naive rotation",
+        "",
+        "**BACKTEST ONLY.** Parameters frozen a priori. No sweeps. "
+        "Old-archive and 2018-circular benchmarks discarded unread. COMBO untouched.",
+        "",
+        "## Pre-registered label",
+        "",
+        f"> {PHASE1_LABEL}",
+        "",
+        "## Death-in-position convention",
+        "",
+        f"> {DEATH_CONVENTION}",
+        "",
+    ]
+    if extra.get("skipped"):
+        lines += [
+            "## Mechanical verdict",
+            "",
+            f"- Phase 1 v3 **SKIPPED** because Phase 0.c is {gate.get('verdict')}.",
+            "",
+        ]
+        text = "\n".join(lines) + "\n"
+        path.write_text(text)
+        return text
+    live_phrase = "a LIVE BENCHMARK" if naive.get("live_benchmark") else "NOT A LIVE BENCHMARK"
+    fe = naive.get("forced_exits") or {}
+    lines += [
+        "## Mechanical verdict",
+        "",
+        f"- **NAIVE-ROTATION is {live_phrase}**",
+        f"- Relative-line Sharpe (book/BTC) = {_fmt(naive.get('rel_sharpe'))} "
+        f"(need > 0: {bool((naive.get('rel_sharpe') or 0) > 0)})",
+        f"- Book total return = {_pct(naive.get('book_total'))} vs BTC B&H {_pct(naive.get('btc_total'))} "
+        f"(need book ≥ BTC: {bool((naive.get('book_total') or 0) >= (naive.get('btc_total') or 1e9))})",
+        f"- Usable window: {naive.get('start')} → {naive.get('end')} (n={naive.get('n_days')})",
+        f"- Forced exits: n_events={fe.get('n_events')} n_ids={fe.get('n_ids')} "
+        f"weight_sum={_fmt(fe.get('weight_sum'), 4)} cost_drag={_fmt(fe.get('cost_drag'), 6)} "
+        f"pnl_impact_vs_ghost={_fmt(fe.get('pnl_impact_vs_ghost'), 4)}",
+        "",
+        "These numbers are the floor every later ML phase must beat net of costs.",
+        "",
+        "## Headline vs BTC B&H",
+        "",
+        "| book | total | CAGR | USD Sharpe | MaxDD | rel CAGR | rel Sharpe | avg %BTC | ann TO |",
+        "|------|-------|------|------------|-------|----------|------------|----------|--------|",
+        f"| naive rotation v3 | {_pct(naive.get('book_total'))} | {_pct(naive.get('book_cagr'))} "
+        f"| {_fmt(naive.get('book_sharpe'))} | {_pct(naive.get('maxdd'))} | {_pct(naive.get('rel_cagr'))} "
+        f"| {_fmt(naive.get('rel_sharpe'))} | {_pct(naive.get('avg_w_btc'))} | {_fmt(naive.get('ann_turnover'), 2)} |",
+        f"| BTC B&H | {_pct(naive.get('btc_total'))} | {_pct(naive.get('btc_cagr'))} "
+        f"| {_fmt(naive.get('btc_sharpe'))} | {_pct(naive.get('btc_maxdd'))} | 0 | 0 | 100% | 0 |",
+        f"| 100% BTC control | {_pct(control.get('book_total'))} | {_pct(control.get('book_cagr'))} "
+        f"| {_fmt(control.get('book_sharpe'))} | {_pct(control.get('maxdd'))} | {_fmt(control.get('rel_cagr'), 4)} "
+        f"| {_fmt(control.get('rel_sharpe'), 4)} | {_pct(control.get('avg_w_btc'))} | {_fmt(control.get('ann_turnover'), 4)} |",
+        "",
+        "## Per-cycle",
+        "",
+        "| cycle | n | book tot | BTC tot | book Sharpe | rel CAGR | rel Sharpe | MaxDD | avg %BTC |",
+        "|-------|---|----------|---------|-------------|----------|------------|-------|----------|",
+    ]
+    for name, c in (naive.get("cycles") or {}).items():
+        lines.append(
+            f"| {name} | {c.get('n')} | {_pct(c.get('book_total'))} | {_pct(c.get('btc_total'))} "
+            f"| {_fmt(c.get('book_sharpe'))} | {_pct(c.get('rel_cagr'))} | {_fmt(c.get('rel_sharpe'))} "
+            f"| {_pct(c.get('maxdd'))} | {_pct(c.get('avg_w_btc'))} |"
+        )
+    lines += [
+        "",
+        f"Elapsed s={_fmt(extra.get('elapsed_sec'), 1)}. GPU=false.",
+        "",
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    text = "\n".join(lines) + "\n"
+    path.write_text(text)
+    return text
+
+
+def plot_coverage(gate: dict, out_path: Path) -> None:
+    rows = gate.get("scan") or []
+    if not rows:
+        return
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    xs = [pd.Timestamp(r["used_date"]) for r in rows]
+    fig, ax = plt.subplots(figsize=(11, 4.5), constrained_layout=True)
+    for n, col in ((50, "#4C78A8"), (100, "#F58518"), (200, "#54A24B")):
+        ys = [((r.get(f"top{n}") or {}).get("frac") or 0.0) for r in rows]
+        ax.plot(xs, ys, marker="o", ms=3.5, lw=1.3, color=col, label=f"top-{n}")
+    ax.axhline(0.85, color="#E45756", ls="--", lw=1.0, label="85%")
+    if gate.get("usable_from"):
+        t0 = pd.Timestamp(gate["usable_from"])
+        ax.axvline(t0, color="#E45756", ls="--", lw=1.0, alpha=0.8)
+    ax.set_ylim(0, 1.05)
+    ax.set_ylabel("true-top-N coverage")
+    ax.set_title("BTC-BEATER Phase 0.c — snapshot coverage")
+    ax.legend(fontsize=8)
+    ax.grid(True, alpha=0.3)
+    fig.savefig(out_path, dpi=120)
+    plt.close(fig)
+
+
+def plot_benchmark_v3(naive: dict, start: str | None, out_path: Path) -> None:
+    plot_benchmark(naive, start, out_path, title="BTC-BEATER Phase 1 v3 — honest window vs BTC")
