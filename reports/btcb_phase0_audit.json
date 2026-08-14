@@ -1,0 +1,1071 @@
+{
+  "schema": {
+    "n_rows": 1026057,
+    "n_ids": 828,
+    "n_symbols": 828,
+    "n_slugs": 828,
+    "date_min": "2016-01-01 00:00:00+00:00",
+    "date_max": "2026-08-08 00:00:00+00:00",
+    "columns": [
+      "cryptocurrency_id",
+      "timestamp",
+      "open",
+      "high",
+      "low",
+      "close",
+      "volume",
+      "marketCap",
+      "currency_name",
+      "currency_symbol",
+      "currency_slug"
+    ],
+    "null_frac": {
+      "open": 0.0,
+      "high": 0.0,
+      "low": 0.0,
+      "close": 0.0,
+      "volume": 0.0,
+      "mcap": 0.0
+    },
+    "dup_symbol_ids": 0,
+    "dup_id_symbols": 0
+  },
+  "graveyard": [
+    {
+      "query": "LUNA",
+      "event": "Terra collapse May 2022 / LUNA 2.0",
+      "present": true,
+      "ids": [
+        4172
+      ],
+      "symbol": "LUNC",
+      "slug": "terra-luna",
+      "name": "Terra Classic",
+      "first": "2019-07-26",
+      "last": "2026-08-08",
+      "n": 2571,
+      "terminal": "SURVIVOR",
+      "crash_note": "window 2022-05 max=116.409 min=4.81247e-05 min/max=0.0000"
+    },
+    {
+      "query": "LUNA",
+      "event": "Terra collapse May 2022 / LUNA 2.0",
+      "present": true,
+      "ids": [
+        20314
+      ],
+      "symbol": "LUNA",
+      "slug": "terra-luna-v2",
+      "name": "Terra",
+      "first": "2022-05-28",
+      "last": "2026-08-08",
+      "n": 1534,
+      "terminal": "SURVIVOR",
+      "crash_note": "window 2022-05 max=10.7141 min=2.17852 min/max=0.2033"
+    },
+    {
+      "query": "LUNC",
+      "event": "Terra Classic (ex-LUNA) after May 2022",
+      "present": true,
+      "ids": [
+        4172
+      ],
+      "symbol": "LUNC",
+      "slug": "terra-luna",
+      "name": "Terra Classic",
+      "first": "2019-07-26",
+      "last": "2026-08-08",
+      "n": 2571,
+      "terminal": "SURVIVOR",
+      "crash_note": "window 2022-05 max=116.409 min=4.81247e-05 min/max=0.0000"
+    },
+    {
+      "query": "FTT",
+      "event": "FTX collapse Nov 2022",
+      "present": true,
+      "ids": [
+        4195
+      ],
+      "symbol": "FTT",
+      "slug": "ftx-token",
+      "name": "FTX Token",
+      "first": "2019-08-01",
+      "last": "2026-08-08",
+      "n": 2565,
+      "terminal": "SURVIVOR",
+      "crash_note": "window 2022-11 max=26.1094 min=1.2558 min/max=0.0481"
+    },
+    {
+      "query": "BCC",
+      "event": "BCC ticker / BCH-forks era 2017\u201318",
+      "present": false,
+      "ids": [],
+      "symbol": null,
+      "slug": null,
+      "first": null,
+      "last": null,
+      "n": 0,
+      "terminal": "MISSING",
+      "crash_note": null
+    },
+    {
+      "query": "BCH",
+      "event": "Bitcoin Cash (BCHABC/BCHSV forks 2018)",
+      "present": true,
+      "ids": [
+        1831
+      ],
+      "symbol": "BCH",
+      "slug": "bitcoin-cash",
+      "name": "Bitcoin Cash",
+      "first": "2017-07-23",
+      "last": "2026-08-08",
+      "n": 3304,
+      "terminal": "SURVIVOR",
+      "crash_note": "window 2018-11 max=628.507 min=102.073 min/max=0.1624"
+    },
+    {
+      "query": "BSV",
+      "event": "BCHSV fork Nov 2018",
+      "present": true,
+      "ids": [
+        3602
+      ],
+      "symbol": "BCHSV",
+      "slug": "bitcoin-sv",
+      "name": "Bitcoin SV",
+      "first": "2018-11-09",
+      "last": "2026-08-08",
+      "n": 2830,
+      "terminal": "SURVIVOR",
+      "crash_note": "window 2018-11 max=208.402 min=42.7513 min/max=0.2051"
+    },
+    {
+      "query": "SRM",
+      "event": "Serum / FTX complex 2022",
+      "present": false,
+      "ids": [],
+      "symbol": null,
+      "slug": null,
+      "first": null,
+      "last": null,
+      "n": 0,
+      "terminal": "MISSING",
+      "crash_note": null
+    },
+    {
+      "query": "CEL",
+      "event": "Celsius bankruptcy 2022",
+      "present": false,
+      "ids": [],
+      "symbol": null,
+      "slug": null,
+      "first": null,
+      "last": null,
+      "n": 0,
+      "terminal": "MISSING",
+      "crash_note": null
+    },
+    {
+      "query": "BTT",
+      "event": "BTT redenomination ~Jan 2022",
+      "present": true,
+      "ids": [
+        16086
+      ],
+      "symbol": "BTT",
+      "slug": "bittorrent-new",
+      "name": "BitTorrent [New]",
+      "first": "2022-01-11",
+      "last": "2026-08-08",
+      "n": 1671,
+      "terminal": "SURVIVOR",
+      "crash_note": "window 2022-01 max=2.86557e-06 min=2.05203e-06 min/max=0.7161"
+    },
+    {
+      "query": "XEM",
+      "event": "XEM secular decline",
+      "present": false,
+      "ids": [],
+      "symbol": null,
+      "slug": null,
+      "first": null,
+      "last": null,
+      "n": 0,
+      "terminal": "MISSING",
+      "crash_note": null
+    }
+  ],
+  "sample": [
+    {
+      "id": 1168,
+      "symbol": "DCR",
+      "name": "Decred",
+      "slug": "decred",
+      "first": "2016-02-10",
+      "last": "2026-08-08",
+      "n": 3833,
+      "gap_frac": 0.0,
+      "terminal": "SURVIVOR",
+      "in_years": "2018,2019,2020"
+    },
+    {
+      "id": 1437,
+      "symbol": "ZEC",
+      "name": "Zcash",
+      "slug": "zcash",
+      "first": "2016-10-29",
+      "last": "2026-08-08",
+      "n": 3571,
+      "gap_frac": 0.0,
+      "terminal": "SURVIVOR",
+      "in_years": "2018,2019,2020"
+    },
+    {
+      "id": 1698,
+      "symbol": "ZEN",
+      "name": "Horizen",
+      "slug": "horizen",
+      "first": "2017-06-01",
+      "last": "2026-08-08",
+      "n": 3356,
+      "gap_frac": 0.0,
+      "terminal": "SURVIVOR",
+      "in_years": "2018,2019,2020"
+    },
+    {
+      "id": 1785,
+      "symbol": "GAS",
+      "name": "Gas",
+      "slug": "gas",
+      "first": "2017-07-06",
+      "last": "2026-08-08",
+      "n": 3321,
+      "gap_frac": 0.0,
+      "terminal": "SURVIVOR",
+      "in_years": "2018,2019,2020"
+    },
+    {
+      "id": 1839,
+      "symbol": "BNB",
+      "name": "BNB",
+      "slug": "bnb",
+      "first": "2017-07-25",
+      "last": "2026-08-08",
+      "n": 3302,
+      "gap_frac": 0.0,
+      "terminal": "SURVIVOR",
+      "in_years": "2018,2019,2020"
+    },
+    {
+      "id": 2011,
+      "symbol": "XTZ",
+      "name": "Tezos",
+      "slug": "tezos",
+      "first": "2018-07-01",
+      "last": "2026-08-08",
+      "n": 2961,
+      "gap_frac": 0.0,
+      "terminal": "SURVIVOR",
+      "in_years": "2018,2019,2020"
+    },
+    {
+      "id": 2137,
+      "symbol": "ETN",
+      "name": "Electroneum",
+      "slug": "electroneum",
+      "first": "2017-11-02",
+      "last": "2026-08-08",
+      "n": 3202,
+      "gap_frac": 0.0,
+      "terminal": "SURVIVOR",
+      "in_years": "2018,2019,2020"
+    },
+    {
+      "id": 2394,
+      "symbol": "TEL",
+      "name": "Telcoin",
+      "slug": "telcoin",
+      "first": "2018-01-15",
+      "last": "2026-08-08",
+      "n": 3128,
+      "gap_frac": 0.0,
+      "terminal": "SURVIVOR",
+      "in_years": "2018,2019,2020"
+    },
+    {
+      "id": 2467,
+      "symbol": "TRAC",
+      "name": "OriginTrail",
+      "slug": "origintrail",
+      "first": "2018-01-25",
+      "last": "2026-08-08",
+      "n": 3118,
+      "gap_frac": 0.0,
+      "terminal": "SURVIVOR",
+      "in_years": "2018,2019,2020"
+    },
+    {
+      "id": 2469,
+      "symbol": "ZIL",
+      "name": "Zilliqa",
+      "slug": "zilliqa",
+      "first": "2018-01-25",
+      "last": "2026-08-08",
+      "n": 3118,
+      "gap_frac": 0.0,
+      "terminal": "SURVIVOR",
+      "in_years": "2018,2019,2020"
+    },
+    {
+      "id": 2572,
+      "symbol": "BAX",
+      "name": "BABB",
+      "slug": "babb",
+      "first": "2018-03-09",
+      "last": "2026-08-08",
+      "n": 3075,
+      "gap_frac": 0.0,
+      "terminal": "SURVIVOR",
+      "in_years": "2018,2019,2020"
+    },
+    {
+      "id": 2606,
+      "symbol": "WAN",
+      "name": "Wanchain",
+      "slug": "wanchain",
+      "first": "2018-03-23",
+      "last": "2026-08-08",
+      "n": 3061,
+      "gap_frac": 0.0,
+      "terminal": "SURVIVOR",
+      "in_years": "2018,2019,2020"
+    },
+    {
+      "id": 2868,
+      "symbol": "DAG",
+      "name": "Constellation",
+      "slug": "constellation",
+      "first": "2018-06-20",
+      "last": "2026-08-08",
+      "n": 2972,
+      "gap_frac": 0.0,
+      "terminal": "SURVIVOR",
+      "in_years": "2018,2019,2020"
+    },
+    {
+      "id": 2916,
+      "symbol": "NIM",
+      "name": "Nimiq",
+      "slug": "nimiq",
+      "first": "2018-07-26",
+      "last": "2026-08-08",
+      "n": 2936,
+      "gap_frac": 0.0,
+      "terminal": "SURVIVOR",
+      "in_years": "2018,2019,2020"
+    },
+    {
+      "id": 3077,
+      "symbol": "VET",
+      "name": "VeChain",
+      "slug": "vechain",
+      "first": "2018-08-03",
+      "last": "2026-08-08",
+      "n": 2928,
+      "gap_frac": 0.0,
+      "terminal": "SURVIVOR",
+      "in_years": "2018,2019,2020"
+    },
+    {
+      "id": 4006,
+      "symbol": "AWE",
+      "name": "AWE",
+      "slug": "awe-network",
+      "first": "2019-06-12",
+      "last": "2026-08-08",
+      "n": 2615,
+      "gap_frac": 0.0,
+      "terminal": "SURVIVOR",
+      "in_years": "2019,2020"
+    },
+    {
+      "id": 4039,
+      "symbol": "ARPA",
+      "name": "ARPA",
+      "slug": "arpa-chain",
+      "first": "2019-07-15",
+      "last": "2026-08-08",
+      "n": 2582,
+      "gap_frac": 0.0,
+      "terminal": "SURVIVOR",
+      "in_years": "2019,2020"
+    },
+    {
+      "id": 4166,
+      "symbol": "RIO",
+      "name": "Realio Network",
+      "slug": "realio-network",
+      "first": "2020-06-25",
+      "last": "2026-08-08",
+      "n": 2236,
+      "gap_frac": 0.0,
+      "terminal": "SURVIVOR",
+      "in_years": "2020"
+    },
+    {
+      "id": 4172,
+      "symbol": "LUNC",
+      "name": "Terra Classic",
+      "slug": "terra-luna",
+      "first": "2019-07-26",
+      "last": "2026-08-08",
+      "n": 2571,
+      "gap_frac": 0.0,
+      "terminal": "SURVIVOR",
+      "in_years": "2019,2020"
+    },
+    {
+      "id": 4197,
+      "symbol": "SHR",
+      "name": "ShareToken",
+      "slug": "sharetoken",
+      "first": "2019-11-26",
+      "last": "2026-08-08",
+      "n": 2448,
+      "gap_frac": 0.0,
+      "terminal": "SURVIVOR",
+      "in_years": "2019,2020"
+    },
+    {
+      "id": 4948,
+      "symbol": "CKB",
+      "name": "Nervos Network",
+      "slug": "nervos-network",
+      "first": "2019-11-19",
+      "last": "2026-08-08",
+      "n": 2455,
+      "gap_frac": 0.0,
+      "terminal": "SURVIVOR",
+      "in_years": "2019,2020"
+    },
+    {
+      "id": 5266,
+      "symbol": "MLK",
+      "name": "MiL.k",
+      "slug": "milk-alliance",
+      "first": "2020-08-05",
+      "last": "2026-08-08",
+      "n": 2195,
+      "gap_frac": 0.0,
+      "terminal": "SURVIVOR",
+      "in_years": "2020"
+    },
+    {
+      "id": 5444,
+      "symbol": "CTSI",
+      "name": "Cartesi",
+      "slug": "cartesi",
+      "first": "2020-04-23",
+      "last": "2026-08-08",
+      "n": 2299,
+      "gap_frac": 0.0,
+      "terminal": "SURVIVOR",
+      "in_years": "2020"
+    },
+    {
+      "id": 5552,
+      "symbol": "HTR",
+      "name": "Hathor",
+      "slug": "hathor",
+      "first": "2020-09-25",
+      "last": "2026-08-08",
+      "n": 2144,
+      "gap_frac": 0.0,
+      "terminal": "SURVIVOR",
+      "in_years": "2020"
+    },
+    {
+      "id": 5964,
+      "symbol": "TWT",
+      "name": "Trust Wallet Token",
+      "slug": "trust-wallet-token",
+      "first": "2020-07-30",
+      "last": "2026-08-08",
+      "n": 2201,
+      "gap_frac": 0.0,
+      "terminal": "SURVIVOR",
+      "in_years": "2020"
+    },
+    {
+      "id": 6535,
+      "symbol": "NEAR",
+      "name": "NEAR Protocol",
+      "slug": "near-protocol",
+      "first": "2020-10-14",
+      "last": "2026-08-08",
+      "n": 2125,
+      "gap_frac": 0.0,
+      "terminal": "SURVIVOR",
+      "in_years": "2020"
+    },
+    {
+      "id": 6783,
+      "symbol": "AXS",
+      "name": "Axie Infinity",
+      "slug": "axie-infinity",
+      "first": "2020-11-04",
+      "last": "2026-08-08",
+      "n": 2104,
+      "gap_frac": 0.0,
+      "terminal": "SURVIVOR",
+      "in_years": "2020"
+    },
+    {
+      "id": 6892,
+      "symbol": "EGLD",
+      "name": "MultiversX",
+      "slug": "multiversx-egld",
+      "first": "2020-09-04",
+      "last": "2026-08-08",
+      "n": 2165,
+      "gap_frac": 0.0,
+      "terminal": "SURVIVOR",
+      "in_years": "2020"
+    },
+    {
+      "id": 6958,
+      "symbol": "ACH",
+      "name": "Alchemy Pay",
+      "slug": "alchemy-pay",
+      "first": "2020-09-09",
+      "last": "2026-08-08",
+      "n": 2160,
+      "gap_frac": 0.0,
+      "terminal": "SURVIVOR",
+      "in_years": "2020"
+    },
+    {
+      "id": 7083,
+      "symbol": "UNI",
+      "name": "Uniswap",
+      "slug": "uniswap",
+      "first": "2020-09-17",
+      "last": "2026-08-08",
+      "n": 2152,
+      "gap_frac": 0.0,
+      "terminal": "SURVIVOR",
+      "in_years": "2020"
+    }
+  ],
+  "quality": {
+    "stables_in_panel": [
+      "USDP"
+    ],
+    "wrapped_in_panel": [
+      "WBTC"
+    ],
+    "dup_tickers": [],
+    "redenom_suspects": [
+      {
+        "id": 2474,
+        "symbol": "MAN",
+        "slug": "matrix-ai-network",
+        "n_jumps": 1,
+        "max_abs_ret": 5.167086144884635,
+        "date": "2020-11-05"
+      },
+      {
+        "id": 4120,
+        "symbol": "PROM",
+        "slug": "prom",
+        "n_jumps": 1,
+        "max_abs_ret": 5.241067332128688,
+        "date": "2021-04-29"
+      },
+      {
+        "id": 5583,
+        "symbol": "HAI",
+        "slug": "hackenai",
+        "n_jumps": 2,
+        "max_abs_ret": 18.410808843523437,
+        "date": "2025-06-24"
+      },
+      {
+        "id": 5994,
+        "symbol": "SHIB",
+        "slug": "shiba-inu",
+        "n_jumps": 1,
+        "max_abs_ret": 58.44243000653867,
+        "date": "2021-01-30"
+      },
+      {
+        "id": 7208,
+        "symbol": "POLS",
+        "slug": "polkastarter",
+        "n_jumps": 1,
+        "max_abs_ret": 447.67462809697423,
+        "date": "2020-09-30"
+      },
+      {
+        "id": 7224,
+        "symbol": "DODO",
+        "slug": "dodo",
+        "n_jumps": 1,
+        "max_abs_ret": 5.328192240245837,
+        "date": "2020-10-19"
+      },
+      {
+        "id": 10804,
+        "symbol": "FLOKI",
+        "slug": "floki-inu",
+        "n_jumps": 1,
+        "max_abs_ret": 288.5,
+        "date": "2021-08-09"
+      },
+      {
+        "id": 11079,
+        "symbol": "BRISE",
+        "slug": "bitrise-token",
+        "n_jumps": 1,
+        "max_abs_ret": 6.0,
+        "date": "2021-08-11"
+      },
+      {
+        "id": 14806,
+        "symbol": "PEOPLE",
+        "slug": "constitutiondao",
+        "n_jumps": 1,
+        "max_abs_ret": 5.826212787303411,
+        "date": "2021-11-25"
+      },
+      {
+        "id": 22556,
+        "symbol": "PZP",
+        "slug": "playzap",
+        "n_jumps": 1,
+        "max_abs_ret": 8.361639047240775,
+        "date": "2024-10-17"
+      },
+      {
+        "id": 22974,
+        "symbol": "TAO",
+        "slug": "bittensor",
+        "n_jumps": 1,
+        "max_abs_ret": 695.2131194012027,
+        "date": "2023-03-06"
+      },
+      {
+        "id": 24478,
+        "symbol": "PEPE",
+        "slug": "pepe",
+        "n_jumps": 1,
+        "max_abs_ret": 39.763453514496625,
+        "date": "2023-04-15"
+      },
+      {
+        "id": 25023,
+        "symbol": "LADYS",
+        "slug": "milady-meme-coin",
+        "n_jumps": 1,
+        "max_abs_ret": 53.73967955985949,
+        "date": "2023-05-10"
+      },
+      {
+        "id": 25220,
+        "symbol": "HPOS10I",
+        "slug": "harrypotterobamasonic10inu-eth",
+        "n_jumps": 1,
+        "max_abs_ret": 19.806131391978994,
+        "date": "2023-05-11"
+      },
+      {
+        "id": 27178,
+        "symbol": "PAAL",
+        "slug": "paal-ai",
+        "n_jumps": 1,
+        "max_abs_ret": 33.79172850259967,
+        "date": "2023-07-26"
+      },
+      {
+        "id": 27750,
+        "symbol": "TOSHI",
+        "slug": "toshithecat",
+        "n_jumps": 1,
+        "max_abs_ret": 72.80343835007669,
+        "date": "2023-10-16"
+      },
+      {
+        "id": 28752,
+        "symbol": "WIF",
+        "slug": "dogwifhat",
+        "n_jumps": 1,
+        "max_abs_ret": 6.783537289757699,
+        "date": "2023-12-08"
+      },
+      {
+        "id": 28782,
+        "symbol": "POPCAT",
+        "slug": "popcat-sol",
+        "n_jumps": 1,
+        "max_abs_ret": 7.140822320696987,
+        "date": "2023-12-14"
+      },
+      {
+        "id": 30063,
+        "symbol": "GIGA",
+        "slug": "gigachad-meme",
+        "n_jumps": 1,
+        "max_abs_ret": 12.108460364455913,
+        "date": "2024-01-08"
+      },
+      {
+        "id": 30096,
+        "symbol": "DEGEN",
+        "slug": "degen-base",
+        "n_jumps": 1,
+        "max_abs_ret": 9.277771491977484,
+        "date": "2024-01-08"
+      },
+      {
+        "id": 32521,
+        "symbol": "NEIROCTO",
+        "slug": "neiro",
+        "n_jumps": 1,
+        "max_abs_ret": 7.727588896980549,
+        "date": "2024-09-16"
+      },
+      {
+        "id": 33093,
+        "symbol": "MOODENG",
+        "slug": "moo-deng-solana",
+        "n_jumps": 1,
+        "max_abs_ret": 11.089302412834272,
+        "date": "2024-09-11"
+      },
+      {
+        "id": 33440,
+        "symbol": "GOAT",
+        "slug": "goatseus-maximus",
+        "n_jumps": 1,
+        "max_abs_ret": 154.1108690043146,
+        "date": "2024-10-11"
+      },
+      {
+        "id": 33566,
+        "symbol": "ACTSOL",
+        "slug": "act-i-the-ai-prophecy",
+        "n_jumps": 1,
+        "max_abs_ret": 21.464224619207133,
+        "date": "2024-11-11"
+      },
+      {
+        "id": 33854,
+        "symbol": "BERT",
+        "slug": "bertram-the-pomeranian",
+        "n_jumps": 1,
+        "max_abs_ret": 13.724802205507581,
+        "date": "2024-11-13"
+      },
+      {
+        "id": 33881,
+        "symbol": "BAN",
+        "slug": "comedian",
+        "n_jumps": 1,
+        "max_abs_ret": 21.37260843856906,
+        "date": "2024-10-26"
+      },
+      {
+        "id": 34083,
+        "symbol": "ZEREBRO",
+        "slug": "zerebro",
+        "n_jumps": 1,
+        "max_abs_ret": 7.6544205833383,
+        "date": "2024-10-31"
+      },
+      {
+        "id": 35647,
+        "symbol": "TSTBSC",
+        "slug": "test-token-bsc",
+        "n_jumps": 1,
+        "max_abs_ret": 5.33844855897302,
+        "date": "2025-02-08"
+      },
+      {
+        "id": 35766,
+        "symbol": "SIREN",
+        "slug": "siren-bsc",
+        "n_jumps": 1,
+        "max_abs_ret": 271.8046605075861,
+        "date": "2025-02-09"
+      },
+      {
+        "id": 35892,
+        "symbol": "TUT",
+        "slug": "tutorial",
+        "n_jumps": 1,
+        "max_abs_ret": 5.534966998370537,
+        "date": "2025-03-17"
+      },
+      {
+        "id": 36041,
+        "symbol": "MUBARAK",
+        "slug": "mubarak",
+        "n_jumps": 1,
+        "max_abs_ret": 5.245140018041291,
+        "date": "2025-03-15"
+      },
+      {
+        "id": 38341,
+        "symbol": "RAIN",
+        "slug": "rain",
+        "n_jumps": 1,
+        "max_abs_ret": 6.647836064865148,
+        "date": "2025-09-10"
+      },
+      {
+        "id": 38476,
+        "symbol": "GAIN",
+        "slug": "griffin-ai",
+        "n_jumps": 2,
+        "max_abs_ret": 36.55525517271407,
+        "date": "2025-10-03"
+      },
+      {
+        "id": 38590,
+        "symbol": "BNRENSHENG",
+        "slug": "bianrensheng",
+        "n_jumps": 2,
+        "max_abs_ret": 5.676478732085564,
+        "date": "2025-10-06"
+      },
+      {
+        "id": 39094,
+        "symbol": "ANTFUN",
+        "slug": "ant-fun",
+        "n_jumps": 1,
+        "max_abs_ret": 6289.613810330487,
+        "date": "2026-05-15"
+      },
+      {
+        "id": 40588,
+        "symbol": "ANSEM",
+        "slug": "the-black-bull",
+        "n_jumps": 2,
+        "max_abs_ret": 49.29833177147625,
+        "date": "2026-06-27"
+      },
+      {
+        "id": 40809,
+        "symbol": "CASHCAT",
+        "slug": "cash-cat",
+        "n_jumps": 1,
+        "max_abs_ret": 7.454998278273855,
+        "date": "2026-07-08"
+      }
+    ],
+    "n_redenom_suspects": 37,
+    "gap_p50": 0.0,
+    "gap_p90": 0.0,
+    "n_high_gap": 0
+  },
+  "agree": {
+    "rows": [
+      {
+        "symbol": "BTC",
+        "present": true,
+        "n": 2403,
+        "corr": 0.9959767642692423,
+        "max_abs_diff": 0.04979993905141056,
+        "mean_abs_diff": 0.0013018350828205795
+      },
+      {
+        "symbol": "ETH",
+        "present": true,
+        "n": 2403,
+        "corr": 0.9932969264619254,
+        "max_abs_diff": 0.11151409816748625,
+        "mean_abs_diff": 0.0018140201826724195
+      },
+      {
+        "symbol": "BNB",
+        "present": true,
+        "n": 2363,
+        "corr": 0.9970656430944835,
+        "max_abs_diff": 0.052776878734978716,
+        "mean_abs_diff": 0.0016253270496789614
+      },
+      {
+        "symbol": "XRP",
+        "present": true,
+        "n": 2393,
+        "corr": 0.9966869339675727,
+        "max_abs_diff": 0.06125376255379089,
+        "mean_abs_diff": 0.0021764967206312404
+      },
+      {
+        "symbol": "ADA",
+        "present": true,
+        "n": 2373,
+        "corr": 0.9968957297418836,
+        "max_abs_diff": 0.059112128909466044,
+        "mean_abs_diff": 0.002254466998812141
+      },
+      {
+        "symbol": "DOGE",
+        "present": true,
+        "n": 2212,
+        "corr": 0.9978590218592638,
+        "max_abs_diff": 0.342346162605625,
+        "mean_abs_diff": 0.0022402333377625496
+      },
+      {
+        "symbol": "SOL",
+        "present": true,
+        "n": 2141,
+        "corr": 0.9927293450656023,
+        "max_abs_diff": 0.23723991522661625,
+        "mean_abs_diff": 0.002302158074266519
+      },
+      {
+        "symbol": "DOT",
+        "present": true,
+        "n": 2169,
+        "corr": 0.992631659497987,
+        "max_abs_diff": 0.1888455962904957,
+        "mean_abs_diff": 0.002022236304841177
+      },
+      {
+        "symbol": "LTC",
+        "present": true,
+        "n": 2390,
+        "corr": 0.9958827959885247,
+        "max_abs_diff": 0.05904482980419534,
+        "mean_abs_diff": 0.0021639558012218982
+      },
+      {
+        "symbol": "LINK",
+        "present": true,
+        "n": 2386,
+        "corr": 0.9958909480239914,
+        "max_abs_diff": 0.11177291945556267,
+        "mean_abs_diff": 0.002427577937382646
+      },
+      {
+        "symbol": "BCH",
+        "present": true,
+        "n": 2403,
+        "corr": 0.9949917034781989,
+        "max_abs_diff": 0.10463269371488848,
+        "mean_abs_diff": 0.002281112826398104
+      },
+      {
+        "symbol": "ATOM",
+        "present": true,
+        "n": 2366,
+        "corr": 0.9964138907012632,
+        "max_abs_diff": 0.08595660506165115,
+        "mean_abs_diff": 0.0024065820305524416
+      },
+      {
+        "symbol": "AVAX",
+        "present": true,
+        "n": 2137,
+        "corr": 0.9952997202757679,
+        "max_abs_diff": 0.20418309024326753,
+        "mean_abs_diff": 0.0022262814720729394
+      },
+      {
+        "symbol": "ETC",
+        "present": true,
+        "n": 2388,
+        "corr": 0.9965027532295635,
+        "max_abs_diff": 0.092123614287422,
+        "mean_abs_diff": 0.0021650436330700193
+      },
+      {
+        "symbol": "FIL",
+        "present": true,
+        "n": 2109,
+        "corr": 0.9880626331329343,
+        "max_abs_diff": 0.19136001633691146,
+        "mean_abs_diff": 0.00243259086590768
+      },
+      {
+        "symbol": "NEAR",
+        "present": true,
+        "n": 2110,
+        "corr": 0.9962036072123108,
+        "max_abs_diff": 0.1292111585044029,
+        "mean_abs_diff": 0.0023860267102876254
+      },
+      {
+        "symbol": "UNI",
+        "present": true,
+        "n": 2142,
+        "corr": 0.993194452427459,
+        "max_abs_diff": 0.10254568505724515,
+        "mean_abs_diff": 0.0026600118156708727
+      },
+      {
+        "symbol": "AAVE",
+        "present": true,
+        "n": 2114,
+        "corr": 0.9955744837678789,
+        "max_abs_diff": 0.06939435842961994,
+        "mean_abs_diff": 0.0026123443264907975
+      },
+      {
+        "symbol": "TRX",
+        "present": true,
+        "n": 2384,
+        "corr": 0.9961526245008528,
+        "max_abs_diff": 0.061808582098175524,
+        "mean_abs_diff": 0.0018506912873354718
+      },
+      {
+        "symbol": "XLM",
+        "present": true,
+        "n": 2379,
+        "corr": 0.9961050624162671,
+        "max_abs_diff": 0.06329707317118749,
+        "mean_abs_diff": 0.002541764322129496
+      }
+    ],
+    "n_compared": 20,
+    "median_corr": 0.9959338561466169,
+    "suspect": false,
+    "min_corr": 0.9880626331329343
+  },
+  "gate": {
+    "verdict": "USABLE-FROM-2018-01",
+    "blocked": false,
+    "fiction_2018_2020": false,
+    "usable_from": "2018-01-01",
+    "usable_from_month": "2018-01",
+    "need_sample_ok": 24.0
+  },
+  "extra": {
+    "source_path": "/data/kronos/historical_data_full.csv",
+    "pit_method": "trailing_30d_median_dollar_volume",
+    "dv_window": 30,
+    "pit_n50": 3126,
+    "pit_ndates": 3873,
+    "data_end": "2026-08-08",
+    "n_survivor": 828,
+    "n_ended": 0,
+    "year_end_top200_n": {
+      "2018": 78,
+      "2019": 116,
+      "2020": 185
+    },
+    "elapsed_sec": 26.566436767578125,
+    "source_sha256": "size=135660203"
+  },
+  "pit_files": {
+    "50": "/data/quant/btcb/universe/btcb_top50_pit.parquet",
+    "100": "/data/quant/btcb/universe/btcb_top100_pit.parquet"
+  },
+  "pit_method": "trailing_30d_median_dollar_volume",
+  "gpu_used": false
+}
