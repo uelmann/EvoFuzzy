@@ -592,6 +592,7 @@ def run_tranche_portfolio(
     rank_universe: pd.DataFrame | None = None,
     long_only: bool = False,
     apply_beta_hedge: bool = True,
+    record_holdings: bool = False,
 ) -> dict:
     del exit_hysteresis
     h = int(horizon)
@@ -651,6 +652,7 @@ def run_tranche_portfolio(
     daily_gross_deployed, daily_gross_full = [], []
     name_alpha_pnl: dict[str, float] = defaultdict(float)
     traded_ranks: list[float] = []
+    daily_long_names: list[tuple] = []
 
     for i, dt in enumerate(dates[:-1]):
         day = df[df["date"] == dt]
@@ -793,6 +795,10 @@ def run_tranche_portfolio(
         n_pos.append(nl + ns)
         flat.append(1 if nl + ns == 0 else 0)
         eq_dates.append(nxt)
+        if record_holdings:
+            daily_long_names.append(
+                (dt, [s for s, wi in applied_alpha.items() if float(wi) > 1e-12])
+            )
         day_ranks = []
         if len(applied_alpha):
             for s, wi in applied_alpha.items():
@@ -838,4 +844,7 @@ def run_tranche_portfolio(
     packed["long_short_identity_gap"] = float(
         np.sum(daily_gross) - np.sum(daily_long) - np.sum(daily_short)
     )
+    packed["record_holdings"] = bool(record_holdings)
+    if record_holdings:
+        packed["daily_long_names"] = daily_long_names
     return packed
