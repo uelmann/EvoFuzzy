@@ -306,9 +306,10 @@ def run_symmetry() -> dict:
             f"(t {c40['bottom']['full']['nw_t']:.2f}), ratio {c40['ratio']['full']:.3f}. "
             f"Against the fair EW top-40 basket, COMBO-LO-H alpha is {a_h['alpha_ann']:.3f} "
             f"(NW-t {a_h['nw_t_alpha']:.2f}) and COMBO-LO-U alpha is {a_u['alpha_ann']:.3f} "
-            f"(t {a_u['nw_t_alpha']:.2f}). Reference long picks still beat the same-date CS mean "
-            f"by {pa['mean_excess']:.4f} (Sleeve A) and {pb['mean_excess']:.4f} (Sleeve B) in residual "
-            f"units — the model ranks alts, but the winner-side gap vs the loser-side is the "
+            f"(t {a_u['nw_t_alpha']:.2f}). Reference long-pick residual vs the same-date CS mean "
+            f"is {pa['mean_excess']:+.4f} (Sleeve A, {pa['n_days']} days with longs) and "
+            f"{pb['mean_excess']:+.4f} (Sleeve B, {pb['n_days']} days). "
+            f"The model ranks alts, but the winner-side gap vs the loser-side is the "
             f"classification object. Neither finding changes the reference book."
         )
 
