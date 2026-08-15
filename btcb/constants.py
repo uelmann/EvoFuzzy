@@ -555,3 +555,92 @@ ORACLE_LADDER2_V3_Q = 0.95
 ORACLE_LADDER2_V3_CAP = 0.10
 ORACLE_LADDER2_MONSTER_K = 3
 
+# ---------------------------------------------------------------------------
+# Phase 5 — CS-ATTN v0 (frozen a priori; one architecture; no search)
+# ---------------------------------------------------------------------------
+
+PHASE5_CRITERION = (
+    "CS-ATTN is LIVE if ALL of: (a) the 3-seed ensemble improves tail-IC(top-half) "
+    "≥ +0.010 AND top-decile overlap ≥ +0.015 vs the frozen GBM baseline on the "
+    "full OOS; (b) seed dispersion is small: max−min of per-seed full-OOS "
+    "tail-IC(top-half) ≤ 0.010; (c) the §B null passes. CS-ATTN is PARKED otherwise, "
+    "and the verdict sentence must state which clause failed. If PARKED on clause "
+    "(a) with dispersion passing, the conclusion 'the price/volume ceiling is real "
+    "at this scale' is recorded in the project ledger. Nothing is adopted; any "
+    "production use requires a fresh pre-registered phase. Mechanical, no post-hoc "
+    "adjustment."
+)
+
+PHASE5_NULL_GATE = (
+    "Adapted E.1b on folds {5, 21} × 10 within-date label-shuffle replicates "
+    "(train seed 42 only). (a) BIAS: for each fold, the null mean of per-date "
+    "tail-IC(top-half) must satisfy |mean| ≤ 2·(null SD / √R). CONTAMINATED if "
+    "≥2 fold-level violations (original E.1b tolerance). (b) SKILL: seed-42 real "
+    "fold tail-IC(top-half) must exceed that fold's null 95th percentile on both "
+    "folds. §B null PASSES iff not CONTAMINATED AND skill passes."
+)
+
+PHASE5_SEEDS = (42, 43, 44)
+PHASE5_NULL_FOLDS = (5, 21)
+PHASE5_NULL_SHUFFLE_SEEDS = tuple(range(101, 111))  # 10 replicates
+PHASE5_H = 14
+PHASE5_SEQ_DAYS = 21
+PHASE5_BARS_PER_DAY = 24
+PHASE5_SEQ_LEN = PHASE5_SEQ_DAYS * PHASE5_BARS_PER_DAY  # 504
+PHASE5_CHANNELS = ("log_ret", "hl_range", "vol_z", "taker_share", "vs_btc")
+PHASE5_N_CHANNELS = 5
+PHASE5_TCN_BLOCKS = 4
+PHASE5_TCN_WIDTH = 64
+PHASE5_TCN_KERNEL = 7
+PHASE5_TCN_DILATIONS = (1, 4, 16, 64)  # RF = 1+(7-1)*sum = 511 ≥ 504
+PHASE5_ATTN_LAYERS = 2
+PHASE5_ATTN_HEADS = 4
+PHASE5_ATTN_WIDTH = 64
+PHASE5_DROPOUT = 0.1
+PHASE5_LR = 3e-4
+PHASE5_WEIGHT_DECAY = 0.01
+PHASE5_MAX_EPOCHS = 20
+PHASE5_PATIENCE = 3
+PHASE5_BATCH_DATES = 16
+PHASE5_TOP_POS_WEIGHT = 3.0
+PHASE5_VOL_Z_WINDOW = 168  # 7d hourly
+PHASE5_MIN_BARS_FRAC = 0.80
+PHASE5_ALIGN_BPS = 5.0
+PHASE5_HOURLY_START = "2019-01"
+PHASE5_GPU_USD_CAP = 80.0
+PHASE5_A10G_USD_PER_HOUR = 1.10  # Modal published on-demand A10G rate (frozen)
+PHASE5_WATCHDOG_SEC = 20 * 60
+PHASE5_DELTA_TAIL_IC = 0.010
+PHASE5_DELTA_OVERLAP = 0.015
+PHASE5_SEED_DISP_MAX = 0.010
+PHASE5_TRAIL_DAYS = 547
+PHASE5_NW_LAG = 14
+PHASE5_CEILING_SENTENCE = "the price/volume ceiling is real at this scale"
+
+CSATTN_CONFIG = dict(
+    seq_len=PHASE5_SEQ_LEN,
+    n_channels=PHASE5_N_CHANNELS,
+    channels=list(PHASE5_CHANNELS),
+    tcn_blocks=PHASE5_TCN_BLOCKS,
+    tcn_width=PHASE5_TCN_WIDTH,
+    tcn_kernel=PHASE5_TCN_KERNEL,
+    tcn_dilations=list(PHASE5_TCN_DILATIONS),
+    attn_layers=PHASE5_ATTN_LAYERS,
+    attn_heads=PHASE5_ATTN_HEADS,
+    attn_width=PHASE5_ATTN_WIDTH,
+    dropout=PHASE5_DROPOUT,
+    lr=PHASE5_LR,
+    weight_decay=PHASE5_WEIGHT_DECAY,
+    max_epochs=PHASE5_MAX_EPOCHS,
+    patience=PHASE5_PATIENCE,
+    batch_dates=PHASE5_BATCH_DATES,
+    top_pos_weight=PHASE5_TOP_POS_WEIGHT,
+    vol_z_window=PHASE5_VOL_Z_WINDOW,
+    min_bars_frac=PHASE5_MIN_BARS_FRAC,
+    seeds=list(PHASE5_SEEDS),
+    null_folds=list(PHASE5_NULL_FOLDS),
+    null_shuffle_seeds=list(PHASE5_NULL_SHUFFLE_SEEDS),
+    horizon=PHASE5_H,
+    architecture_search=False,
+)
+
