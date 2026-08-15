@@ -28,6 +28,7 @@ image = (
         "scipy",
         "lightgbm",
         "matplotlib",
+        "httpx",
         "pyyaml",
         "scikit-learn",
     )
