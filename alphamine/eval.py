@@ -181,6 +181,8 @@ def pooled_rankic(pred: pd.DataFrame, ycol: str, score_col: str = "score") -> di
     g["date"] = pd.to_datetime(g["date"], utc=True)
     if "symbol" in g.columns:
         g = g[g["symbol"] != BTC_SYMBOL]
+    if ycol not in g.columns or score_col not in g.columns:
+        return {"n_days": 0, "mean_ic": float("nan"), "std_ic": float("nan"), "icir": float("nan"), "nw_tstat": float("nan")}
     ic = daily_rank_ic(g, ycol, score_col)
     return summarize_ic(ic, HORIZON)
 

@@ -557,7 +557,20 @@ def run_alphamine() -> dict:
     print(f"[HB] null verdict={null.get('verdict')}", flush=True)
 
     def _prep_book(pred: pd.DataFrame) -> pd.DataFrame:
-        p = pred.merge(feat[["date", "symbol", YCOL, YCOL_SIMPLE]], on=["date", "symbol"], how="left")
+        p = pred.copy()
+        p["date"] = pd.to_datetime(p["date"], utc=True)
+        extra_cols = ["date", "symbol"]
+        if YCOL not in p.columns:
+            extra_cols.append(YCOL)
+        if YCOL_SIMPLE not in p.columns:
+            extra_cols.append(YCOL_SIMPLE)
+        extra = feat[extra_cols].drop_duplicates(["date", "symbol"], keep="last")
+        extra["date"] = pd.to_datetime(extra["date"], utc=True)
+        if len(extra_cols) > 2:
+            p = p.merge(extra, on=["date", "symbol"], how="left")
+        for src, dst in ((f"{YCOL}_x", YCOL), (f"{YCOL}_y", YCOL), (f"{YCOL_SIMPLE}_x", YCOL_SIMPLE), (f"{YCOL_SIMPLE}_y", YCOL_SIMPLE)):
+            if dst not in p.columns and src in p.columns:
+                p[dst] = p[src]
         p = p.merge(pit40[["date", "symbol"]], on=["date", "symbol"], how="inner")
         p = p[p["symbol"] != BTC_SYMBOL]
         return p
