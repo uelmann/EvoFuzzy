@@ -68,3 +68,11 @@ Full-size long leg + frozen Stage-T gate, BTC parking. Backtest only. Binance-pr
 LONG-TIDE rel-line Sharpe `0.780` / USD Sharpe `1.008` / trail `-0.397` / total `1917.9%` / MaxDD `-73.2%` / alt deployment `19.2%` / gate ON `19.2%`. status=`SUPERSEDES-V1`. Window 2019-10-19→2026-07-31 n=2478.
 
 Mechanical, no post-hoc adjustment.
+
+## BTC-BEATER ORACLE LADDER
+
+Perfect-foresight ceiling and IC-degraded oracle ladder. Analysis only. Nothing adopted. 14d full-rebalance long construction (not the production tranche books). Binance-priced.
+
+**MODEL EFFICIENCY = BELOW-CURVE.** Binding constraint: **TRANSLATION**. Oracle NET h=14 total `1.546e+14` / CAGR `1.254e+04%` / MaxDD `-30.4%`. OUR MODEL RankIC `0.1160` CAGR `13.9%` (0.11% of oracle CAGR) vs curve `119.8%`.
+
+Mechanical, no post-hoc adjustment. Frozen products untouched.

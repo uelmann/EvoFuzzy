@@ -33,15 +33,25 @@ def _pct(x, nd=1):
         if x is None or (isinstance(x, float) and not np.isfinite(x)):
             return "nan"
         v = float(x)
-        if abs(v) >= 100.0:
-            return f"{v:.3e}"
-        return f"{100.0 * v:.{nd}f}%"
+        pct = 100.0 * v
+        if abs(pct) >= 10000.0:
+            return f"{pct:.3e}%"
+        return f"{pct:.{nd}f}%"
     except Exception:
         return str(x)
 
 
 def _sci_or_pct(x, nd=1):
-    return _pct(x, nd)
+    """Total return: scientific multiple if |v|>=10, else percent."""
+    try:
+        if x is None or (isinstance(x, float) and not np.isfinite(x)):
+            return "nan"
+        v = float(x)
+        if abs(v) >= 10.0:
+            return f"{v:.3e}"
+        return f"{100.0 * v:.{nd}f}%"
+    except Exception:
+        return str(x)
 
 
 def _row(name: str, b: dict, *, rng: bool = False) -> str:
@@ -126,7 +136,7 @@ def write_oracle_ladder(
     ic16 = (ladder.get(0.16) or ladder.get("0.16") or {})
     ceiling = oracle_net
     y = verdict.get("capture_of_oracle_cagr")
-    ypct = f"{100.0 * y:.1f}%" if y is not None and np.isfinite(float(y or float("nan"))) else "nan"
+    ypct = f"{100.0 * y:.2f}%" if y is not None and np.isfinite(float(y or float("nan"))) else "nan"
     word = verdict.get("consistent_word") or "below"
     plain = (
         f"the ceiling is {_sci_or_pct(ceiling.get('total'))} total / {_pct(ceiling.get('cagr'))} CAGR "
@@ -214,7 +224,12 @@ def write_oracle_ladder(
         "## Notes",
         "",
         "- OUR MODEL here is a naked 14d-full-rebalance long book on the frozen spread. "
-        "It is **not** LONG-TIDE and **not** SPREAD-LS (those are overlapping-tranche products).",
+        "It is **not** LONG-TIDE and **not** SPREAD-LS (those are overlapping-tranche products). "
+        "Its RankIC on this window/construction is the per-date Spearman of the frozen spread vs next-14d excess; "
+        "that is not the same number as daily RankIC quoted for the production tranche books.",
+        "- Binance-listed PIT top-100 is ~60 names, so the top decile is ~6 names at the 10% cap "
+        "(residual cash idle). Identical across every point.",
+        "- Ladder noise calibration: realized RankIC matches each target to ~0.0001 (5-seed mean); see table.",
         "- Nothing is adopted. This is a map of information vs translation.",
         "",
         f"Elapsed s={_fmt(extra.get('elapsed_sec'), 1)}. GPU={extra.get('gpu_used', False)}.",
@@ -264,8 +279,28 @@ def plot_curve(
             capsize=3,
             label="ladder (mean ± range)",
         )
-        order = np.argsort(xs[ok])
-        ax.plot(xs[ok][order], ys[ok][order], color="#4C78A8", lw=1.1, alpha=0.8)
+    curve_x, curve_y = [], []
+    for ic, cagr in (
+        (random.get("rankic"), random.get("cagr")),
+        *[(ladder[t].get("rankic"), ladder[t].get("cagr")) for t in sorted(ladder.keys())],
+        (oracle_net.get("rankic"), oracle_net.get("cagr")),
+    ):
+        if ic is None or cagr is None:
+            continue
+        ic, cagr = float(ic), float(cagr)
+        if np.isfinite(ic) and np.isfinite(cagr) and cagr > 0:
+            curve_x.append(ic)
+            curve_y.append(cagr)
+    if len(curve_x) >= 2:
+        order = np.argsort(curve_x)
+        ax.plot(
+            np.asarray(curve_x)[order],
+            np.asarray(curve_y)[order],
+            color="#4C78A8",
+            lw=1.1,
+            alpha=0.85,
+            label="interpolation curve",
+        )
 
     def _pt(ic, cagr, marker, color, label, ms=9):
         if ic is None or cagr is None:
@@ -316,13 +351,15 @@ def update_ledger_oracle(path: Path, *, verdict: dict, oracle_net: dict, model: 
         f"Oracle NET h=14 total `{_sci_or_pct(oracle_net.get('total'))}` / CAGR `{_pct(oracle_net.get('cagr'))}` / "
         f"MaxDD `{_pct(oracle_net.get('maxdd'))}`. "
         f"OUR MODEL RankIC `{_fmt(model.get('rankic'), 4)}` CAGR `{_pct(model.get('cagr'))}` "
-        f"({_fmt(100.0 * float(verdict.get('capture_of_oracle_cagr') or float('nan')), 1)}% of oracle CAGR) "
+        f"({_fmt(100.0 * float(verdict.get('capture_of_oracle_cagr') or float('nan')), 2)}% of oracle CAGR) "
         f"vs curve `{_pct(verdict.get('curve_cagr'))}`.",
         "",
         "Mechanical, no post-hoc adjustment. Frozen products untouched.",
         "",
     ]
     new = "\n".join(block)
+    if not new.startswith("\n"):
+        new = "\n" + new
     if marker in text:
         pre, rest = text.split(marker, 1)
         lines = rest.splitlines()
