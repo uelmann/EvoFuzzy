@@ -196,11 +196,17 @@ def top_bucket_usd_stats(
             continue
         try:
             q = pd.qcut(gg[score_col], n_buckets, labels=False, duplicates="drop")
-        except ValueError:
+        except (ValueError, TypeError):
             continue
-        top = int(q.max())
-        mu = float(gg.loc[q == top, ycol].mean())
-        daily.append(mu)
+        qv = pd.to_numeric(pd.Series(q), errors="coerce")
+        if qv.notna().sum() < n_buckets:
+            continue
+        top = qv.max()
+        if not np.isfinite(top):
+            continue
+        mu = float(gg.loc[qv.to_numpy() == int(top), ycol].mean())
+        if np.isfinite(mu):
+            daily.append(mu)
     arr = np.asarray(daily, dtype=float)
     arr = arr[np.isfinite(arr)]
     if len(arr) < 10:

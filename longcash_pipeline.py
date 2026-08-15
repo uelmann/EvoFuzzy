@@ -447,18 +447,25 @@ def run_long_cash() -> dict:
             on=["date", "symbol"],
             how="left",
         )
-    raw_new = top_bucket_usd_stats(book_preds, "er_hat", ycol_s)
+    raw_new = {"n_days": 0, "pct_top_pos": float("nan"), "mean_top": float("nan"), "nw_t": float("nan")}
     raw_a0 = {"n_days": 0, "pct_top_pos": float("nan"), "mean_top": float("nan"), "nw_t": float("nan")}
+    try:
+        raw_new = top_bucket_usd_stats(book_preds, "er_hat", ycol_s)
+    except Exception as e:
+        print(f"[HB] er_hat raw-material skipped: {e}", flush=True)
     a0_path = Path(PRED_H10)
     if not a0_path.exists():
         a0_path = root / "predictions" / "lgbm_price_only_h10.parquet"
     if a0_path.exists() and ycol_s in labeled.columns:
-        a0 = pd.read_parquet(a0_path)
-        a0["date"] = pd.to_datetime(a0["date"], utc=True)
-        a0 = a0.merge(labeled[["date", "symbol", ycol_s]], on=["date", "symbol"], how="left")
-        a0 = a0.merge(pit40[["date", "symbol"]], on=["date", "symbol"], how="inner")
-        raw_a0 = top_bucket_usd_stats(a0, "score", ycol_s)
-        print(f"[HB] A0 raw-material %top>0={raw_a0.get('pct_top_pos')}", flush=True)
+        try:
+            a0 = pd.read_parquet(a0_path)
+            a0["date"] = pd.to_datetime(a0["date"], utc=True)
+            a0 = a0.merge(labeled[["date", "symbol", ycol_s]], on=["date", "symbol"], how="left")
+            a0 = a0.merge(pit40[["date", "symbol"]], on=["date", "symbol"], how="inner")
+            raw_a0 = top_bucket_usd_stats(a0, "score", ycol_s)
+            print(f"[HB] A0 raw-material %top>0={raw_a0.get('pct_top_pos')}", flush=True)
+        except Exception as e:
+            print(f"[HB] A0 raw-material skipped: {e}", flush=True)
 
     print("[HB] running LONG-CASH book", flush=True)
     raw_book = run_long_cash_book(
