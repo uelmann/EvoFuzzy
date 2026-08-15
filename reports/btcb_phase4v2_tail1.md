@@ -133,7 +133,7 @@ Ladder-1 construction: EW top decile, 10% cap, idle cash, 10 bps/side, h=14 full
 
 ## 5 — Mechanical verdicts
 
-- **BARREN** (best A = `spread_rank`; Δ tail-IC(top-half) `+0.0295`; Δ overlap `+0.0083`; null pass=False)
+- **BARREN** (RANK clears deltas=True: ΔIC `+0.0164` / Δov `+0.0230`; blend clears=False: ΔIC `+0.0295` / Δov `+0.0083`; null pass=False)
 - **POSITIONING NOT LIVE** (Δ vs best A: tail-IC `-0.0363`, overlap `-0.0109`; perp coverage from 2021 `85.2%`)
 - **PRICE-ADDITIONS NOT LIVE** (Δ vs positioning: tail-IC `+0.0093`, overlap `+0.0046`)
 

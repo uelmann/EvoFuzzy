@@ -264,9 +264,12 @@ def write_phase4v2(
             "",
             "## 5 — Mechanical verdicts",
             "",
-            f"- **{verdict.get('tail_loss')}** (best A = `{verdict.get('best_a')}`; "
-            f"Δ tail-IC(top-half) `{_delta(verdict.get('delta_a_vs_base_tail_ic'))}`; "
-            f"Δ overlap `{_delta(verdict.get('delta_a_vs_base_overlap'))}`; "
+            f"- **{verdict.get('tail_loss')}** (RANK clears deltas={verdict.get('rank_clears_deltas')}: "
+            f"ΔIC `{_delta(verdict.get('delta_rank_vs_base_tail_ic'))}` / "
+            f"Δov `{_delta(verdict.get('delta_rank_vs_base_overlap'))}`; "
+            f"blend clears={verdict.get('blend_clears_deltas')}: "
+            f"ΔIC `{_delta(verdict.get('delta_blend_vs_base_tail_ic'))}` / "
+            f"Δov `{_delta(verdict.get('delta_blend_vs_base_overlap'))}`; "
             f"null pass={verdict.get('null_pass')})",
             f"- **{verdict.get('positioning')}** (Δ vs best A: tail-IC `{_delta(verdict.get('delta_pos_vs_best_a_tail_ic'))}`, "
             f"overlap `{_delta(verdict.get('delta_pos_vs_best_a_overlap'))}`; "
