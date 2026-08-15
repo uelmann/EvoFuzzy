@@ -96,12 +96,24 @@ def make_csattn(n_channels: int = PHASE5_N_CHANNELS):
             return x + y
 
     class PreLNSetBlock(nn.Module):
-        """Equivalent to TransformerEncoderLayer(norm_first=True, gelu, 4× FFN)."""
+        """Pre-LN set-attention + 4× GELU FFN (same as TransformerEncoderLayer).
+
+        Implemented without nn.MultiheadAttention: PyTorch 2.4 fused SDPA pads
+        sequence length to a multiple of 8 and then asserts the key_padding_mask
+        matches the padded length (smoke: expected (B, 104) got (B, 101)).
+        """
 
         def __init__(self, width: int, nhead: int, dropout: float):
             super().__init__()
+            if width % nhead != 0:
+                raise ValueError(f"width {width} not divisible by nhead {nhead}")
+            self.nhead = int(nhead)
+            self.dh = int(width) // int(nhead)
+            self.scale = float(self.dh) ** -0.5
             self.norm1 = nn.LayerNorm(width)
-            self.attn = nn.MultiheadAttention(width, nhead, dropout=dropout, batch_first=True)
+            self.qkv = nn.Linear(width, width * 3)
+            self.out_proj = nn.Linear(width, width)
+            self.drop_attn = nn.Dropout(dropout)
             self.drop1 = nn.Dropout(dropout)
             self.norm2 = nn.LayerNorm(width)
             self.ff = nn.Sequential(
@@ -114,10 +126,18 @@ def make_csattn(n_channels: int = PHASE5_N_CHANNELS):
 
         def forward(self, x, key_padding_mask):
             h = self.norm1(x)
-            a, _ = self.attn(
-                h, h, h, key_padding_mask=key_padding_mask, need_weights=False
-            )
-            x = x + self.drop1(a)
+            b, s, d = h.shape
+            qkv = self.qkv(h).view(b, s, 3, self.nhead, self.dh).permute(2, 0, 3, 1, 4)
+            q, k, v = qkv[0], qkv[1], qkv[2]
+            attn = torch.matmul(q, k.transpose(-2, -1)) * self.scale
+            mask = key_padding_mask.bool()[:, None, None, :]
+            attn = attn.masked_fill(mask, torch.finfo(attn.dtype).min)
+            attn = torch.softmax(attn, dim=-1)
+            attn = torch.nan_to_num(attn, nan=0.0)
+            attn = self.drop_attn(attn)
+            y = torch.matmul(attn, v).transpose(1, 2).contiguous().view(b, s, d)
+            y = self.out_proj(y)
+            x = x + self.drop1(y)
             x = x + self.ff(self.norm2(x))
             return x
 
