@@ -145,18 +145,32 @@ def write_universe_sensitivity(
     return text
 
 
-def plot_three_equity(dv: dict, out_path: Path) -> None:
+def plot_three_equity(
+    books: dict,
+    out_path: Path,
+    *,
+    ranking_label: str = "DV",
+    title: str | None = None,
+) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fig, ax = plt.subplots(figsize=(11, 4.8), constrained_layout=True)
     colors = {30: "#4C78A8", 50: "#F58518", 100: "#54A24B"}
     for n in (30, 50, 100):
-        eq = (dv.get(n) or {}).get("equity")
+        b = books.get(n) or {}
+        eq = b.get("equity")
         if eq is None or len(eq) == 0:
             continue
-        ax.plot(eq.index, eq.values, lw=1.4, color=colors[n], label=f"DV top-{n}")
+        sh = b.get("net_sharpe")
+        tr = b.get("net_sharpe_trail18m")
+        lab = f"{ranking_label} top-{n}"
+        if sh is not None and np.isfinite(float(sh)):
+            lab += f"  Sh={float(sh):.2f}"
+        if tr is not None and np.isfinite(float(tr)):
+            lab += f"  trail={float(tr):.2f}"
+        ax.plot(eq.index, eq.values, lw=1.4, color=colors[n], label=lab)
     ax.set_yscale("log")
     ax.set_ylabel("equity (log)")
-    ax.set_title("SPREAD-LS universe sensitivity — β-matched, funding-off")
+    ax.set_title(title or "SPREAD-LS universe sensitivity — β-matched, funding-off")
     ax.legend(fontsize=8)
     ax.grid(True, alpha=0.3)
     fig.savefig(out_path, dpi=120)

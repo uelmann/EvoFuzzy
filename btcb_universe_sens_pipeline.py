@@ -277,7 +277,18 @@ def run_btcb_univ() -> dict:
         mcap=mcap,
         extra=extra,
     )
-    plot_three_equity(dv, chart_dir / "btcb_universe_sens_equity.png")
+    plot_three_equity(
+        dv,
+        chart_dir / "btcb_universe_sens_equity.png",
+        ranking_label="DV",
+        title="SPREAD-LS universe sensitivity — dollar-volume, β-matched, funding-off",
+    )
+    plot_three_equity(
+        mcap,
+        chart_dir / "btcb_universe_sens_mcap_equity.png",
+        ranking_label="mcap",
+        title="SPREAD-LS universe sensitivity — market-cap, β-matched, funding-off",
+    )
     payload = {
         "criterion": UNIVERSE_SENS_CRITERION,
         "funding_caveat": PHASE3_FUNDING_CAVEAT,
@@ -323,6 +334,110 @@ def run_btcb_univ() -> dict:
     }
 
 
+@app.function(
+    timeout=60 * 60,
+    retries=0,
+    volumes={"/data/quant": quant_vol},
+    cpu=16,
+    memory=65536,
+)
+def run_mcap_chart() -> dict:
+    """Rebuild the three mcap books from the frozen 2.c cache and plot log equity."""
+    import pandas as pd
+
+    from baseline.data import load_panel
+    from baseline.seedutil import seed_everything
+    from btcb.constants import PHASE2_PRIMARY_H, SEED, UNIVERSE_NS, UNIVERSE_PRIMARY_H
+    from btcb.features import btc_id_from_panel
+    from btcb.hygiene import build_floored_pit, clean_panel
+    from btcb.spread_ls import (
+        attach_beta,
+        build_shortable,
+        hash_pred_dir,
+        load_twin_from_cache,
+        run_spread_ls,
+    )
+    from btcb.universe_sens_report import plot_three_equity
+
+    t0 = time.time()
+    seed_everything(SEED)
+    print("[HB] mcap equity chart only; 2.c cache reused; funding-off; COMBO untouched", flush=True)
+
+    panel = pd.read_parquet("/data/quant/btcb/full/panel.parquet")
+    panel["date"] = pd.to_datetime(panel["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
+    panel["id"] = panel["id"].astype(int)
+    btc_id = btc_id_from_panel(panel)
+    cleaned, _ = clean_panel(panel, btc_id=btc_id)
+
+    feat = pd.read_parquet("/data/quant/btcb/phase2b/feat_s.parquet")
+    feat["date"] = pd.to_datetime(feat["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
+    feat["id"] = feat["id"].astype(int)
+
+    pred_dir = Path("/data/quant/btcb/phase2c/preds")
+    pred_hash = hash_pred_dir(pred_dir)
+    print(f"[HB] 2.c cache sha256={pred_hash['sha256']} n_files={pred_hash['n_files']}", flush=True)
+    twin = load_twin_from_cache(pred_dir, UNIVERSE_PRIMARY_H)
+
+    raw_dir = Path("/data/quant/raw/klines")
+    kline_syms = sorted(p.stem for p in raw_dir.glob("*.parquet"))
+    kline_panel = load_panel(raw_dir, kline_syms)
+    kline_panel["date"] = pd.to_datetime(kline_panel["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
+    shortable = build_shortable(cleaned, kline_panel, btc_id)
+
+    close = cleaned.pivot(index="date", columns="id", values="close").sort_index()
+    close.index = pd.to_datetime(close.index, utc=True).tz_convert("UTC").normalize()
+    btc_simple = close[btc_id].pct_change(fill_method=None)
+
+    mcap = {}
+    for n in UNIVERSE_NS:
+        pit, ex = build_floored_pit(cleaned, int(n), score="mcap")
+        print(f"[HB] mcap PIT n={n} rows={ex.get('pit_rows')}", flush=True)
+        packed = run_spread_ls(
+            cleaned,
+            pit,
+            twin,
+            feat,
+            shortable,
+            btc_id,
+            h=int(PHASE2_PRIMARY_H),
+            beta_matched=True,
+            decile_k=int(n) // 10,
+            quintile_k=int(n) // 5,
+        )
+        if packed.get("error"):
+            raise RuntimeError(f"mcap-{n} failed: {packed}")
+        packed = attach_beta(packed, btc_simple)
+        packed["universe_n"] = int(n)
+        packed["ranking"] = "mcap"
+        packed["funding_on"] = False
+        mcap[int(n)] = packed
+        print(
+            f"[HB] mcap-{n} sharpe={packed.get('net_sharpe')} trail={packed.get('net_sharpe_trail18m')}",
+            flush=True,
+        )
+
+    chart_dir = Path("/data/quant/charts")
+    chart_dir.mkdir(parents=True, exist_ok=True)
+    out = chart_dir / "btcb_universe_sens_mcap_equity.png"
+    plot_three_equity(
+        mcap,
+        out,
+        ranking_label="mcap",
+        title="SPREAD-LS universe sensitivity — market-cap, β-matched, funding-off",
+    )
+    quant_vol.commit()
+    summary = {
+        "chart": str(out),
+        "pred_sha256": pred_hash["sha256"],
+        "sharpe": {str(n): mcap[n].get("net_sharpe") for n in UNIVERSE_NS},
+        "trail": {str(n): mcap[n].get("net_sharpe_trail18m") for n in UNIVERSE_NS},
+        "elapsed_sec": time.time() - t0,
+        "gpu_used": False,
+    }
+    print(json.dumps(summary, indent=2, default=str), flush=True)
+    return summary
+
+
 @app.local_entrypoint()
 def main():
     print("[local] starting universe sensitivity (spawn, then wait)...", flush=True)
@@ -341,6 +456,7 @@ def main():
         ("reports/btcb_universe_sensitivity.md", "reports"),
         ("reports/btcb_universe_sensitivity.json", "reports"),
         ("charts/btcb_universe_sens_equity.png", "charts"),
+        ("charts/btcb_universe_sens_mcap_equity.png", "charts"),
         ("btcb/universe/btcb_top30_floor.parquet", "universe"),
     ]
     for remote, kind in pulls:

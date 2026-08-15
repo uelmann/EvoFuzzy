@@ -44,6 +44,8 @@
 | 100 | 2023-24 | 731 | 1.402 | -9.6% | 27.41 | 22.81 |
 | 100 | 2025-26 | 590 | 2.523 | -21.6% | 25.77 | 24.38 |
 
+Equity overlays: dollar-volume `charts/btcb_universe_sens_equity.png`; market-cap (informational) `charts/btcb_universe_sens_mcap_equity.png`.
+
 ## Market-cap universes (informational, same mechanics)
 
 | U | net Sharpe | trail-18m | MaxDD | #long | #short | shortable | % inc. short | ann TO | squeeze mean | β vs BTC | top-5 PnL | RankIC |
