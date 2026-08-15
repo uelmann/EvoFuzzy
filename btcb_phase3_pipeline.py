@@ -222,7 +222,12 @@ def run_btcb_p3() -> dict:
     kline_panel["date"] = pd.to_datetime(kline_panel["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
     print(f"[HB] kline symbols={len(kline_syms)} rows={len(kline_panel)}", flush=True)
     shortable = build_shortable(cleaned, kline_panel, btc_id)
-    print(f"[HB] shortable dates={len(shortable)}", flush=True)
+    ns = [len(v) for v in shortable.values()]
+    print(
+        f"[HB] shortable dates={len(shortable)} mean_ids={float(sum(ns)/len(ns)) if ns else 0:.1f} "
+        f"max_ids={max(ns) if ns else 0}",
+        flush=True,
+    )
 
     close = cleaned.pivot(index="date", columns="id", values="close").sort_index()
     close.index = pd.to_datetime(close.index, utc=True).tz_convert("UTC").normalize()
