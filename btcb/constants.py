@@ -479,3 +479,27 @@ PHASE3E_STALE_BN_MOVE = 0.02
 PHASE3E_REF_BN_SHARPE = 1.2956392949142752
 PHASE3E_REF_CMC_SUB_SHARPE = 1.5585902582860225
 PHASE3E_REF_CORR = 0.9838
+CMC_PANEL_SHA256 = "c8062ed5d524584c1369e2dab1a075e51c1e6b7c2ad90982bf810ee76eb11249"
+
+# ---------------------------------------------------------------------------
+# LONG-TIDE — full-size long leg + frozen Stage-T gate, BTC parking
+# (frozen a priori; backtest only; no signal changes)
+# ---------------------------------------------------------------------------
+
+LONGTIDE_CRITERION = (
+    "LONG-TIDE is VIABLE if: (a) total return ≥ BTC B&H; (b) relative-line (book/BTC) Sharpe > 0; "
+    "(c) MaxDD ≤ BTC B&H MaxDD. It SUPERSEDES BTC-BEATER v1 as the official long product only if "
+    "additionally: (d) relative-line Sharpe ≥ v1's + 0.15 on the common window; (e) average alt "
+    "deployment ≥ 15%; (f) no cycle with relative-line Sharpe < −0.30. If (a–c) pass but (d–f) "
+    "do not, LONG-TIDE is recorded as a parallel long variant and v1 stays official. Mechanical, "
+    "no post-hoc adjustment."
+)
+
+LONGTIDE_H = 14
+LONGTIDE_BUDGET = 1.0
+LONGTIDE_K = 10
+LONGTIDE_REL_MARGIN = 0.15
+LONGTIDE_ALT_MIN = 0.15
+LONGTIDE_CYCLE_REL_FLOOR = -0.30
+LONGTIDE_V1_P_ENTER = 0.60
+LONGTIDE_PRECONDITION = "SIGNAL-CONFIRMED"
