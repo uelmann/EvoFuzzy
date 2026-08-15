@@ -525,6 +525,10 @@ def stage_b_csattn() -> dict:
     import torch
 
     smoke_dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if smoke_dev.type == "cuda":
+        torch.backends.cuda.enable_flash_sdp(False)
+        torch.backends.cuda.enable_mem_efficient_sdp(False)
+        torch.backends.cuda.enable_math_sdp(True)
     hb.ping(f"smoke_csattn on {smoke_dev}")
     smoke = smoke_csattn(smoke_dev)
     hb.ping(f"smoke ok={smoke.get('ok')} cases={smoke.get('cases')}")

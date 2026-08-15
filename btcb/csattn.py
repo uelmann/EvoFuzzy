@@ -127,15 +127,26 @@ def make_csattn(n_channels: int = PHASE5_N_CHANNELS):
         def forward(self, x, key_padding_mask):
             h = self.norm1(x)
             b, s, d = h.shape
-            qkv = self.qkv(h).view(b, s, 3, self.nhead, self.dh).permute(2, 0, 3, 1, 4)
-            q, k, v = qkv[0], qkv[1], qkv[2]
-            attn = torch.matmul(q, k.transpose(-2, -1)) * self.scale
-            mask = key_padding_mask.bool()[:, None, None, :]
-            attn = attn.masked_fill(mask, torch.finfo(attn.dtype).min)
+            qkv = self.qkv(h).reshape(b, s, 3, self.nhead, self.dh)
+            q = qkv[:, :, 0].permute(0, 2, 1, 3)
+            k = qkv[:, :, 1].permute(0, 2, 1, 3)
+            v = qkv[:, :, 2].permute(0, 2, 1, 3)
+            # einsum, not matmul — avoid SDPA pattern-matching that pads S to 8.
+            attn = torch.einsum("bhqd,bhkd->bhqk", q, k) * self.scale
+            m = key_padding_mask.bool()
+            if m.dim() != 2:
+                m = m.view(b, -1)
+            sk = int(attn.size(-1))
+            if m.size(-1) < sk:
+                m = torch.nn.functional.pad(m, (0, sk - m.size(-1)), value=True)
+            elif m.size(-1) > sk:
+                m = m[:, :sk]
+            attn = attn.masked_fill(m.view(b, 1, 1, sk), torch.finfo(attn.dtype).min)
             attn = torch.softmax(attn, dim=-1)
             attn = torch.nan_to_num(attn, nan=0.0)
             attn = self.drop_attn(attn)
-            y = torch.matmul(attn, v).transpose(1, 2).contiguous().view(b, s, d)
+            y = torch.einsum("bhqk,bhkd->bhqd", attn, v).permute(0, 2, 1, 3).contiguous()
+            y = y.view(b, s, d)
             y = self.out_proj(y)
             x = x + self.drop1(y)
             x = x + self.ff(self.norm2(x))
@@ -181,6 +192,13 @@ def make_csattn(n_channels: int = PHASE5_N_CHANNELS):
             tokens = torch.cat([pooled, emb], dim=1)
             cls_pad = torch.zeros(b, 1, dtype=torch.bool, device=pad_mask.device)
             attn_pad = torch.cat([cls_pad, pad_mask.bool()], dim=1)
+            s_keep = int(tokens.size(1))
+            # PyTorch 2.4 CUDA attention/gemm pads S to a multiple of 8.
+            s_align = (s_keep + 7) // 8 * 8
+            if s_align != s_keep:
+                extra = s_align - s_keep
+                tokens = torch.nn.functional.pad(tokens, (0, 0, 0, extra))
+                attn_pad = torch.nn.functional.pad(attn_pad, (0, extra), value=True)
             # Attention in fp32 — AMP + padding masks is flaky on 2.4.1.
             import contextlib
 
@@ -193,7 +211,7 @@ def make_csattn(n_channels: int = PHASE5_N_CHANNELS):
                 out = tokens.float()
                 for layer in self.set_layers:
                     out = layer(out, attn_pad)
-            out = out.to(dtype=tokens.dtype)
+            out = out.to(dtype=emb.dtype)[:, :s_keep, :]
             coins = out[:, 1:, :] + out[:, :1, :]
             logit_top = self.head_top(coins).squeeze(-1)
             logit_bot = self.head_bot(coins).squeeze(-1)
