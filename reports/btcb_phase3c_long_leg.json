@@ -1,0 +1,30 @@
+{
+  "long": {
+    "n_days": 2491,
+    "start": "2019-10-19",
+    "end": "2026-08-13",
+    "net_sharpe": 0.7158375730506782,
+    "net_sharpe_trail18m": -0.017776914194773317,
+    "maxdd": -0.48571492540118455,
+    "book_total": 2.548121039374351,
+    "avg_long_gross": 0.4967532569858966
+  },
+  "short": {
+    "n_days": 2491,
+    "net_sharpe": 0.3712619853020261,
+    "net_sharpe_trail18m": 1.0959753918561024,
+    "maxdd": -0.6017406529509325,
+    "book_total": 0.5982635267659624,
+    "funding_total_pnl": -0.3491665049365261
+  },
+  "full": {
+    "n_days": 2491,
+    "net_sharpe": 1.5551874624157,
+    "net_sharpe_trail18m": 1.3812344709954412,
+    "maxdd": -0.24886005997367433,
+    "book_total": 10.570124430014783
+  },
+  "note": "weights not renormalized; analysis only",
+  "elapsed_sec": 172.77824664115906,
+  "gpu_used": false
+}
