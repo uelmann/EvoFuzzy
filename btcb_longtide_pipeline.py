@@ -257,17 +257,27 @@ def run_longtide() -> dict:
     regime = regime_on_off(ratio, breadth, breadth_thr=REGIME_BREADTH, off_hyst=REGIME_OFF_HYSTERESIS)
     gate_on = regime["gate_on"]
 
-    print("[HB] loading Binance spot (no new downloads)...", flush=True)
+    print("[HB] loading Binance spot (no new downloads unless BTCUSDT missing)...", flush=True)
     spot_dir = Path("/data/quant/raw/spot_klines")
+    spot_dir.mkdir(parents=True, exist_ok=True)
+    if not (spot_dir / "BTCUSDT.parquet").exists():
+        print("[HB] BTCUSDT spot cache missing; downloading BTCUSDT only...", flush=True)
+        from baseline.data import download_spot_symbol_months, month_range
+
+        download_spot_symbol_months("BTCUSDT", month_range("2017-08"), spot_dir)
+        quant_vol.commit()
     spot_syms = sorted(p.stem.upper() for p in spot_dir.glob("*.parquet"))
     if not spot_syms:
         raise RuntimeError(f"no spot klines in {spot_dir}")
+    if "BTCUSDT" not in spot_syms:
+        raise RuntimeError("BTCUSDT spot still missing after download")
     spot_panel = load_panel(spot_dir, spot_syms)
     spot_panel["date"] = pd.to_datetime(spot_panel["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
     spot_panel["symbol"] = spot_panel["symbol"].astype(str).str.upper()
     all_ids = sorted(set(int(i) for i in pit100["id"].unique()) | {int(btc_id)})
     nonempty_spot = set(spot_panel["symbol"].unique())
     id_to_spot = build_id_symbol_map(all_ids, cleaned, nonempty_spot, nonempty_spot)
+    id_to_spot[int(btc_id)] = "BTCUSDT"
     spot_wide = close_wide_from_panel(spot_panel, id_to_spot)
     if int(btc_id) not in spot_wide.columns:
         raise RuntimeError("BTCUSDT spot missing from Binance close wide")
