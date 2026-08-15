@@ -277,6 +277,72 @@ def _metric_verdict(cells: list[dict], real_key: str, k_exceed: int, z_min: floa
     }
 
 
+def assemble_twin_null_from_replicates(
+    replicates: list[dict],
+    real_auc_top: dict[int, float],
+    real_rankic_spread: dict[int, float],
+    fold_ids: tuple[int, ...] | list[int],
+    n_replicates: int = NULL_REPLICATES,
+) -> dict:
+    """Build the 2.c twin-null verdict from cached per-replicate {fold_id, auc, ric}."""
+    from btcb.constants import NULL_K_EXCEED, STOUFFER_Z_MIN
+
+    by_fold: dict[int, list[dict]] = {}
+    for r in replicates:
+        by_fold.setdefault(int(r["fold_id"]), []).append(r)
+    auc_cells, ric_cells = [], []
+    for fid in fold_ids:
+        reps = sorted(by_fold.get(int(fid), []), key=lambda x: int(x.get("seed", 0)))
+        aucs = [
+            float(x["auc"]) if x.get("auc") is not None and np.isfinite(float(x.get("auc", float("nan")))) else float("nan")
+            for x in reps
+        ]
+        rics = [
+            float(x["ric"]) if x.get("ric") is not None and np.isfinite(float(x.get("ric", float("nan")))) else float("nan")
+            for x in reps
+        ]
+        horizon = int(reps[0]["horizon"]) if reps else None
+        st_a = _cell_stats(aucs, center=0.5)
+        real_a = float(real_auc_top.get(int(fid), float("nan")))
+        st_a.update(
+            {
+                "fold_id": int(fid),
+                "horizon": horizon,
+                "real_auc": real_a,
+                "exceeds_p95": bool(np.isfinite(real_a) and np.isfinite(st_a["p95"]) and real_a > st_a["p95"]),
+            }
+        )
+        auc_cells.append(st_a)
+        st_r = _cell_stats(rics, center=0.0)
+        real_r = float(real_rankic_spread.get(int(fid), float("nan")))
+        st_r.update(
+            {
+                "fold_id": int(fid),
+                "horizon": horizon,
+                "real_rankic": real_r,
+                "exceeds_p95": bool(np.isfinite(real_r) and np.isfinite(st_r["p95"]) and real_r > st_r["p95"]),
+            }
+        )
+        ric_cells.append(st_r)
+    auc_v = _metric_verdict(auc_cells, "real_auc", NULL_K_EXCEED, STOUFFER_Z_MIN)
+    ric_v = _metric_verdict(ric_cells, "real_rankic", NULL_K_EXCEED, STOUFFER_Z_MIN)
+    print(
+        f"[gates] twin_null AUC {auc_v['verdict']} {auc_v['n_exceed']}/6 z={auc_v['stouffer_z']} | "
+        f"spread RankIC {ric_v['verdict']} {ric_v['n_exceed']}/6 z={ric_v['stouffer_z']}",
+        flush=True,
+    )
+    return {
+        "name": "twin_spread_null",
+        "passed": bool(ric_v["passed"]),
+        "auc": {k: v for k, v in auc_v.items() if k != "cells"},
+        "rankic": {k: v for k, v in ric_v.items() if k != "cells"},
+        "auc_cells": auc_cells,
+        "rankic_cells": ric_cells,
+        "n_replicates": int(n_replicates),
+        "fold_ids": [int(i) for i in fold_ids],
+    }
+
+
 def gate_twin_spread_null(
     df: pd.DataFrame,
     folds: list[FoldSpec],

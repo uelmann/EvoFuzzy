@@ -3,6 +3,8 @@ BTC-BEATER SPREAD-LS horizon sweep — train twin heads at h=3 and h=7.
 
 BACKTEST ONLY. CPU only. Frozen products untouched.
 h=14/h=30 caches reused with sha256 verification. Funding-off (3.b has not run).
+Fold trainings and null replicates fan out with Modal .map() (max 50 CPU containers).
+Idempotent per-fold / per-replicate caches on the Volume.
 Usage: modal run --detach btcb_horizon_sweep_pipeline.py
 """
 
@@ -44,6 +46,10 @@ image = (
 
 app = modal.App(APP_NAME, image=image)
 
+LABELED_PATH = "/data/quant/btcb/horizon_sweep/labeled.parquet"
+NEW_PRED_DIR = "/data/quant/btcb/horizon_sweep/preds"
+NULL_DIR = "/data/quant/btcb/horizon_sweep/null"
+
 
 def _jsonable(x, drop=None):
     import numpy as np
@@ -84,8 +90,197 @@ def _jsonable(x, drop=None):
     return x
 
 
+def _fold_from_payload(p: dict):
+    import pandas as pd
+
+    from btcb.model import FoldSpec
+
+    def ts(k):
+        t = pd.Timestamp(p[k])
+        if t.tzinfo is None:
+            t = t.tz_localize("UTC")
+        else:
+            t = t.tz_convert("UTC")
+        return t.normalize()
+
+    return FoldSpec(
+        fold_id=int(p["fold_id"]),
+        train_start=ts("train_start"),
+        train_end=ts("train_end"),
+        purge_end=ts("purge_end"),
+        embargo_end=ts("embargo_end"),
+        val_start=ts("val_start"),
+        val_end=ts("val_end"),
+        horizon=int(p["horizon"]),
+    )
+
+
+def _fold_to_payload(fold) -> dict:
+    return {
+        "fold_id": int(fold.fold_id),
+        "train_start": str(fold.train_start),
+        "train_end": str(fold.train_end),
+        "purge_end": str(fold.purge_end),
+        "embargo_end": str(fold.embargo_end),
+        "val_start": str(fold.val_start),
+        "val_end": str(fold.val_end),
+        "horizon": int(fold.horizon),
+    }
+
+
+def _load_labeled(path: str):
+    import pandas as pd
+
+    df = pd.read_parquet(path)
+    df["date"] = pd.to_datetime(df["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
+    df["id"] = df["id"].astype(int)
+    return df
+
+
 @app.function(
-    timeout=60 * 60 * 10,
+    timeout=60 * 30,
+    retries=1,
+    volumes={"/data/quant": quant_vol},
+    cpu=8,
+    memory=16384,
+    max_containers=50,
+)
+def fit_real_fold_job(payload: dict) -> dict:
+    """One (horizon, fold, head) real twin-head train. Skip if parquet already on Volume."""
+    from btcb.constants import SEED, STAGE_S_COLS
+    from btcb.model import fit_predict_fold
+
+    t0 = time.time()
+    h = int(payload["horizon"])
+    head = str(payload["head"])
+    fid = int(payload["fold_id"])
+    out = Path(payload["out_dir"]) / f"preds_{head}_h{h}_fold{fid}.parquet"
+    if out.exists() and out.stat().st_size > 0:
+        print(f"[HB] reuse real head={head} h={h} fold={fid}", flush=True)
+        return {"status": "reuse", "head": head, "horizon": h, "fold_id": fid, "path": str(out), "elapsed": 0.0}
+    quant_vol.reload()
+    if out.exists() and out.stat().st_size > 0:
+        return {"status": "reuse", "head": head, "horizon": h, "fold_id": fid, "path": str(out), "elapsed": 0.0}
+    df = _load_labeled(payload["labeled_path"])
+    fold = _fold_from_payload(payload)
+    ycol = None if head == "top" else f"y_bot_h{h}"
+    pred_df, meta = fit_predict_fold(
+        df,
+        fold,
+        seed=SEED,
+        feature_cols=list(STAGE_S_COLS),
+        early_stop="per_date_auc",
+        ycol=ycol,
+    )
+    out.parent.mkdir(parents=True, exist_ok=True)
+    if not pred_df.empty:
+        pred_df.to_parquet(out, index=False)
+    quant_vol.commit()
+    print(
+        f"[HB] real head={head} h={h} fold={fid} status={meta.get('status')} "
+        f"n={len(pred_df)} elapsed={time.time()-t0:.1f}s",
+        flush=True,
+    )
+    return {
+        "status": meta.get("status"),
+        "head": head,
+        "horizon": h,
+        "fold_id": fid,
+        "path": str(out) if not pred_df.empty else None,
+        "elapsed": time.time() - t0,
+        "best_iteration": meta.get("best_iteration"),
+    }
+
+
+@app.function(
+    timeout=60 * 30,
+    retries=1,
+    volumes={"/data/quant": quant_vol},
+    cpu=8,
+    memory=16384,
+    max_containers=50,
+)
+def fit_null_rep_job(payload: dict) -> dict:
+    """One (horizon, fold, replicate) null: both heads, fixed shuffle seeds. Cached JSON."""
+    from btcb.constants import SEED, STAGE_S_COLS
+    from btcb.model import fit_predict_fold, mean_per_date_auc, mean_per_date_rank_ic
+
+    t0 = time.time()
+    h = int(payload["horizon"])
+    fid = int(payload["fold_id"])
+    ss = int(payload["seed"])
+    dest = Path(payload["null_dir"]) / f"h{h}_fold{fid}_seed{ss}.json"
+    if dest.exists() and dest.stat().st_size > 0:
+        rec = json.loads(dest.read_text())
+        rec["status"] = "reuse"
+        print(f"[HB] reuse null h={h} fold={fid} seed={ss}", flush=True)
+        return rec
+    quant_vol.reload()
+    if dest.exists() and dest.stat().st_size > 0:
+        rec = json.loads(dest.read_text())
+        rec["status"] = "reuse"
+        return rec
+    df = _load_labeled(payload["labeled_path"])
+    fold = _fold_from_payload(payload)
+    y_top = f"y_h{h}"
+    y_bot = f"y_bot_h{h}"
+    excol = f"excess_h{h}"
+    pred_t, meta_t = fit_predict_fold(
+        df,
+        fold,
+        seed=SEED,
+        shuffle_labels=True,
+        shuffle_seed=int(ss),
+        feature_cols=list(STAGE_S_COLS),
+        early_stop="per_date_auc",
+        ycol=y_top,
+    )
+    pred_b, meta_b = fit_predict_fold(
+        df,
+        fold,
+        seed=SEED,
+        shuffle_labels=True,
+        shuffle_seed=int(ss) + 50_000,
+        feature_cols=list(STAGE_S_COLS),
+        early_stop="per_date_auc",
+        ycol=y_bot,
+    )
+    auc = float("nan")
+    ric = float("nan")
+    if (not pred_t.empty) and meta_t.get("status") == "ok":
+        auc, _ = mean_per_date_auc(pred_t[y_top].to_numpy(), pred_t["p_raw"].to_numpy(), pred_t["date"].to_numpy())
+        if (not pred_b.empty) and meta_b.get("status") == "ok" and excol in pred_t.columns:
+            m = pred_t.merge(
+                pred_b[["date", "id", "p_raw"]].rename(columns={"p_raw": "p_bot_raw"}),
+                on=["date", "id"],
+                how="inner",
+            )
+            if not m.empty:
+                spread = m["p_raw"].to_numpy(dtype=float) - m["p_bot_raw"].to_numpy(dtype=float)
+                ric = mean_per_date_rank_ic(spread, m[excol].to_numpy(), m["date"].to_numpy())
+    rec = {
+        "status": "ok",
+        "horizon": h,
+        "fold_id": fid,
+        "seed": ss,
+        "auc": float(auc) if auc == auc else None,
+        "ric": float(ric) if ric == ric else None,
+        "elapsed": time.time() - t0,
+        "top_status": meta_t.get("status"),
+        "bot_status": meta_b.get("status"),
+    }
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(json.dumps(rec, indent=2, default=str))
+    quant_vol.commit()
+    print(
+        f"[HB] null h={h} fold={fid} seed={ss} auc={rec['auc']} ric={rec['ric']} elapsed={rec['elapsed']:.1f}s",
+        flush=True,
+    )
+    return rec
+
+
+@app.function(
+    timeout=60 * 60 * 3,
     retries=0,
     volumes={"/data/quant": quant_vol},
     cpu=16,
@@ -105,6 +300,8 @@ def run_btcb_hsweep() -> dict:
         HORIZON_SWEEP_INCUMBENT,
         HORIZON_SWEEP_TRAIN,
         NULL_FOLD_IDS_2C,
+        NULL_REPLICATES,
+        NULL_SHUFFLE_SEEDS,
         PHASE2C_NULL_GATE,
         PHASE2C_PRED_N_FILES,
         PHASE2C_PRED_SHA256,
@@ -113,7 +310,7 @@ def run_btcb_hsweep() -> dict:
         STAGE_S_COLS,
     )
     from btcb.features import btc_id_from_panel
-    from btcb.gates import assert_no_context, gate_twin_spread_null, pick_folds_by_id
+    from btcb.gates import assemble_twin_null_from_replicates, assert_no_context
     from btcb.horizon_sweep_report import (
         plot_horizon_equity,
         plot_horizon_rankic,
@@ -122,11 +319,10 @@ def run_btcb_hsweep() -> dict:
     from btcb.hygiene import clean_panel
     from btcb.labels import add_twin_quintile_labels
     from btcb.model import (
+        make_expanding_folds,
         mean_per_date_auc,
         mean_per_date_rank_ic,
-        merge_twin_preds,
         per_date_rank_ic_series,
-        train_all_folds,
     )
     from btcb.spread_ls import (
         attach_beta,
@@ -148,6 +344,7 @@ def run_btcb_hsweep() -> dict:
     if PHASE2C_NULL_GATE not in addendum or DEATH_CONVENTION not in addendum:
         raise RuntimeError("horizon-sweep addendum missing null gate or death convention")
     print("[HB] BTC-BEATER horizon sweep BACKTEST ONLY; zero GPU; COMBO untouched", flush=True)
+    print("[HB] parallel .map() max_containers=50; idempotent Volume caches", flush=True)
     print(f"[HB] {HORIZON_SWEEP_CRITERION}", flush=True)
     print(f"[HB] {PHASE2C_NULL_GATE}", flush=True)
     print(f"[HB] {PHASE3_FUNDING_CAVEAT}", flush=True)
@@ -196,48 +393,60 @@ def run_btcb_hsweep() -> dict:
             f"expected {PHASE2C_PRED_SHA256} n={PHASE2C_PRED_N_FILES}"
         )
 
-    print("[HB] twin quintile labels for h=3,7,14,30...", flush=True)
-    drop_lab = [
-        c
-        for c in feat.columns
-        if c.startswith("y_h") or c.startswith("y_bot_h") or c.startswith("excess_h")
-    ]
-    feat_l = feat.drop(columns=drop_lab, errors="ignore")
-    labeled = add_twin_quintile_labels(feat_l, cleaned, btc_id, horizons=HORIZON_SWEEP_HS)
-    labeled = labeled[labeled["id"] != int(btc_id)].copy()
+    labeled_path = Path(LABELED_PATH)
+    if labeled_path.exists():
+        print(f"[HB] reuse labeled {labeled_path}", flush=True)
+        labeled = _load_labeled(str(labeled_path))
+    else:
+        print("[HB] twin quintile labels for h=3,7,14,30...", flush=True)
+        drop_lab = [
+            c
+            for c in feat.columns
+            if c.startswith("y_h") or c.startswith("y_bot_h") or c.startswith("excess_h")
+        ]
+        feat_l = feat.drop(columns=drop_lab, errors="ignore")
+        labeled = add_twin_quintile_labels(feat_l, cleaned, btc_id, horizons=HORIZON_SWEEP_HS)
+        labeled = labeled[labeled["id"] != int(btc_id)].copy()
+        labeled_path.parent.mkdir(parents=True, exist_ok=True)
+        labeled.to_parquet(labeled_path, index=False)
+        commit()
     print(
         f"[HB] labeled rows={len(labeled)} dates={labeled['date'].nunique()} ids={labeled['id'].nunique()}",
         flush=True,
     )
 
-    new_pred = Path("/data/quant/btcb/horizon_sweep/preds")
+    new_pred = Path(NEW_PRED_DIR)
     new_pred.mkdir(parents=True, exist_ok=True)
-    all_folds = {}
-    for h in HORIZON_SWEEP_TRAIN:
-        for head in ("top", "bot"):
-            ycol = None if head == "top" else f"y_bot_h{h}"
-            print(f"[HB] TRAIN head={head} h={h}...", flush=True)
-            preds, metas, folds = train_all_folds(
-                labeled,
-                horizon=h,
-                out_dir=new_pred,
-                feature_cols=list(STAGE_S_COLS),
-                early_stop="per_date_auc",
-                ycol=ycol,
-                tag=head,
-            )
-            if head == "top":
-                all_folds[h] = folds
-            commit()
-            print(
-                f"[HB] trained head={head} h={h} pred_rows={len(preds)} folds={len(folds)} ok="
-                f"{sum(1 for m in metas if m.get('status')=='ok')}",
-                flush=True,
-            )
+    null_dir = Path(NULL_DIR)
+    null_dir.mkdir(parents=True, exist_ok=True)
+    commit()
 
+    all_folds = {}
+    real_payloads = []
+    for h in HORIZON_SWEEP_TRAIN:
+        folds = make_expanding_folds(pd.DatetimeIndex(labeled["date"].unique()), horizon=h)
+        all_folds[h] = folds
+        print(f"[HB] h={h} n_folds={len(folds)} ids={[f.fold_id for f in folds]}", flush=True)
+        for fold in folds:
+            fp = _fold_to_payload(fold)
+            for head in ("top", "bot"):
+                dest = new_pred / f"preds_{head}_h{h}_fold{fold.fold_id}.parquet"
+                if dest.exists() and dest.stat().st_size > 0:
+                    continue
+                real_payloads.append(
+                    {
+                        **fp,
+                        "head": head,
+                        "out_dir": str(new_pred),
+                        "labeled_path": str(labeled_path),
+                    }
+                )
+    print(f"[HB] real-fold map todo={len(real_payloads)} (missing only)", flush=True)
+    if real_payloads:
+        list(fit_real_fold_job.map(real_payloads, order_outputs=False))
+        quant_vol.reload()
     new_hash = hash_pred_dir(new_pred)
     print(f"[HB] new-head cache sha256={new_hash['sha256']} n_files={new_hash['n_files']}", flush=True)
-    # incumbent cache must still be byte-identical after new-head writes (separate dir)
     pred_hash2 = hash_pred_dir(old_pred)
     if pred_hash2["sha256"] != PHASE2C_PRED_SHA256:
         raise RuntimeError("2.c cache mutated during horizon sweep")
@@ -272,22 +481,46 @@ def run_btcb_hsweep() -> dict:
             )
         return sorted(rows, key=lambda r: r["fold_id"])
 
+    use_seeds = list(NULL_SHUFFLE_SEEDS)[: int(NULL_REPLICATES)]
     nulls: dict = {}
     for h in HORIZON_SWEEP_TRAIN:
-        print(f"[HB] repowered twin null h={h} (6 folds × 25 × 2 heads)...", flush=True)
         folds = all_folds[h]
-        print(f"[HB] h={h} n_folds={len(folds)} ids={[f.fold_id for f in folds]}", flush=True)
-        null_folds = pick_folds_by_id(folds, NULL_FOLD_IDS_2C)
+        by_id = {f.fold_id: f for f in folds}
+        missing = [i for i in NULL_FOLD_IDS_2C if i not in by_id]
+        if missing:
+            raise RuntimeError(f"null fold ids missing (no substitution): {missing}")
         fm = _fold_metrics(twins[h], h)
         real_aucs = {int(r["fold_id"]): float(r["auc_ptop_raw"]) for r in fm}
         real_rics = {int(r["fold_id"]): float(r["rankic_spread_raw"]) for r in fm}
-        ng = gate_twin_spread_null(
-            labeled,
-            null_folds,
-            real_aucs,
-            real_rics,
-            feature_cols=list(STAGE_S_COLS),
-            early_stop="per_date_auc",
+        null_payloads = []
+        cached_reps = []
+        for fid in NULL_FOLD_IDS_2C:
+            fp = _fold_to_payload(by_id[fid])
+            for ss in use_seeds:
+                dest = null_dir / f"h{h}_fold{fid}_seed{ss}.json"
+                if dest.exists() and dest.stat().st_size > 0:
+                    cached_reps.append(json.loads(dest.read_text()))
+                    continue
+                null_payloads.append(
+                    {
+                        **fp,
+                        "seed": int(ss),
+                        "null_dir": str(null_dir),
+                        "labeled_path": str(labeled_path),
+                    }
+                )
+        print(
+            f"[HB] null map h={h} cached={len(cached_reps)} todo={len(null_payloads)} "
+            f"(6 folds × {len(use_seeds)} reps)",
+            flush=True,
+        )
+        mapped = []
+        if null_payloads:
+            mapped = list(fit_null_rep_job.map(null_payloads, order_outputs=False))
+            quant_vol.reload()
+        reps = cached_reps + list(mapped)
+        ng = assemble_twin_null_from_replicates(
+            reps, real_aucs, real_rics, NULL_FOLD_IDS_2C, n_replicates=len(use_seeds)
         )
         nulls[h] = ng
         ric = ng.get("rankic") or {}
@@ -398,6 +631,7 @@ def run_btcb_hsweep() -> dict:
         "new_pred_sha256": new_hash["sha256"],
         "new_pred_n_files": new_hash["n_files"],
         "funding_on": False,
+        "map_max_containers": 50,
     }
 
     rep_dir = Path("/data/quant/reports")
