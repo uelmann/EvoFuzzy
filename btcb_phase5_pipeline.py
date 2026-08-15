@@ -411,18 +411,22 @@ def stage_a_hourly() -> dict:
 
 
 class GpuBudget:
-    def __init__(self, cap_usd: float, usd_per_hour: float):
+    def __init__(self, cap_usd: float, usd_per_hour: float, prior_usd: float = 0.0):
         self.cap = float(cap_usd)
         self.rate = float(usd_per_hour)
+        self.prior = float(prior_usd)
         self.t0 = time.time()
         self.aborted = False
         self.abort_reason = None
 
-    def usd(self) -> float:
+    def session_usd(self) -> float:
         return (time.time() - self.t0) / 3600.0 * self.rate
 
+    def usd(self) -> float:
+        return self.prior + self.session_usd()
+
     def hours(self) -> float:
-        return (time.time() - self.t0) / 3600.0
+        return self.usd() / self.rate if self.rate else 0.0
 
     def seconds(self) -> float:
         return time.time() - self.t0
@@ -432,7 +436,10 @@ class GpuBudget:
             return False
         if self.usd() + float(reserve_usd) >= self.cap:
             self.aborted = True
-            self.abort_reason = f"gpu spend {self.usd():.2f}+reserve {reserve_usd:.2f} >= cap {self.cap:.2f}"
+            self.abort_reason = (
+                f"gpu spend {self.usd():.2f}+reserve {reserve_usd:.2f} >= cap {self.cap:.2f} "
+                f"(prior {self.prior:.2f} + session {self.session_usd():.2f})"
+            )
             print(f"[HB] BUDGET ABORT {self.abort_reason}", flush=True)
             return False
         return True
@@ -492,7 +499,21 @@ def stage_b_csattn() -> dict:
 
     t0 = time.time()
     hb = StageHeartbeat("B-csattn")
-    budget = GpuBudget(PHASE5_GPU_USD_CAP, PHASE5_A10G_USD_PER_HOUR)
+    spend_path = Path("/data/quant/btcb/phase5/gpu_spend.json")
+    prior_usd = 0.0
+    if spend_path.exists():
+        try:
+            prior_usd = float(json.loads(spend_path.read_text()).get("usd") or 0.0)
+        except Exception:
+            prior_usd = 0.0
+    pred_root_early = Path("/data/quant/btcb/phase5/preds")
+    n_existing = len(list(pred_root_early.glob("real/seed*/fold*.parquet"))) if pred_root_early.exists() else 0
+    if prior_usd <= 0 and n_existing > 0:
+        # Previous 24h GPU window wrote folds but no spend file (killed by platform timeout).
+        prior_usd = float(PHASE5_A10G_USD_PER_HOUR) * 24.0 * min(1.0, n_existing / 40.0)
+        print(f"[HB] inferred prior GPU USD={prior_usd:.2f} from {n_existing} fold parquets", flush=True)
+    budget = GpuBudget(PHASE5_GPU_USD_CAP, PHASE5_A10G_USD_PER_HOUR, prior_usd=prior_usd)
+    print(f"[HB] GPU budget prior=${budget.prior:.2f} cap=${budget.cap:.2f}", flush=True)
     addendum = Path("/root/btcb_phase5_csattn_addendum.md").read_text()
     for txt in (PHASE5_CRITERION, PHASE5_NULL_GATE, DEATH_CONVENTION):
         if txt not in addendum:
@@ -563,6 +584,17 @@ def stage_b_csattn() -> dict:
         if pred is not None and not pred.empty:
             pred.to_parquet(dest, index=False)
         mp.write_text(json.dumps(meta, indent=2, default=str))
+        spend_path.write_text(
+            json.dumps(
+                {
+                    "usd": budget.usd(),
+                    "session_usd": budget.session_usd(),
+                    "prior": budget.prior,
+                    "aborted": budget.aborted,
+                },
+                indent=2,
+            )
+        )
         commit()
         return pred, meta
 
@@ -774,6 +806,8 @@ def stage_b_csattn() -> dict:
         "usd": budget.usd(),
         "usd_per_hour": PHASE5_A10G_USD_PER_HOUR,
         "cap_usd": PHASE5_GPU_USD_CAP,
+        "prior_usd": budget.prior,
+        "session_usd": budget.session_usd(),
         "aborted": budget.aborted,
         "abort_reason": budget.abort_reason,
         "folds_done": folds_done,
@@ -878,9 +912,28 @@ def main():
     a_sum = fa.get()
     print(json.dumps(a_sum, indent=2, default=str)[:2000], flush=True)
     print("[local] STAGE B CS-ATTN (A10G)...", flush=True)
-    fb = stage_b_csattn.spawn()
-    print(f"[local] spawned B {getattr(fb, 'object_id', fb)}", flush=True)
-    b_sum = fb.get()
+    b_sum = None
+    for attempt in range(1, 4):
+        print(f"[local] STAGE B attempt {attempt}/3 (fold parquets resume)", flush=True)
+        fb = stage_b_csattn.spawn()
+        print(f"[local] spawned B {getattr(fb, 'object_id', fb)}", flush=True)
+        try:
+            b_sum = fb.get()
+        except Exception as e:
+            print(f"[local] B attempt {attempt} raised {type(e).__name__}: {e}", flush=True)
+            b_sum = {
+                "verdict": "PARKED",
+                "failed_clauses": ["incomplete_budget"],
+                "error": f"{type(e).__name__}: {e}",
+                "aborted": True,
+            }
+        failed = b_sum.get("failed_clauses") or []
+        need_more = bool(b_sum.get("aborted")) or ("incomplete_budget" in failed) or ("incomplete_null" in failed)
+        if not need_more:
+            break
+        print("[local] B incomplete — another 24h GPU window (shared $80 cap)", flush=True)
+    if b_sum is None:
+        b_sum = {"verdict": "PARKED", "failed_clauses": ["incomplete_budget"]}
     print("[local] syncing artifacts...", flush=True)
     import shutil
     import subprocess
