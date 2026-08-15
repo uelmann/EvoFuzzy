@@ -287,14 +287,13 @@ def run_btcb_p4v2() -> dict:
 
     missing_metrics = [s for s in perp_mapped if not (metrics_dir / f"{s}.parquet").exists()]
     download_log = []
-    if missing_metrics and len(missing_metrics) <= 20:
-        print(f"[HB] metrics missing {len(missing_metrics)} symbols; Vision gap fill", flush=True)
-        download_log.extend(fill_metrics_gaps(metrics_dir, missing_metrics, start_day="2020-09-01"))
-        quant_vol.commit()
-    elif missing_metrics:
+    # Full day-by-day Vision backfill for never-seen symbols is too slow for one-shot
+    # (≈10 min/symbol of mostly-404 probes). Reuse Phase D metrics cache; flag coverage.
+    # Only incremental recent fills on symbols that already have parquet files.
+    if missing_metrics:
         print(
-            f"[HB] {len(missing_metrics)} metrics symbols missing; skipping full historical backfill "
-            f"(Phase D cache expected). Sample={missing_metrics[:8]}",
+            f"[HB] metrics missing {len(missing_metrics)} symbols; SKIP full historical Vision "
+            f"backfill (use Phase D cache + coverage flags). Sample={missing_metrics[:12]}",
             flush=True,
         )
         download_log.append(
@@ -303,17 +302,16 @@ def run_btcb_p4v2() -> dict:
                 "n_new_rows": 0,
                 "n_todo": len(missing_metrics),
                 "skipped_full_backfill": True,
-                "sample": missing_metrics[:20],
+                "reason": "one_shot_timeout_guard_day_by_day_vision_too_slow",
+                "sample": missing_metrics[:40],
                 "source": "none",
             }
         )
     exist_metrics = [s for s in perp_mapped if (metrics_dir / f"{s}.parquet").exists()]
     if exist_metrics:
-        recent = fill_metrics_gaps(
-            metrics_dir,
-            exist_metrics,
-            start_day=(end - pd.Timedelta(days=14)).strftime("%Y-%m-%d"),
-        )
+        recent_start = (end - pd.Timedelta(days=7)).strftime("%Y-%m-%d")
+        print(f"[HB] metrics incremental fill from {recent_start} on {len(exist_metrics)} cached symbols", flush=True)
+        recent = fill_metrics_gaps(metrics_dir, exist_metrics, start_day=recent_start)
         download_log.extend([r for r in recent if int(r.get("n_new_rows") or 0) > 0])
         if any(int(r.get("n_new_rows") or 0) > 0 for r in recent):
             quant_vol.commit()

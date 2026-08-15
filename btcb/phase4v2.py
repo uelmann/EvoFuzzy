@@ -154,7 +154,8 @@ def fill_metrics_gaps(
                 existing["date"] = pd.to_datetime(existing["date"], utc=True)
                 have = set(existing["date"].dt.strftime("%Y-%m-%d"))
         last = max(have) if have else None
-        if last is not None and last >= (end - timedelta(days=3)).strftime("%Y-%m-%d"):
+        # skip symbols already fresh enough (avoid day-by-day 404 probes)
+        if last is not None and last >= (end - timedelta(days=5)).strftime("%Y-%m-%d"):
             continue
         todo = [d for d in days if d not in have]
         if not todo:
