@@ -43,14 +43,15 @@ Program closed at v2.0-combo-final; reference book = COMBO (Round F, confirmed F
 
 Production book config: β-matched, h=14, floored PIT top-100 dollar-volume. Positions from the 2.c spread cache (signals not recomputed). COMBO overlap corr remains 0.157 for allocation. MASTER combination book is out of scope (PI).
 
-**OFFICIAL SPREAD-LS RECORD SUSPENDED.** Phase 3.c price validation failed. Funding-off CMC numbers are not the live record and are not replaced. No improvement work proceeds until the pricing gap is understood.
+**OFFICIAL SPREAD-LS = BOOK-HYBRID (funding-on).** Resumed by Phase 3.e **SIGNAL-CONFIRMED**. Binance-priced numbers are canonical for all future phases.
 
-BOOK-CMC (funding-off, reference) Sharpe `1.818` / trail `2.458` / MaxDD `-25.8%`.
-BOOK-HYBRID (unofficial) Sharpe `1.555` / trail `1.381`.
+BOOK-HYBRID Sharpe `1.555` / trail `1.381`. RankIC BN `0.1517` vs same-names CMC `0.1542` (Δ `-0.0025`).
+
+Footnote: funding-off CMC BOOK-CMC Sharpe `1.818` is **deprecated** as of Phase 3.e (signal confirmed on Binance returns; gap is execution/pricing-level).
 
 ## BTC-BEATER academic factor (analysis only, not adopted)
 
-Unconstrained D10−D1 on CMC from the frozen 2.c spread. Labels diagnostic. 3.c suspension unchanged. Nothing adopted.
+Unconstrained D10−D1 on CMC from the frozen 2.c spread. Labels diagnostic. Academic factor not adopted. Official SPREAD-LS is BOOK-HYBRID as of Phase 3.e SIGNAL-CONFIRMED.
 
 **PAPER ALPHA EXISTS.** FACTOR-JT top-100 GROSS Sharpe `1.522` / NW-t `3.97` (need ≥ 1.0 and ≥ 3.0). n=2491, 2019-10-19→2026-08-13.
 
