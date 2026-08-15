@@ -357,3 +357,23 @@ UNIVERSE_SHARPE_TOL = 0.15
 UNIVERSE_MCAP_BEAT = 0.20
 UNIVERSE_FUNDING_ON = False  # 3.b has not run; all books funding-off
 UNIVERSE_PRIMARY_H = 14
+
+# ---------------------------------------------------------------------------
+# Horizon sweep — SPREAD-LS h ∈ {3, 7, 14, 30} (frozen a priori)
+# ---------------------------------------------------------------------------
+
+HORIZON_SWEEP_CRITERION = (
+    "h=14 is the incumbent. A different horizon becomes production only if its "
+    "null gate passes AND its trailing-18m net Sharpe ≥ incumbent + 0.15 AND its "
+    "full-OOS net Sharpe ≥ incumbent − 0.10. Among multiple qualifiers, highest "
+    "trailing wins. If none qualify, h=14 stays. Mechanical, no post-hoc adjustment."
+)
+
+HORIZON_SWEEP_HS = (3, 7, 14, 30)
+HORIZON_SWEEP_TRAIN = (3, 7)
+HORIZON_SWEEP_INCUMBENT = 14
+HORIZON_TRAIL_BEAT = 0.15
+HORIZON_FULL_TOL = 0.10
+HORIZON_FUNDING_ON = False  # 3.b has not run; all books funding-off
+PHASE2C_PRED_SHA256 = "28b0719167fe567d1a32e56bbb7bac77c597affb44b968dd40994ac985843f78"
+PHASE2C_PRED_N_FILES = 112
