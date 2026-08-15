@@ -297,3 +297,44 @@ STOUFFER_Z_MIN = 3.0
 SPREAD_RANKIC_SKILL = 0.01
 PRODUCT_REL_SHARPE = 0.30
 PRODUCT_ALT_MIN = 0.05  # average alt allocation = 1 - avg_w_btc
+
+# ---------------------------------------------------------------------------
+# Phase 3 — SPREAD-LS challenger (frozen a priori; no sweeps)
+# ---------------------------------------------------------------------------
+
+PHASE3_CRITERION = (
+    "SPREAD-LS is VIABLE if full-OOS net Sharpe ≥ 0.8 AND trailing-18m net Sharpe "
+    "≥ 0.3. It is SLEEVE-GRADE (candidate third sleeve alongside the frozen COMBO) "
+    "if additionally its daily PnL correlation with the COMBO on the overlapping "
+    "window is < 0.5 AND its same-window net Sharpe ≥ COMBO − 0.10. It is a "
+    "REPLACEMENT CANDIDATE only if same-window net Sharpe ≥ COMBO + 0.15. "
+    "Verdicts mechanical; the dollar-neutral variant is the headline; the "
+    "beta-matched variant is reported, not judged. No post-hoc adjustment."
+)
+
+PHASE3_FUNDING_CAVEAT = (
+    "FUNDING = 0. Funding is not available in this dataset; the sign of omitted "
+    "funding is unknown. This is a material caveat on SPREAD-LS net Sharpe. "
+    "Shorts on USDT-M perpetuals would have paid or received funding that is "
+    "not in this book."
+)
+
+LS_GROSS_LONG = 0.50
+LS_GROSS_SHORT = 0.50
+LS_DECILE_K = 10
+LS_QUINTILE_K = 20
+LS_MIN_SHORTABLE = 5
+LS_LONG_BPS = 10.0
+LS_SHORT_FEE_BPS = 5.0
+LS_SHORT_SLIP_BPS = 3.0
+LS_BETA_WINDOW = 90
+LS_BETA_MATCH_LOOKBACK = 60
+LS_TRAIL_DAYS = 547  # 18 months, same house convention as COMBO
+LS_VIABLE_FULL = 0.8
+LS_VIABLE_TRAIL = 0.3
+LS_SLEEVE_CORR_MAX = 0.5
+LS_SLEEVE_SHARPE_GAP = 0.10
+LS_REPLACE_SHARPE_GAP = 0.15
+LS_SQUEEZE_N = 20
+COMBO_OVERLAP_START = "2022-01-01"
+LS_OOS_START = "2019-10-01"
