@@ -503,3 +503,27 @@ LONGTIDE_ALT_MIN = 0.15
 LONGTIDE_CYCLE_REL_FLOOR = -0.30
 LONGTIDE_V1_P_ENTER = 0.60
 LONGTIDE_PRECONDITION = "SIGNAL-CONFIRMED"
+
+# ---------------------------------------------------------------------------
+# ORACLE LADDER — perfect-foresight ceiling + IC-degraded oracles
+# (frozen a priori; analysis only; nothing adopted)
+# ---------------------------------------------------------------------------
+
+ORACLE_LADDER_CRITERION = (
+    "MODEL EFFICIENCY verdict: our model sits ON-CURVE if its CAGR is within ±20% "
+    "(in log terms) of the ladder interpolation at its own realized RankIC — conclusion: "
+    "the binding constraint is INFORMATION, and improvement means new data, not new "
+    "architecture. It sits BELOW-CURVE if lower than that band — conclusion: TRANSLATION "
+    "slack exists in the signal→book layer, quantified as the CAGR gap. Mechanical, "
+    "no post-hoc adjustment."
+)
+
+ORACLE_LADDER_H = 14
+ORACLE_LADDER_H_SEC = 7
+ORACLE_LADDER_TARGETS = (0.50, 0.30, 0.20, 0.16, 0.10, 0.05)
+ORACLE_LADDER_SEEDS = (101, 102, 103, 104, 105)
+ORACLE_LADDER_MOM_DAYS = 90
+ORACLE_LADDER_LOG_BAND = 0.20
+ORACLE_LADDER_MIN_N = 8
+ORACLE_LADDER_DECILE = 10
+
