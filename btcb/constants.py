@@ -338,3 +338,22 @@ LS_REPLACE_SHARPE_GAP = 0.15
 LS_SQUEEZE_N = 20
 COMBO_OVERLAP_START = "2022-01-01"
 LS_OOS_START = "2019-10-01"
+
+# ---------------------------------------------------------------------------
+# Universe sensitivity — SPREAD-LS U ∈ {30, 50, 100} (frozen a priori)
+# ---------------------------------------------------------------------------
+
+UNIVERSE_SENS_CRITERION = (
+    "The production universe is the SMALLEST U whose full-OOS net Sharpe ≥ "
+    "(best U's Sharpe − 0.15) AND trailing-18m ≥ (best U's trailing − 0.15) — "
+    "i.e., prefer concentration/tradability only when it costs less than 0.15 "
+    "Sharpe. Dollar-volume ranking remains the house standard; the mcap table "
+    "is informational unless mcap beats volume by ≥ 0.20 on both windows for "
+    "the chosen U. Mechanical, no post-hoc adjustment."
+)
+
+UNIVERSE_NS = (30, 50, 100)
+UNIVERSE_SHARPE_TOL = 0.15
+UNIVERSE_MCAP_BEAT = 0.20
+UNIVERSE_FUNDING_ON = False  # 3.b has not run; all books funding-off
+UNIVERSE_PRIMARY_H = 14
