@@ -80,6 +80,8 @@ def _jsonable(x, drop=None):
         return bool(x)
     if isinstance(x, (pd.Series, pd.DataFrame)):
         return None
+    if isinstance(x, float):
+        return x if np.isfinite(x) else None
     return x
 
 
