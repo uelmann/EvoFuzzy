@@ -74,7 +74,8 @@ def _jsonable(x, drop=None):
     if isinstance(x, np.integer):
         return int(x)
     if isinstance(x, np.floating):
-        return float(x)
+        v = float(x)
+        return v if np.isfinite(v) else None
     if isinstance(x, np.bool_):
         return bool(x)
     if isinstance(x, (pd.Series, pd.DataFrame)):
@@ -385,7 +386,6 @@ def run_academic_factor_job() -> dict:
         "cmc_book": slim_factor(cmc_metrics),
         "hybrid_book": slim_factor(hyb_metrics),
     }
-    # slim_factor on factor_metrics-only dicts (no avg_n_*) is fine
     (rep_dir / "btcb_academic_factor.json").write_text(json.dumps(_jsonable(payload), indent=2, default=str))
     quant_vol.commit()
 

@@ -387,8 +387,9 @@ def waterfall_table(
     rows = []
     prev = None
     for name, blob in steps:
-        sh = float(blob.get("sharpe") if blob.get("sharpe") is not None else blob.get("net_sharpe"))
-        d = float(sh - prev) if prev is not None and np.isfinite(sh) and np.isfinite(prev) else float("nan")
+        d = None
+        if prev is not None and np.isfinite(sh) and np.isfinite(prev):
+            d = float(sh - prev)
         rows.append(
             {
                 "step": name,

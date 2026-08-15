@@ -48,3 +48,13 @@ Production book config: β-matched, h=14, floored PIT top-100 dollar-volume. Pos
 BOOK-CMC (funding-off, reference) Sharpe `1.818` / trail `2.458` / MaxDD `-25.8%`.
 BOOK-HYBRID (unofficial) Sharpe `1.555` / trail `1.381`.
 
+## BTC-BEATER academic factor (analysis only, not adopted)
+
+Unconstrained D10−D1 on CMC from the frozen 2.c spread. Labels diagnostic. 3.c suspension unchanged. Nothing adopted.
+
+**PAPER ALPHA EXISTS.** FACTOR-JT top-100 GROSS Sharpe `1.522` / NW-t `3.97` (need ≥ 1.0 and ≥ 3.0). n=2491, 2019-10-19→2026-08-13.
+
+IMPLEMENTATION TAX (paper GROSS − 3.c hybrid) = `-0.033`. Waterfall Sharpe: `1.522` → naive `1.423` (Δ `-0.100`) → shortability `1.393` (Δ `-0.030`) → real costs `1.399` (Δ `+0.006`) → hybrid `1.555` (Δ `+0.156`).
+
+Paper alpha lives mainly in the short side: universe−short Sharpe `1.637` (mean share 0.76) vs long−universe `0.770` (0.24). Corr vs BOOK-CMC `0.693` / vs hybrid `0.677`.
+
