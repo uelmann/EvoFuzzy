@@ -203,9 +203,11 @@ def download_symbol_months(
     # Vision dumps are usually epoch-ms; some spot files are epoch-us.
     ot = all_df["open_time"].to_numpy(dtype="float64")
     ms = np.where(ot > 1e14, ot / 1000.0, ot)
-    all_df["date"] = pd.to_datetime(ms, unit="ms", utc=True, errors="coerce")
+    all_df["date"] = pd.to_datetime(ms, unit="ms", utc=True, errors="coerce").normalize()
     all_df = all_df.dropna(subset=["date"])
-    all_df = all_df[(all_df["date"] >= "2017-01-01") & (all_df["date"] <= "2030-12-31")]
+    lo = pd.Timestamp("2017-01-01", tz="UTC")
+    hi = pd.Timestamp("2030-12-31", tz="UTC")
+    all_df = all_df[(all_df["date"] >= lo) & (all_df["date"] <= hi)]
     for c in ["open", "high", "low", "close", "volume", "quote_volume"]:
         all_df[c] = pd.to_numeric(all_df[c], errors="coerce")
     all_df["symbol"] = symbol

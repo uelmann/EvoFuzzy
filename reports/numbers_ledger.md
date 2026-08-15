@@ -38,3 +38,13 @@ The 1.401 figure is the Phase D published tranche number and the D.2 isolation r
 Changelog (2026-08-13): Round F5: P2 sleeve INCUMBENT → C0 (full=1.470 trail=0.723); COMBO′ ADOPTED → reference COMBO′ (full=1.711 trail=0.997).
 
 Program closed at v2.0-combo-final; reference book = COMBO (Round F, confirmed F5); all future numbers must cite this ledger.
+
+## BTC-BEATER SPREAD-LS (Phase 3.c Binance replay)
+
+Production book config: β-matched, h=14, floored PIT top-100 dollar-volume. Positions from the 2.c spread cache (signals not recomputed). COMBO overlap corr remains 0.157 for allocation. MASTER combination book is out of scope (PI).
+
+**OFFICIAL SPREAD-LS RECORD SUSPENDED.** Phase 3.c price validation failed. Funding-off CMC numbers are not the live record and are not replaced. No improvement work proceeds until the pricing gap is understood.
+
+BOOK-CMC (funding-off, reference) Sharpe `1.818` / trail `2.458` / MaxDD `-25.8%`.
+BOOK-HYBRID (unofficial) Sharpe `1.555` / trail `1.381`.
+

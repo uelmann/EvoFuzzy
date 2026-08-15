@@ -60,10 +60,13 @@ def _book_row(name: str, b: dict, fund_key: str = "funding_total_pnl") -> str:
 
 def _cov_year_table(side: dict) -> list[str]:
     by = side.get("by_year") or {}
+    names = side.get("never_listed") or []
+    n_never = sum(1 for x in names if x.get("reason") == "never_listed")
+    n_mapped = sum(1 for x in names if x.get("reason") != "never_listed")
     lines = [
         f"**{side.get('label')}:** {_pct(side.get('pct_replayable'))} "
         f"({side.get('n_replayable')}/{side.get('n_name_days')} name-days). "
-        f"Never-listed names: {side.get('n_never_listed_names', 0)}.",
+        f"Never listed on Binance: {n_never}. Listed but no replayable name-days: {n_mapped}.",
         "",
         "| year | name-days | replayable | % |",
         "|------|-----------|------------|---|",
@@ -103,8 +106,10 @@ def write_phase3c(
             "Official SPREAD-LS record is SUSPENDED. No improvement work proceeds "
             "until the pricing gap is understood."
         )
-    never_l = (coverage.get("long") or {}).get("never_listed") or []
-    never_s = (coverage.get("short") or {}).get("never_listed") or []
+    never_l = [x for x in ((coverage.get("long") or {}).get("never_listed") or []) if x.get("reason") == "never_listed"]
+    mapped_l = [x for x in ((coverage.get("long") or {}).get("never_listed") or []) if x.get("reason") != "never_listed"]
+    never_s = [x for x in ((coverage.get("short") or {}).get("never_listed") or []) if x.get("reason") == "never_listed"]
+    mapped_s = [x for x in ((coverage.get("short") or {}).get("never_listed") or []) if x.get("reason") != "never_listed"]
 
     lines = [
         "# BTC-BEATER Phase 3.c — Binance replay of SPREAD-LS",
@@ -175,17 +180,19 @@ def write_phase3c(
         "",
         "### Never-listed / unmapped names (kept at CMC in hybrid, flagged)",
         "",
-        f"Longs never listed on Binance spot: {len(never_l)}. "
-        f"Shorts never listed on USDT-M perp: {len(never_s)}.",
+        f"Longs never listed on Binance spot: {len(never_l)} "
+        f"(plus {len(mapped_l)} listed but with no replayable long name-days). "
+        f"Shorts never listed on USDT-M perp: {len(never_s)} "
+        f"(plus {len(mapped_s)} listed but with no replayable short name-days).",
         "",
     ]
     if never_l:
-        lines.append("Long sample: " + ", ".join(
+        lines.append("Long never-listed sample: " + ", ".join(
             f"{x.get('symbol')}({x.get('id')})" for x in never_l[:25]
         ))
         lines.append("")
     if never_s:
-        lines.append("Short sample: " + ", ".join(
+        lines.append("Short never-listed sample: " + ", ".join(
             f"{x.get('symbol')}({x.get('id')})" for x in never_s[:25]
         ))
         lines.append("")
