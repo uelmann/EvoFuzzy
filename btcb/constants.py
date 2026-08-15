@@ -355,7 +355,7 @@ UNIVERSE_SENS_CRITERION = (
 UNIVERSE_NS = (30, 50, 100)
 UNIVERSE_SHARPE_TOL = 0.15
 UNIVERSE_MCAP_BEAT = 0.20
-UNIVERSE_FUNDING_ON = False  # 3.b has not run; all books funding-off
+UNIVERSE_FUNDING_ON = False  # 3.b dropped; 3.c decides funding-on hybrid
 UNIVERSE_PRIMARY_H = 14
 
 # ---------------------------------------------------------------------------
@@ -374,6 +374,60 @@ HORIZON_SWEEP_TRAIN = (3, 7)
 HORIZON_SWEEP_INCUMBENT = 14
 HORIZON_TRAIL_BEAT = 0.15
 HORIZON_FULL_TOL = 0.10
-HORIZON_FUNDING_ON = False  # 3.b has not run; all books funding-off
+HORIZON_FUNDING_ON = False  # 3.b dropped; 3.c decides funding-on hybrid
 PHASE2C_PRED_SHA256 = "28b0719167fe567d1a32e56bbb7bac77c597affb44b968dd40994ac985843f78"
 PHASE2C_PRED_N_FILES = 112
+
+# ---------------------------------------------------------------------------
+# Phase 3.c — Binance replay of SPREAD-LS (frozen a priori; no sweeps)
+# Replaces Phase 3.b. MASTER book removed from scope by PI.
+# ---------------------------------------------------------------------------
+
+PHASE3C_BETA_MATCH_DESIGNATION = (
+    "The Phase 3 freeze designated dollar-neutral as the judged headline and "
+    "β-matched as reported-not-judged. After seeing results (DN β=−0.122, "
+    "β-matched β=0.025), β-matched is designated the production SPREAD-LS book. "
+    "This is disclosed, not hidden. Phase 3 mechanical verdicts (VIABLE, not "
+    "SLEEVE-GRADE, not replacement) remain those of the DN headline and are not "
+    "retroactively rewritten. All subsequent work (funding-on, MASTER) uses the "
+    "β-matched book."
+)
+
+PHASE3C_HOUSE_RULE = (
+    "The bias clause of future null gates reverts to the original E.1b "
+    "tolerance: CONTAMINATED requires ≥2 fold-level violations of the 2·SE "
+    "bound, not 1. The 'every fold' variant has ≈25% false-alarm probability "
+    "with 6 folds. No past verdicts change."
+)
+
+PHASE3C_MASTER_NOTE = (
+    "MASTER (COMBO+SPREAD-LS combination) removed from scope by PI decision; "
+    "the 0.157 correlation remains on the ledger for allocation purposes."
+)
+
+PHASE3C_VALIDATION = (
+    "PRICES ARE VALIDATED if, on the replayable subset, BOOK-BINANCE-ONLY daily "
+    "PnL correlation with the same-days CMC-priced book is ≥ 0.95 AND its net "
+    "Sharpe ≥ (same-days CMC Sharpe − 0.15). If validated, BOOK-HYBRID "
+    "(funding-on) becomes the OFFICIAL SPREAD-LS record; funding-off CMC "
+    "numbers are deprecated with a ledger footnote. If NOT validated, the "
+    "discrepancy is quantified per year and per name-tier, the official record "
+    "is suspended, and no improvement work proceeds until the pricing gap is "
+    "understood. Mechanical, no post-hoc adjustment."
+)
+
+PHASE3C_CORR_MIN = 0.95
+PHASE3C_SHARPE_TOL = 0.15
+PHASE3C_REF_VARIANT = "bm_h14"
+PHASE3C_REF_H = 14
+PHASE3C_REF_START = "2019-10-19"
+PHASE3C_REF_END = "2026-08-13"
+PHASE3C_REF_N_DAYS = 2491
+PHASE3C_REF_SHARPE = 1.8177621190077422
+PHASE3C_REF_TRAIL = 2.457536436771376
+PHASE3C_REF_MAXDD = -0.2581255543376627
+PHASE3C_REF_BTC_HITS = 0
+COMBO_SPREADLS_CORR = 0.157
+# Future null gates only. Existing _metric_verdict still requires every fold.
+FUTURE_NULL_BIAS_MIN_VIOLATIONS = 2
+PHASE3C_NAME_TIERS = ((1, 10, "1-10"), (11, 50, "11-50"), (51, 100, "51-100"))

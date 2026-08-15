@@ -254,6 +254,10 @@ def _stouffer_z(cells: list[dict], real_key: str) -> float:
 
 
 def _metric_verdict(cells: list[dict], real_key: str, k_exceed: int, z_min: float) -> dict:
+    # RECORD ONLY (Phase 3.c house-rule): future null gates revert to the E.1b
+    # tolerance — CONTAMINATED requires ≥2 fold-level 2·SE violations, not 1
+    # (FUTURE_NULL_BIAS_MIN_VIOLATIONS). This function is unchanged so that
+    # past verdicts (every-fold bias) are not rewritten. No past run is re-gated.
     n_exceed = int(sum(1 for c in cells if c.get("exceeds_p95")))
     n_bias = int(sum(1 for c in cells if c.get("bias_ok")))
     z = _stouffer_z(cells, real_key)
