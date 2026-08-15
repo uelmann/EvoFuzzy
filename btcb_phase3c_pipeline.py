@@ -8,7 +8,9 @@ Usage: modal run --detach btcb_phase3c_pipeline.py
 
 from __future__ import annotations
 
+import hashlib
 import json
+import threading
 import time
 from pathlib import Path
 
@@ -44,6 +46,57 @@ image = (
 )
 
 app = modal.App(APP_NAME, image=image)
+
+CMC_PANEL = Path("/data/quant/btcb/full/panel.parquet")
+CMC_PRED = Path("/data/quant/btcb/phase2c/preds")
+CMC_FEAT = Path("/data/quant/btcb/phase2b/feat_s.parquet")
+
+
+def _file_sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+class StageHeartbeat:
+    """60s heartbeat; loud warning if a stage is silent for 20 minutes."""
+
+    def __init__(self, stage: str):
+        self.stage = stage
+        self.t0 = time.time()
+        self.last = time.time()
+        self.stop = threading.Event()
+        self.warned = False
+        self.th = threading.Thread(target=self._run, daemon=True)
+        self.th.start()
+        print(f"[HB] STAGE START {stage}", flush=True)
+
+    def ping(self, msg: str = "") -> None:
+        self.last = time.time()
+        extra = f" {msg}" if msg else ""
+        print(f"[HB] {self.stage}{extra} elapsed={time.time() - self.t0:.0f}s", flush=True)
+
+    def _run(self) -> None:
+        while not self.stop.wait(60.0):
+            now = time.time()
+            silent = now - self.last
+            print(
+                f"[HB] {self.stage} heartbeat elapsed={now - self.t0:.0f}s silent={silent:.0f}s",
+                flush=True,
+            )
+            if silent >= 20 * 60 and not self.warned:
+                print(
+                    f"[WARN] STAGE {self.stage} EXCEEDED 20 MIN WITHOUT LOG PROGRESS "
+                    f"silent={silent:.0f}s — continuing",
+                    flush=True,
+                )
+                self.warned = True
+
+    def close(self) -> None:
+        self.stop.set()
+        print(f"[HB] STAGE END {self.stage} elapsed={time.time() - self.t0:.0f}s", flush=True)
 
 
 def _jsonable(x, drop=None):
@@ -220,12 +273,16 @@ def run_btcb_p3c() -> dict:
     def commit():
         quant_vol.commit()
 
+    if not CMC_PANEL.exists():
+        raise RuntimeError(f"missing panel {CMC_PANEL}")
+    cmc_panel_sha0 = _file_sha256(CMC_PANEL)
+    cmc_feat_sha0 = _file_sha256(CMC_FEAT) if CMC_FEAT.exists() else None
+    print(f"[HB] CMC READ-ONLY snapshot panel_sha256={cmc_panel_sha0} feat_sha256={cmc_feat_sha0}", flush=True)
+
     cfg = yaml.safe_load(Path("/root/config.yaml").read_text())
     start_month = str(cfg.get("data", {}).get("start_month") or "2019-09")
 
-    panel_path = Path("/data/quant/btcb/full/panel.parquet")
-    if not panel_path.exists():
-        raise RuntimeError(f"missing panel {panel_path}")
+    panel_path = CMC_PANEL
     panel = pd.read_parquet(panel_path)
     panel["date"] = pd.to_datetime(panel["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
     panel["id"] = panel["id"].astype(int)
@@ -299,6 +356,7 @@ def run_btcb_p3c() -> dict:
     print(f"[HB] funding symbols={len(fund_syms)} rows={len(funding)}", flush=True)
 
     print("[HB] running β-matched h=14 engine (position log)...", flush=True)
+    hb = StageHeartbeat("engine")
     packed = run_spread_ls(
         cleaned,
         pit100,
@@ -310,6 +368,7 @@ def run_btcb_p3c() -> dict:
         beta_matched=True,
         emit_position_log=True,
     )
+    hb.close()
     if packed.get("error"):
         raise RuntimeError(f"engine failed: {packed}")
     if int(packed.get("btc_in_book_hits") or 0) != 0:
@@ -367,15 +426,21 @@ def run_btcb_p3c() -> dict:
         else:
             todo.append({"symbol": sym, "start_month": start_month})
     print(
-        f"[HB] spot needed={len(need['symbols'])} reused={len(reused)} download={len(todo)}",
+        f"[HB] spot needed={len(need['symbols'])} reused={len(reused)} download={len(todo)} "
+        f"(idempotent: skip existing parquets)",
         flush=True,
     )
     dl_log = []
     if todo:
+        hb_dl = StageHeartbeat("spot_download")
         for i in range(0, len(todo), 80):
             part = todo[i : i + 80]
+            hb_dl.ping(f"batch {i//80 + 1} n={len(part)}")
             dl_log.extend(list(download_one_spot.map(part, order_outputs=False)))
             quant_vol.reload()
+        hb_dl.close()
+    else:
+        print("[HB] spot download skipped — all needed parquets already cached", flush=True)
     quant_vol.reload()
     n_downloaded = int(sum(1 for r in dl_log if not r.get("reused")))
     n_empty = int(sum(1 for r in dl_log if r.get("empty")))
@@ -422,7 +487,15 @@ def run_btcb_p3c() -> dict:
     )
 
     print("[HB] replaying three books...", flush=True)
+    hb_rp = StageHeartbeat("replay")
     replayed = replay_three_books(plog, cmc_close, spot_wide, perp_wide, fund_wide, packed)
+    hb_rp.close()
+    if replayed["sanity"].get("position_sha256") != packed.get("position_sha256"):
+        raise RuntimeError("position log sha256 mismatch across books")
+    print(
+        f"[HB] positions byte-identical across three books sha256={packed.get('position_sha256')}",
+        flush=True,
+    )
     val = replayed["validation"]
     print(
         f"[HB] validation corr={val.get('corr')} sh_bn={val.get('sharpe_binance_only')} "
@@ -551,28 +624,53 @@ def run_btcb_p3c() -> dict:
     (rep_dir / "btcb_phase3c_binance_replay.json").write_text(json.dumps(payload, indent=2, default=str))
     commit()
 
+    cmc_panel_sha1 = _file_sha256(CMC_PANEL)
+    cmc_feat_sha1 = _file_sha256(CMC_FEAT) if CMC_FEAT.exists() else None
+    pred_hash_end = hash_pred_dir(CMC_PRED)
+    if cmc_panel_sha1 != cmc_panel_sha0:
+        raise RuntimeError(f"CMC panel mutated during 3.c panel {cmc_panel_sha0} → {cmc_panel_sha1}")
+    if cmc_feat_sha0 is not None and cmc_feat_sha1 != cmc_feat_sha0:
+        raise RuntimeError("CMC/feat parquet mutated during 3.c")
+    if pred_hash_end["sha256"] != PHASE2C_PRED_SHA256:
+        raise RuntimeError("2.c pred cache mutated during 3.c")
+
     hyb = books["hybrid"]
     top = (replayed.get("top_disagreements") or [{}])[0]
     verdict_s = "PRICES ARE VALIDATED" if val.get("validated") else "PRICES ARE NOT VALIDATED"
-    print(f"VERDICT: {verdict_s}", flush=True)
+    n_never_l = sum(1 for x in (cov["long"].get("never_listed") or []) if x.get("reason") == "never_listed")
+    n_never_s = sum(1 for x in (cov["short"].get("never_listed") or []) if x.get("reason") == "never_listed")
+    print(f"VALIDATION: {verdict_s}", flush=True)
     print(
         "OFFICIAL SPREAD-LS (funding-on hybrid): "
-        f"Sharpe full={float(hyb.get('net_sharpe')):.3f}/trail={float(hyb.get('net_sharpe_trail18m')):.3f} "
+        f"Sharpe full={float(hyb.get('net_sharpe')):.3f} / trailing={float(hyb.get('net_sharpe_trail18m')):.3f} "
         f"MaxDD={100.0 * float(hyb.get('maxdd')):.1f}% "
         f"funding_pnl={float(hyb.get('funding_total_pnl') or 0):.4f} "
-        f"funding_share_of_|gross|={hyb.get('funding_share_of_gross')} "
-        f"validated={bool(val.get('validated'))}",
+        f"funding_share_of_|gross|={float(hyb.get('funding_share_of_gross') or 0):.4f} "
+        f"record={'OFFICIAL' if val.get('validated') else 'SUSPENDED'}",
         flush=True,
     )
     print(
-        f"COVERAGE longs={cov['long'].get('pct_replayable')} "
-        f"shorts={cov['short'].get('pct_replayable')} "
-        f"hybrid_flagged={replayed.get('hybrid_flagged_share')}",
+        f"COVERAGE longs: {100.0 * float(cov['long'].get('pct_replayable')):.1f}% "
+        f"({cov['long'].get('n_replayable')}/{cov['long'].get('n_name_days')} name-days) "
+        f"never_listed={n_never_l}",
         flush=True,
     )
     print(
-        f"TOP DISAGREEMENT date={top.get('date')} id={top.get('id')} symbol={top.get('symbol')} "
+        f"COVERAGE shorts: {100.0 * float(cov['short'].get('pct_replayable')):.1f}% "
+        f"({cov['short'].get('n_replayable')}/{cov['short'].get('n_name_days')} name-days) "
+        f"never_listed={n_never_s}",
+        flush=True,
+    )
+    print(
+        f"TOP DISAGREEMENT: date={top.get('date')} {top.get('symbol')}({top.get('id')}) "
         f"side={top.get('side')} w={top.get('w')} d_r={top.get('d_r')} contrib_diff={top.get('contrib_diff')}",
+        flush=True,
+    )
+    print(
+        f"CMC RAW DATA READ-ONLY ASSERT: panel_sha256={cmc_panel_sha1} UNCHANGED; "
+        f"feat_sha256={cmc_feat_sha1} UNCHANGED; "
+        f"2.c preds sha256={pred_hash_end['sha256']} UNCHANGED; "
+        f"writes only under /data/quant/raw/spot_klines and /data/quant/btcb/phase3c + reports/charts.",
         flush=True,
     )
     print("COMBO untouched. No MASTER. GPU=false.", flush=True)
@@ -591,6 +689,8 @@ def run_btcb_p3c() -> dict:
         "gpu_used": False,
         "pred_sha256": pred_hash["sha256"],
         "position_sha256": packed.get("position_sha256"),
+        "cmc_panel_sha256": cmc_panel_sha1,
+        "cmc_untouched": True,
     }
 
 
