@@ -219,20 +219,24 @@ def eligibility_mask(panel: pd.DataFrame) -> pd.DataFrame:
     out = df[["date", "id", "symbol"]].copy()
     out["eligible"] = ok.astype(bool)
     out["dv_med30"] = df["dv_med30"]
+    out["mcap_med30"] = df.groupby("id")["mcap"].transform(
+        lambda s: s.rolling(PIT_DV_WINDOW, min_periods=min(PIT_DV_MIN_PERIODS, PIT_DV_WINDOW)).median()
+    )
     return out
 
 
-def build_floored_pit(panel: pd.DataFrame, n: int) -> tuple[pd.DataFrame, dict]:
+def build_floored_pit(panel: pd.DataFrame, n: int, score: str = "dv") -> tuple[pd.DataFrame, dict]:
     elig = eligibility_mask(panel)
     df = panel.copy()
     df["date"] = _utc(df["date"])
     df["id"] = df["id"].astype(int)
-    merged = df.merge(elig[["date", "id", "eligible", "dv_med30"]], on=["date", "id"], how="left")
+    score_col = "mcap_med30" if score == "mcap" else "dv_med30"
+    merged = df.merge(elig[["date", "id", "eligible", score_col]], on=["date", "id"], how="left")
     merged["eligible"] = merged["eligible"].fillna(False)
     score_src = merged[merged["eligible"]].copy()
     if score_src.empty:
         return pd.DataFrame(columns=["date", "id", "symbol", "rank", "score"]), {"n_eligible_rows": 0}
-    wide = score_src.pivot(index="date", columns="id", values="dv_med30").sort_index()
+    wide = score_src.pivot(index="date", columns="id", values=score_col).sort_index()
     last_sym = score_src.sort_values("date").groupby("id")["symbol"].last()
     pit = build_pit_topn_ids(wide, n=n, last_sym=last_sym)
     by_d = elig[elig["eligible"]].groupby("date").size()
@@ -245,9 +249,11 @@ def build_floored_pit(panel: pd.DataFrame, n: int) -> tuple[pd.DataFrame, dict]:
         "n_dates": int(by_d.shape[0]) if len(by_d) else 0,
         "pit_rows": int(len(pit)),
         "pit_n": int(n),
+        "score": str(score),
+        "score_col": score_col,
     }
     print(
-        f"[HB] floored PIT n={n} rows={len(pit)} eligible_ids={extra['n_eligible_ids']} "
+        f"[HB] floored PIT n={n} score={score} rows={len(pit)} eligible_ids={extra['n_eligible_ids']} "
         f"med_elig/day={extra['median_eligible_per_date']:.0f}",
         flush=True,
     )

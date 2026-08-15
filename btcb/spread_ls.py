@@ -338,6 +338,8 @@ def run_spread_ls(
     beta_matched: bool = False,
     name_cap: float = NAME_CAP,
     blowoff: float = BLOWOFF_RET_7,
+    decile_k: int | None = None,
+    quintile_k: int | None = None,
 ) -> dict:
     df = panel.copy()
     df["date"] = pd.to_datetime(df["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
@@ -369,6 +371,8 @@ def run_spread_ls(
 
     beta_w = trailing_beta_wide(close, btc_id) if beta_matched else None
 
+    k_enter = int(decile_k) if decile_k is not None else int(LS_DECILE_K)
+    k_stay = int(quintile_k) if quintile_k is not None else int(LS_QUINTILE_K)
     oos_dates = [d for d in close.index if d in swide.index]
     if len(oos_dates) < h + 5:
         return {"error": "not enough OOS dates", "horizon": h, "beta_matched": beta_matched}
@@ -383,6 +387,7 @@ def run_spread_ls(
     lg_s, sg_s, cash_s = [], [], []
     forced_exits, forced_covers = [], []
     btc_hits = 0
+    contrib: dict[int, float] = {}
 
     def _ranks(dt) -> tuple[list[int], dict[int, int]]:
         names = [s for s in members.get(dt, []) if s in close.columns and int(s) != int(btc_id)]
@@ -404,8 +409,8 @@ def run_spread_ls(
     def _picks(dt, prev_long: list[int], prev_short: list[int]):
         ordered, rank = _ranks(dt)
         n = len(ordered)
-        k_dec = min(LS_DECILE_K, n)
-        k_q = min(LS_QUINTILE_K, n)
+        k_dec = min(k_enter, n)
+        k_q = min(k_stay, n)
         sh_today = shortable.get(_utc_key(dt), set())
         n_shortable = sum(1 for iid in ordered if iid in sh_today)
 
@@ -549,7 +554,9 @@ def run_spread_ls(
             simple = close.loc[nxt] / close.loc[dt] - 1.0
             for s, wi in applied.items():
                 if s in simple.index and np.isfinite(simple[s]):
-                    r += float(wi) * float(simple[s])
+                    rs = float(wi) * float(simple[s])
+                    r += rs
+                    contrib[int(s)] = contrib.get(int(s), 0.0) + rs
         net = r - cost
         daily.append(net)
         to_list.append(turnover)
@@ -603,9 +610,108 @@ def run_spread_ls(
                 "symbols": [id_to_sym.get(i) for i in sorted({i for e in forced_covers for i in e["ids"]})[:40]],
             },
             "id_to_sym": {int(k): v for k, v in id_to_sym.items()},
+            "decile_k": int(k_enter),
+            "quintile_k": int(k_stay),
+            "contrib": contrib,
+            "concentration": name_concentration(contrib, id_to_sym, top_n=5),
         }
     )
     return packed
+
+
+def name_concentration(contrib: dict, id_to_sym: dict, top_n: int = 5) -> dict:
+    if not contrib:
+        return {"top5_pnl_share": float("nan"), "top5_abs_share": float("nan"), "top5": []}
+    tot = float(sum(contrib.values()))
+    abs_tot = float(sum(abs(v) for v in contrib.values()))
+    ranked = sorted(contrib.items(), key=lambda kv: -abs(kv[1]))[: int(top_n)]
+    top_sum = float(sum(v for _, v in ranked))
+    top_abs = float(sum(abs(v) for _, v in ranked))
+    return {
+        "top5_pnl_share": (top_sum / tot) if tot else float("nan"),
+        "top5_abs_share": (top_abs / abs_tot) if abs_tot else float("nan"),
+        "top5": [
+            {"id": int(i), "symbol": id_to_sym.get(int(i)), "contrib": float(c)}
+            for i, c in ranked
+        ],
+    }
+
+
+def within_universe_rankic(twin: pd.DataFrame, pit: pd.DataFrame, horizon: int = 14) -> float:
+    from btcb.model import mean_per_date_rank_ic
+
+    pr = twin.copy()
+    pr["date"] = pd.to_datetime(pr["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
+    pr["id"] = pr["id"].astype(int)
+    pr = pr.sort_values(["date", "id", "fold_id"]).drop_duplicates(["date", "id"], keep="last")
+    u = pit.copy()
+    u["date"] = pd.to_datetime(u["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
+    u["id"] = u["id"].astype(int)
+    m = pr.merge(u[["date", "id"]], on=["date", "id"], how="inner")
+    excol = f"excess_h{horizon}"
+    if excol not in m.columns or "spread" not in m.columns or m.empty:
+        return float("nan")
+    return mean_per_date_rank_ic(m["spread"].to_numpy(), m[excol].to_numpy(), m["date"].to_numpy())
+
+
+def choose_production_universe(dv_books: dict) -> dict:
+    from btcb.constants import UNIVERSE_MCAP_BEAT, UNIVERSE_NS, UNIVERSE_SHARPE_TOL
+
+    fulls = {int(n): float(dv_books[n].get("net_sharpe")) for n in UNIVERSE_NS}
+    trails = {int(n): float(dv_books[n].get("net_sharpe_trail18m")) for n in UNIVERSE_NS}
+    best_full = max(fulls.values())
+    best_trail = max(trails.values())
+    need_full = best_full - float(UNIVERSE_SHARPE_TOL)
+    need_trail = best_trail - float(UNIVERSE_SHARPE_TOL)
+    chosen = None
+    for n in UNIVERSE_NS:
+        ok_f = np.isfinite(fulls[n]) and fulls[n] + 1e-12 >= need_full
+        ok_t = np.isfinite(trails[n]) and trails[n] + 1e-12 >= need_trail
+        if ok_f and ok_t:
+            chosen = int(n)
+            break
+    fallback = chosen is None
+    if fallback:
+        chosen = int(max(UNIVERSE_NS, key=lambda n: (fulls[n] if np.isfinite(fulls[n]) else -1e9, -n)))
+    return {
+        "chosen_u": chosen,
+        "fallback": bool(fallback),
+        "best_full": best_full,
+        "best_trail": best_trail,
+        "need_full": need_full,
+        "need_trail": need_trail,
+        "fulls": fulls,
+        "trails": trails,
+        "tol": float(UNIVERSE_SHARPE_TOL),
+        "mcap_beat": float(UNIVERSE_MCAP_BEAT),
+        "ranking": "dollar_volume",
+    }
+
+
+def mcap_overrides_volume(choice: dict, dv: dict, mcap: dict) -> dict:
+    from btcb.constants import UNIVERSE_MCAP_BEAT
+
+    u = int(choice["chosen_u"])
+    dv_f, dv_t = float(dv[u].get("net_sharpe")), float(dv[u].get("net_sharpe_trail18m"))
+    mc_f, mc_t = float(mcap[u].get("net_sharpe")), float(mcap[u].get("net_sharpe_trail18m"))
+    beat = bool(
+        np.isfinite(mc_f)
+        and np.isfinite(mc_t)
+        and np.isfinite(dv_f)
+        and np.isfinite(dv_t)
+        and mc_f + 1e-12 >= dv_f + float(UNIVERSE_MCAP_BEAT)
+        and mc_t + 1e-12 >= dv_t + float(UNIVERSE_MCAP_BEAT)
+    )
+    return {
+        "u": u,
+        "mcap_beats_volume": beat,
+        "ranking": "mcap" if beat else "dollar_volume",
+        "dv_full": dv_f,
+        "dv_trail": dv_t,
+        "mcap_full": mc_f,
+        "mcap_trail": mc_t,
+        "need_delta": float(UNIVERSE_MCAP_BEAT),
+    }
 
 
 def squeeze_table(ls_rets: pd.Series, basket: pd.Series, n: int = LS_SQUEEZE_N) -> list[dict]:
@@ -618,7 +724,7 @@ def squeeze_table(ls_rets: pd.Series, basket: pd.Series, n: int = LS_SQUEEZE_N) 
         rows.append(
             {
                 "date": str(pd.Timestamp(dt).date()),
-                "ew_top100": float(br),
+                "ew_basket": float(br),
                 "spread_ls": float(a.loc[dt]) if dt in a.index else float("nan"),
             }
         )
