@@ -260,8 +260,9 @@ def run_periodic_long(
     cost_bps: float = ALT_BPS,
     name_cap: float = NAME_CAP,
     label: str = "",
+    weight_fn=None,
 ) -> dict:
-    """Daily-marked EW top-decile book. score_at[t] is a Series of scores at formation t."""
+    """Daily-marked long book. Default: EW top-decile. score_at[t] is scores at formation t."""
     close = close.copy()
     close.index = _utc_idx(close.index)
     close = close.sort_index()
@@ -275,8 +276,10 @@ def run_periodic_long(
     daily = {}
     ics = []
     n_names = []
+    to_list = []
     forced_events = []
     n_form = 0
+    _wfn = weight_fn if weight_fn is not None else (lambda sc: top_decile_weights(sc, cap=name_cap))
 
     for t, t_h, _i in pairs:
         t, t_h = _as_utc(t), _as_utc(t_h)
@@ -288,7 +291,11 @@ def run_periodic_long(
             ic = float("nan")
         else:
             sc = pd.Series(sc, dtype=float)
-            w = top_decile_weights(sc, cap=name_cap)
+            w = _wfn(sc)
+            if w is None:
+                w = pd.Series(dtype=float)
+            else:
+                w = pd.Series(w, dtype=float)
             ex = period_excess(close, btc_id, t, t_h, [int(i) for i in sc.index])
             aligned = sc.align(ex, join="inner")
             ic = _spearman(aligned[0].to_numpy(), aligned[1].to_numpy())
@@ -314,6 +321,7 @@ def run_periodic_long(
                     forced_events.append({"date": str(dt.date()), "ids": [int(x) for x in drop], "weight": w_drop})
             idx = w.index.union(prev_w.index)
             dw = (w.reindex(idx).fillna(0.0) - prev_w.reindex(idx).fillna(0.0)).abs().sum()
+            to_list.append(0.5 * float(dw))
             cost = float(dw) * alt_c
             r = 0.0
             if len(w):
@@ -340,6 +348,7 @@ def run_periodic_long(
             "rankic_n": int(len(ics)),
             "n_formations": int(n_form),
             "avg_n_names": float(np.mean(n_names)) if n_names else float("nan"),
+            "ann_turnover": float(np.mean(to_list) * ANNUALIZATION) if to_list else float("nan"),
             "forced_n": int(len(forced_events)),
             "forced_exits": {
                 "n_events": int(len(forced_events)),

@@ -527,3 +527,31 @@ ORACLE_LADDER_LOG_BAND = 0.20
 ORACLE_LADDER_MIN_N = 8
 ORACLE_LADDER_DECILE = 10
 
+# ---------------------------------------------------------------------------
+# ORACLE LADDER 2 — decompose BELOW-CURVE: tail-blindness vs translation
+# (frozen a priori; analysis only; nothing adopted)
+# ---------------------------------------------------------------------------
+
+ORACLE_LADDER2_CRITERION = (
+    "The gap decomposition is: TAIL-INFORMATION share = the part explained by "
+    "overlap/tail-IC deficits vs the equal-IC ladder; CONSTRUCTION share = the "
+    "best of V1–V3 minus the crude base, plus the production-construction delta "
+    "measured on the ladder signal. No variant is adopted here; any adoption "
+    "requires a fresh pre-registered phase with the house criteria. If the best "
+    "translation variant improves CAGR by ≥ +10pp over the crude base at "
+    "comparable MaxDD, translation work is declared the next priority; otherwise "
+    "the right-tail information hunt (catalysts/attention data) is declared the "
+    "next priority. Mechanical, no post-hoc adjustment."
+)
+
+ORACLE_LADDER2_IC_EQ = 0.116
+ORACLE_LADDER2_IC_REF = 0.16
+ORACLE_LADDER2_PP_MIN = 0.10
+ORACLE_LADDER2_MAXDD_SLACK = 0.10
+ORACLE_LADDER2_V1_CAP = 0.15
+ORACLE_LADDER2_V2_N = 5
+ORACLE_LADDER2_V2_CAP = 0.20
+ORACLE_LADDER2_V3_Q = 0.95
+ORACLE_LADDER2_V3_CAP = 0.10
+ORACLE_LADDER2_MONSTER_K = 3
+
