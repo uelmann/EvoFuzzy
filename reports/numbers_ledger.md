@@ -84,3 +84,10 @@ BELOW-CURVE gap split: tail-blindness vs translation. Analysis only. Nothing ado
 **PRIORITY = TAIL-INFORMATION.** Gap `104.4pp` = tail `166.8pp` + construction `-51.5pp` + unexplained `-10.9pp`. Best variant `V3` Δ `0.7pp`.
 
 Mechanical, no post-hoc adjustment. Frozen products untouched.
+## BTC-BEATER Phase 4 v2 TAIL ROUND 1
+
+RANK head + positioning block + price-additions. Backtest/analysis only. Nothing adopted. Binance-priced.
+
+**BARREN.** **POSITIONING NOT LIVE.** **PRICE-ADDITIONS NOT LIVE.** Best A=`spread_rank`. Baseline tail-IC(top-half) `0.06373363864654095` overlap `0.09440625421215797`; best tail-IC `0.0932165029873638` overlap `0.1026649721756879` (`spread_rank`). Perp coverage from 2021 `0.8521374775618512`.
+
+Mechanical, no post-hoc adjustment. Frozen products untouched.

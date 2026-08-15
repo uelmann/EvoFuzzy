@@ -838,6 +838,29 @@ def mechanical_verdicts(grid: dict, coverage: dict, null: dict) -> dict:
     pos = grid["spread_pos"]
     price = grid["spread_pos_price"]
 
+    def _deltas(sig: dict) -> tuple[float, float]:
+        d_ic = (
+            float(sig["tail_ic_top"]) - float(base["tail_ic_top"])
+            if np.isfinite(sig.get("tail_ic_top", np.nan)) and np.isfinite(base.get("tail_ic_top", np.nan))
+            else float("nan")
+        )
+        d_ov = (
+            float(sig["overlap"]) - float(base["overlap"])
+            if np.isfinite(sig.get("overlap", np.nan)) and np.isfinite(base.get("overlap", np.nan))
+            else float("nan")
+        )
+        return d_ic, d_ov
+
+    def _clears(sig: dict) -> bool:
+        d_ic, d_ov = _deltas(sig)
+        return bool(
+            np.isfinite(d_ic)
+            and np.isfinite(d_ov)
+            and d_ic >= float(PHASE4V2_TAIL_IC_DELTA)
+            and d_ov >= float(PHASE4V2_OVERLAP_DELTA)
+        )
+
+    # Best A-signal for positioning stack: higher full-OOS tail-IC(top-half); overlap breaks ties.
     def _pick_a():
         a_ic, b_ic = rank.get("tail_ic_top"), blend.get("tail_ic_top")
         if not np.isfinite(a_ic) and np.isfinite(b_ic):
@@ -856,24 +879,12 @@ def mechanical_verdicts(grid: dict, coverage: dict, null: dict) -> dict:
         return "rank", rank
 
     best_name, best_a = _pick_a()
-    d_ic = (
-        float(best_a["tail_ic_top"]) - float(base["tail_ic_top"])
-        if np.isfinite(best_a.get("tail_ic_top", np.nan)) and np.isfinite(base.get("tail_ic_top", np.nan))
-        else float("nan")
-    )
-    d_ov = (
-        float(best_a["overlap"]) - float(base["overlap"])
-        if np.isfinite(best_a.get("overlap", np.nan)) and np.isfinite(base.get("overlap", np.nan))
-        else float("nan")
-    )
+    d_ic_a, d_ov_a = _deltas(best_a)
+    d_ic_rank, d_ov_rank = _deltas(rank)
+    d_ic_blend, d_ov_blend = _deltas(blend)
     null_pass = bool((null or {}).get("passed"))
-    tail_extracts = bool(
-        null_pass
-        and np.isfinite(d_ic)
-        and np.isfinite(d_ov)
-        and d_ic >= float(PHASE4V2_TAIL_IC_DELTA)
-        and d_ov >= float(PHASE4V2_OVERLAP_DELTA)
-    )
+    # Criterion: RANK *or* blend clears both deltas vs baseline, with null passing.
+    tail_extracts = bool(null_pass and (_clears(rank) or _clears(blend)))
     p_ic = (
         float(pos["tail_ic_top"]) - float(best_a["tail_ic_top"])
         if np.isfinite(pos.get("tail_ic_top", np.nan)) and np.isfinite(best_a.get("tail_ic_top", np.nan))
@@ -915,8 +926,14 @@ def mechanical_verdicts(grid: dict, coverage: dict, null: dict) -> dict:
         "positioning": "POSITIONING LIVE" if positioning_live else "POSITIONING NOT LIVE",
         "price_additions": "PRICE-ADDITIONS LIVE" if price_live else "PRICE-ADDITIONS NOT LIVE",
         "best_a": best_name,
-        "delta_a_vs_base_tail_ic": d_ic,
-        "delta_a_vs_base_overlap": d_ov,
+        "rank_clears_deltas": _clears(rank),
+        "blend_clears_deltas": _clears(blend),
+        "delta_rank_vs_base_tail_ic": d_ic_rank,
+        "delta_rank_vs_base_overlap": d_ov_rank,
+        "delta_blend_vs_base_tail_ic": d_ic_blend,
+        "delta_blend_vs_base_overlap": d_ov_blend,
+        "delta_a_vs_base_tail_ic": d_ic_a,
+        "delta_a_vs_base_overlap": d_ov_a,
         "delta_pos_vs_best_a_tail_ic": p_ic,
         "delta_pos_vs_best_a_overlap": p_ov,
         "delta_price_vs_pos_tail_ic": r_ic,
