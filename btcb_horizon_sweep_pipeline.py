@@ -610,7 +610,9 @@ def run_btcb_hsweep() -> dict:
         print(
             f"[HB] h={h} sharpe={packed.get('net_sharpe')} trail={packed.get('net_sharpe_trail18m')} "
             f"rankic={packed.get('rankic')} drag={ (packed.get('econ') or {}).get('ann_cost_drag') } "
-            f"net_bps={ (packed.get('econ') or {}).get('avg_net_bps') }",
+            f"net_bps={ (packed.get('econ') or {}).get('avg_net_bps') } "
+            f"n_rt={ (packed.get('econ') or {}).get('n_round_trips') } "
+            f"hold_d={ (packed.get('econ') or {}).get('avg_hold_days') }",
             flush=True,
         )
         commit()
