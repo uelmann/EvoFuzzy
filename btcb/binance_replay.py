@@ -655,6 +655,130 @@ def needed_spot_symbols(plog: pd.DataFrame, panel: pd.DataFrame, listed: set[str
     return {"symbols": wanted, "long_ids": long_ids, "per_id": per_id}
 
 
+def replay_long_leg(
+    plog: pd.DataFrame,
+    cmc_close: pd.DataFrame,
+    spot_wide: pd.DataFrame,
+    perp_wide: pd.DataFrame,
+    fund_wide: pd.DataFrame,
+) -> dict:
+    """Same frozen weights; PnL of the long leg only (spot, no funding).
+
+    Weights are NOT renormalized — this is the long contribution inside the
+    β-matched book (typical long gross ≈ 0.5). Short-leg and full-hybrid
+    series are returned for overlay only.
+    """
+    df = prepare_position_log(plog)
+    recs = []
+    for (dt, nxt), g in df.groupby(["date", "nxt"], sort=True):
+        dt = _utc_ts(dt)
+        nxt = _utc_ts(nxt)
+        long_g = short_g = 0.0
+        long_c = short_c = 0.0
+        short_f = 0.0
+        n_long = n_short = 0
+        lg = sg = 0.0
+        for row in g.itertuples(index=False):
+            iid = int(row.id)
+            w = float(row.w)
+            dw = float(row.dw)
+            old_w = w - dw
+            r_cmc = _ret(cmc_close, dt, nxt, iid)
+            if not np.isfinite(r_cmc):
+                r_cmc = 0.0
+            if w > 0:
+                r_bn = _ret(spot_wide, dt, nxt, iid)
+                r = float(r_bn) if np.isfinite(r_bn) else r_cmc
+                long_g += w * r
+                n_long += 1
+                lg += w
+            elif w < 0:
+                r_bn = _ret(perp_wide, dt, nxt, iid)
+                r = float(r_bn) if np.isfinite(r_bn) else r_cmc
+                short_g += w * r
+                n_short += 1
+                sg += abs(w)
+                f = _funding_rate(fund_wide, nxt, iid)
+                if np.isfinite(f):
+                    short_f += -w * f
+            if old_w >= 0 and w >= 0:
+                long_c += name_cost(old_w, w)
+            elif old_w <= 0 and w <= 0:
+                short_c += name_cost(old_w, w)
+            else:
+                if old_w > 0:
+                    long_c += abs(old_w) * LONG_C
+                if old_w < 0:
+                    short_c += abs(old_w) * SHORT_C
+                if w > 0:
+                    long_c += abs(w) * LONG_C
+                if w < 0:
+                    short_c += abs(w) * SHORT_C
+        recs.append(
+            {
+                "nxt": nxt,
+                "long_gross": long_g,
+                "short_gross": short_g,
+                "long_cost": long_c,
+                "short_cost": short_c,
+                "short_fund": short_f,
+                "n_long": n_long,
+                "n_short": n_short,
+                "long_gross_w": lg,
+                "short_gross_w": sg,
+            }
+        )
+    daily = pd.DataFrame(recs).set_index("nxt").sort_index()
+    daily.index = _utc_norm(daily.index)
+    long_net = daily["long_gross"] - daily["long_cost"]
+    short_net = daily["short_gross"] - daily["short_cost"] + daily["short_fund"]
+    full_net = long_net + short_net
+    z = pd.Series(0.0, index=daily.index)
+    n_long_s = pd.Series(daily["n_long"].to_numpy(), index=daily.index, dtype=float)
+    n_short_s = pd.Series(daily["n_short"].to_numpy(), index=daily.index, dtype=float)
+    lg_s = pd.Series(daily["long_gross_w"].to_numpy(), index=daily.index, dtype=float)
+    sg_s = pd.Series(daily["short_gross_w"].to_numpy(), index=daily.index, dtype=float)
+    to_list = [0.0] * len(daily)
+
+    def _pack(rets, n_long, n_short, lg, sg, cost, gross):
+        stats = {
+            "to_list": to_list,
+            "n_long": n_long,
+            "n_short": n_short,
+            "n_shortable": z,
+            "incomplete": z,
+            "long_gross": lg,
+            "short_gross": sg,
+            "cash": (1.0 - lg - sg).clip(lower=0.0),
+            "daily_cost": cost,
+            "daily_gross": gross,
+        }
+        return summarize_ls(rets, stats)
+
+    long_book = _pack(long_net, n_long_s, z, lg_s, z, daily["long_cost"], daily["long_gross"])
+    short_book = _pack(short_net, z, n_short_s, z, sg_s, daily["short_cost"], daily["short_gross"])
+    short_book["funding_total_pnl"] = float(daily["short_fund"].sum())
+    full_book = _pack(
+        full_net,
+        n_long_s,
+        n_short_s,
+        lg_s,
+        sg_s,
+        daily["long_cost"] + daily["short_cost"],
+        daily["long_gross"] + daily["short_gross"],
+    )
+    full_book["funding_total_pnl"] = float(daily["short_fund"].sum())
+    return {
+        "long": long_book,
+        "short": short_book,
+        "full": full_book,
+        "long_net": long_net,
+        "short_net": short_net,
+        "full_net": full_net,
+        "daily": daily,
+    }
+
+
 def nonempty_parquets(raw_dir: Path) -> set[str]:
     out = set()
     if not raw_dir.exists():

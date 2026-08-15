@@ -304,6 +304,53 @@ def plot_hybrid_equity(hybrid_eq: pd.Series, out_path: Path) -> None:
     plt.close(fig)
 
 
+def plot_long_leg_equity(
+    long_eq: pd.Series,
+    full_eq: pd.Series | None,
+    short_eq: pd.Series | None,
+    out_path: Path,
+    *,
+    long_sharpe: float | None = None,
+    full_sharpe: float | None = None,
+) -> None:
+    """Long-leg hybrid equity (log) + drawdown; full book overlay."""
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    eq = long_eq.copy()
+    eq.index = pd.DatetimeIndex(pd.to_datetime(eq.index, utc=True)).tz_convert("UTC").normalize()
+    dd = eq / eq.cummax() - 1.0
+    fig, axes = plt.subplots(
+        2, 1, figsize=(11, 6.4), sharex=True, constrained_layout=True,
+        gridspec_kw={"height_ratios": [2.2, 1.0]},
+    )
+    lab = "long leg (spot, no funding)"
+    if long_sharpe is not None and np.isfinite(float(long_sharpe)):
+        lab += f"  Sh={float(long_sharpe):.2f}"
+    axes[0].plot(eq.index, eq.values, lw=1.5, color="#4C78A8", label=lab)
+    if full_eq is not None and len(full_eq):
+        fe = full_eq.copy()
+        fe.index = pd.DatetimeIndex(pd.to_datetime(fe.index, utc=True)).tz_convert("UTC").normalize()
+        flab = "full hybrid (L+S)"
+        if full_sharpe is not None and np.isfinite(float(full_sharpe)):
+            flab += f"  Sh={float(full_sharpe):.2f}"
+        axes[0].plot(fe.index, fe.values, lw=1.1, color="#54A24B", ls="--", label=flab)
+    if short_eq is not None and len(short_eq):
+        se = short_eq.copy()
+        se.index = pd.DatetimeIndex(pd.to_datetime(se.index, utc=True)).tz_convert("UTC").normalize()
+        axes[0].plot(se.index, se.values, lw=1.0, color="#E45756", alpha=0.85, label="short leg (perp+funding)")
+    axes[0].set_yscale("log")
+    axes[0].set_ylabel("equity (log)")
+    axes[0].set_title(
+        "SPREAD-LS long leg only — hybrid prices, frozen weights (not renormalized)"
+    )
+    axes[0].legend(fontsize=8)
+    axes[0].grid(True, alpha=0.3)
+    axes[1].fill_between(dd.index, dd.values, 0.0, color="#4C78A8", alpha=0.45)
+    axes[1].set_ylabel("long-leg DD")
+    axes[1].grid(True, alpha=0.3)
+    fig.savefig(out_path, dpi=120)
+    plt.close(fig)
+
+
 def plot_pnl_scatter(cmc_sub: pd.Series, bn: pd.Series, out_path: Path, corr: float | None = None) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     a, b = cmc_sub.align(bn, join="inner")
