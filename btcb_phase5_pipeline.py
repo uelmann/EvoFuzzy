@@ -239,6 +239,42 @@ def stage_a_hourly() -> dict:
     if cmc_sha != CMC_PANEL_SHA256:
         raise RuntimeError(f"CMC panel hash mismatch {cmc_sha}")
 
+    seq_dir = Path("/data/quant/btcb/phase5/seq")
+    panel_path = Path("/data/quant/hourly/panel.parquet")
+    seq_ok = (
+        (seq_dir / "X.npy").exists()
+        and (seq_dir / "index.parquet").exists()
+        and (seq_dir / "meta.json").exists()
+    )
+    if seq_ok and panel_path.exists():
+        hb.ping("reusing hourly panel + seq cache (skip download/assemble/rebuild)")
+        audit_path = Path("/data/quant/hourly/audit.json")
+        raw = json.loads(audit_path.read_text()) if audit_path.exists() else {}
+        audit = {k: v for k, v in raw.items() if k not in {"extra", "dl_log"}} if isinstance(raw, dict) else {}
+        seq_meta = json.loads((seq_dir / "meta.json").read_text())
+        extra_a = dict(raw.get("extra") or {}) if isinstance(raw, dict) else {}
+        extra_a["reused"] = True
+        extra_a["cmc_sha256"] = cmc_sha
+        audit_light = {
+            k: v
+            for k, v in audit.items()
+            if k not in {"gaps", "zero_volume", "alignment_violations", "coverage"}
+        }
+        summary = {
+            "status": "ok",
+            "elapsed_sec": time.time() - t0,
+            "audit": _jsonable(audit_light),
+            "seq_meta": _jsonable(seq_meta),
+            "extra": extra_a,
+            "n_download_log": 0,
+            "btc_id": int(audit.get("btc_id") or 1),
+            "gpu_used": False,
+            "reused_cache": True,
+        }
+        hb.close()
+        print(f"[HB] STAGE A REUSED elapsed={time.time()-t0:.1f}s seq_n={seq_meta.get('n_rows')}", flush=True)
+        return summary
+
     panel = pd.read_parquet(cmc_path)
     panel["date"] = pd.to_datetime(panel["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
     panel["id"] = panel["id"].astype(int)
@@ -434,7 +470,7 @@ def stage_b_csattn() -> dict:
         PHASE5_NULL_SHUFFLE_SEEDS,
         PHASE5_SEEDS,
     )
-    from btcb.csattn import merge_seed_ensemble, train_csattn_fold
+    from btcb.csattn import merge_seed_ensemble, smoke_csattn, train_csattn_fold
     from btcb.features import btc_id_from_panel
     from btcb.hygiene import clean_panel
     from btcb.model import make_expanding_folds
@@ -486,6 +522,12 @@ def stage_b_csattn() -> dict:
     folds = make_expanding_folds(fold_index, horizon=int(PHASE5_H))
     print(f"[HB] folds={len(folds)} seq_rows={len(idx)} dates={idx['date'].nunique()}", flush=True)
     hb.ping(f"n_folds={len(folds)}")
+    import torch
+
+    smoke_dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    hb.ping(f"smoke_csattn on {smoke_dev}")
+    smoke = smoke_csattn(smoke_dev)
+    hb.ping(f"smoke ok={smoke.get('ok')} cases={smoke.get('cases')}")
 
     pred_root = Path("/data/quant/btcb/phase5/preds")
     pred_root.mkdir(parents=True, exist_ok=True)

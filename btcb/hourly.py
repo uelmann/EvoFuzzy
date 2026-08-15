@@ -282,7 +282,7 @@ def pick_id_sources(
                 break
         if chosen is None:
             for c in cands:
-                if c in um_listed or True:
+                if c in um_listed:
                     if c not in seen_u:
                         seen_u.add(c)
                         um_needed.append(c)

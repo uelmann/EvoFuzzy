@@ -26,6 +26,7 @@ from btcb.constants import (
     PHASE5_N_CHANNELS,
     PHASE5_PATIENCE,
     PHASE5_SEQ_LEN,
+    PHASE5_SET_N,
     PHASE5_TCN_BLOCKS,
     PHASE5_TCN_DILATIONS,
     PHASE5_TCN_KERNEL,
@@ -94,6 +95,32 @@ def make_csattn(n_channels: int = PHASE5_N_CHANNELS):
             y = self.act(self.drop(self.norm(y)))
             return x + y
 
+    class PreLNSetBlock(nn.Module):
+        """Equivalent to TransformerEncoderLayer(norm_first=True, gelu, 4× FFN)."""
+
+        def __init__(self, width: int, nhead: int, dropout: float):
+            super().__init__()
+            self.norm1 = nn.LayerNorm(width)
+            self.attn = nn.MultiheadAttention(width, nhead, dropout=dropout, batch_first=True)
+            self.drop1 = nn.Dropout(dropout)
+            self.norm2 = nn.LayerNorm(width)
+            self.ff = nn.Sequential(
+                nn.Linear(width, width * 4),
+                nn.GELU(),
+                nn.Dropout(dropout),
+                nn.Linear(width * 4, width),
+                nn.Dropout(dropout),
+            )
+
+        def forward(self, x, key_padding_mask):
+            h = self.norm1(x)
+            a, _ = self.attn(
+                h, h, h, key_padding_mask=key_padding_mask, need_weights=False
+            )
+            x = x + self.drop1(a)
+            x = x + self.ff(self.norm2(x))
+            return x
+
     class CSATTN(nn.Module):
         def __init__(self):
             super().__init__()
@@ -106,16 +133,12 @@ def make_csattn(n_channels: int = PHASE5_N_CHANNELS):
                 ]
             )
             self.out_norm = nn.LayerNorm(w)
-            enc_layer = nn.TransformerEncoderLayer(
-                d_model=int(PHASE5_ATTN_WIDTH),
-                nhead=int(PHASE5_ATTN_HEADS),
-                dim_feedforward=int(PHASE5_ATTN_WIDTH) * 4,
-                dropout=float(PHASE5_DROPOUT),
-                batch_first=True,
-                activation="gelu",
-                norm_first=True,
+            # Manual Pre-LN set-attention. Do NOT use nn.TransformerEncoder:
+            # PyTorch 2.4 nested-tensor / _canonical_mask mismatches variable-N
+            # key_padding_mask across layers (crash: expected (B, 52) got (B, 37)).
+            self.set_layers = nn.ModuleList(
+                [PreLNSetBlock(w, int(PHASE5_ATTN_HEADS), float(PHASE5_DROPOUT)) for _ in range(int(PHASE5_ATTN_LAYERS))]
             )
-            self.set_attn = nn.TransformerEncoder(enc_layer, num_layers=int(PHASE5_ATTN_LAYERS))
             self.head_top = nn.Linear(w, 1)
             self.head_bot = nn.Linear(w, 1)
 
@@ -129,7 +152,7 @@ def make_csattn(n_channels: int = PHASE5_N_CHANNELS):
             return self.out_norm(last)
 
         def forward(self, x, pad_mask):
-            # x: (B, N, T, C)  pad_mask True = PAD
+            # x: (B, N, T, C)  pad_mask True = PAD. N is PHASE5_SET_N.
             b, n, t, c = x.shape
             emb = self.encode_series(x.reshape(b * n, t, c)).reshape(b, n, -1)
             valid = ~pad_mask
@@ -137,14 +160,55 @@ def make_csattn(n_channels: int = PHASE5_N_CHANNELS):
             pooled = (emb * valid.unsqueeze(-1)).sum(dim=1, keepdim=True) / denom
             tokens = torch.cat([pooled, emb], dim=1)
             cls_pad = torch.zeros(b, 1, dtype=torch.bool, device=pad_mask.device)
-            attn_pad = torch.cat([cls_pad, pad_mask], dim=1)
-            out = self.set_attn(tokens, src_key_padding_mask=attn_pad)
+            attn_pad = torch.cat([cls_pad, pad_mask.bool()], dim=1)
+            # Attention in fp32 — AMP + padding masks is flaky on 2.4.1.
+            import contextlib
+
+            ctx = (
+                torch.cuda.amp.autocast(enabled=False)
+                if torch.is_autocast_enabled()
+                else contextlib.nullcontext()
+            )
+            with ctx:
+                out = tokens.float()
+                for layer in self.set_layers:
+                    out = layer(out, attn_pad)
+            out = out.to(dtype=tokens.dtype)
             coins = out[:, 1:, :] + out[:, :1, :]
             logit_top = self.head_top(coins).squeeze(-1)
             logit_bot = self.head_bot(coins).squeeze(-1)
             return logit_top, logit_bot
 
     return CSATTN()
+
+
+def smoke_csattn(device) -> dict:
+    """Two-batch forward+backward with different valid-N; catches padding-mask crashes."""
+    import torch
+
+    model = make_csattn().to(device)
+    n = int(PHASE5_SET_N)
+    shapes = []
+    for n_valid in (36, 51, 100, 1):
+        b = 4
+        x = torch.zeros(b, n, PHASE5_SEQ_LEN, PHASE5_N_CHANNELS, device=device)
+        pad = torch.ones(b, n, dtype=torch.bool, device=device)
+        pad[:, : int(n_valid)] = False
+        model.train()
+        lt, lb = model(x, pad)
+        assert lt.shape == (b, n) and lb.shape == (b, n), (lt.shape, lb.shape)
+        loss = lt[~pad].mean() + lb[~pad].mean()
+        loss.backward()
+        model.zero_grad(set_to_none=True)
+        model.eval()
+        with torch.no_grad():
+            lt2, _ = model(x, pad)
+        assert lt2.shape == (b, n)
+        shapes.append({"n_valid": int(n_valid), "out": list(lt.shape)})
+    del model
+    if str(device).startswith("cuda"):
+        torch.cuda.empty_cache()
+    return {"ok": True, "cases": shapes}
 
 
 def _device():
@@ -182,22 +246,28 @@ def _dates_payload(idx: pd.DataFrame, mask: np.ndarray) -> list[dict]:
 def _stack_batch(X, items: list[dict], device):
     import torch
 
-    n_max = max(len(it["row_id"]) for it in items)
+    n_pad = int(PHASE5_SET_N)
     b = len(items)
-    xb = np.zeros((b, n_max, PHASE5_SEQ_LEN, PHASE5_N_CHANNELS), dtype=np.float32)
-    pad = np.ones((b, n_max), dtype=bool)
-    y_top = np.full((b, n_max), np.nan, dtype=np.float32)
-    y_bot = np.full((b, n_max), np.nan, dtype=np.float32)
-    excess = np.full((b, n_max), np.nan, dtype=np.float32)
-    ids = np.zeros((b, n_max), dtype=np.int64)
+    xb = np.zeros((b, n_pad, PHASE5_SEQ_LEN, PHASE5_N_CHANNELS), dtype=np.float32)
+    pad = np.ones((b, n_pad), dtype=bool)
+    y_top = np.full((b, n_pad), np.nan, dtype=np.float32)
+    y_bot = np.full((b, n_pad), np.nan, dtype=np.float32)
+    excess = np.full((b, n_pad), np.nan, dtype=np.float32)
+    ids = np.zeros((b, n_pad), dtype=np.int64)
+    ns = np.zeros(b, dtype=np.int32)
     for i, it in enumerate(items):
-        n = len(it["row_id"])
-        xb[i, :n] = np.asarray(X[it["row_id"]])
+        n = int(len(it["row_id"]))
+        if n > n_pad:
+            n = n_pad
+        if n <= 0:
+            continue
+        xb[i, :n] = np.asarray(X[it["row_id"][:n]])
         pad[i, :n] = False
-        y_top[i, :n] = it["y_top"]
-        y_bot[i, :n] = it["y_bot"]
-        excess[i, :n] = it["excess"]
-        ids[i, :n] = it["id"]
+        y_top[i, :n] = it["y_top"][:n]
+        y_bot[i, :n] = it["y_bot"][:n]
+        excess[i, :n] = it["excess"][:n]
+        ids[i, :n] = it["id"][:n]
+        ns[i] = n
     return {
         "x": torch.from_numpy(xb).to(device),
         "pad": torch.from_numpy(pad).to(device),
@@ -206,7 +276,7 @@ def _stack_batch(X, items: list[dict], device):
         "excess": excess,
         "ids": ids,
         "dates": [it["date"] for it in items],
-        "n": np.array([len(it["row_id"]) for it in items], dtype=np.int32),
+        "n": ns,
     }
 
 
@@ -356,6 +426,11 @@ def train_csattn_fold(
     bad = 0
     hist = []
     rng = np.random.default_rng(int(seed) + 17 * int(fold.fold_id))
+    if heartbeat:
+        heartbeat.ping(
+            f"fold={fold.fold_id} seed={seed} start n_tr={len(tr_items)} n_ho={len(ho_items)} "
+            f"n_va={len(va_items)} device={device} params={n_params}"
+        )
 
     for epoch in range(1, int(PHASE5_MAX_EPOCHS) + 1):
         if budget_ok is not None and not budget_ok():
@@ -365,6 +440,8 @@ def train_csattn_fold(
         rng.shuffle(order)
         ep_loss = []
         bs = int(PHASE5_BATCH_DATES)
+        if heartbeat:
+            heartbeat.ping(f"fold={fold.fold_id} seed={seed} ep={epoch} train_batches={(len(order)+bs-1)//bs}")
         for i in range(0, len(order), bs):
             sel = [tr_items[j] for j in order[i : i + bs]]
             if not sel:
@@ -382,7 +459,7 @@ def train_csattn_fold(
             scaler.step(opt)
             scaler.update()
             ep_loss.append(float(loss.detach().item()))
-            if heartbeat and ((i // bs) % 8 == 0):
+            if heartbeat and ((i // bs) % 4 == 0):
                 heartbeat.ping(
                     f"fold={fold.fold_id} seed={seed} ep={epoch} batch={i//bs}/{(len(order)-1)//bs}"
                 )
