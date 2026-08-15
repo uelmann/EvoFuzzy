@@ -36,6 +36,15 @@ from btcb.constants import (
 from btcb.model import merge_twin_preds
 
 
+def _utc_key(ts) -> pd.Timestamp:
+    t = pd.Timestamp(ts)
+    if t.tzinfo is None:
+        t = t.tz_localize("UTC")
+    else:
+        t = t.tz_convert("UTC")
+    return t.normalize()
+
+
 def _as_utc(ts) -> pd.Timestamp:
     t = pd.Timestamp(ts)
     if t.tzinfo is None:
@@ -150,7 +159,7 @@ def build_shortable(
         if not ids:
             continue
         for d in g["date"].unique():
-            shortable[pd.Timestamp(d)].update(ids)
+            shortable[_utc_key(d)].update(ids)
     return shortable
 
 
@@ -397,7 +406,7 @@ def run_spread_ls(
         n = len(ordered)
         k_dec = min(LS_DECILE_K, n)
         k_q = min(LS_QUINTILE_K, n)
-        sh_today = shortable.get(dt, set())
+        sh_today = shortable.get(_utc_key(dt), set())
         n_shortable = sum(1 for iid in ordered if iid in sh_today)
 
         long_enter = set(ordered[:k_dec]) if k_dec else set()
