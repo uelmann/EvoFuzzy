@@ -76,3 +76,11 @@ Perfect-foresight ceiling and IC-degraded oracle ladder. Analysis only. Nothing 
 **MODEL EFFICIENCY = BELOW-CURVE.** Binding constraint: **TRANSLATION**. Oracle NET h=14 total `1.546e+14` / CAGR `1.254e+04%` / MaxDD `-30.4%`. OUR MODEL RankIC `0.1160` CAGR `13.9%` (0.11% of oracle CAGR) vs curve `119.8%`.
 
 Mechanical, no post-hoc adjustment. Frozen products untouched.
+
+## BTC-BEATER ORACLE LADDER 2
+
+BELOW-CURVE gap split: tail-blindness vs translation. Analysis only. Nothing adopted. Binance-priced.
+
+**PRIORITY = TAIL-INFORMATION.** Gap `104.4pp` = tail `166.8pp` + construction `-51.5pp` + unexplained `-10.9pp`. Best variant `V3` Δ `0.7pp`.
+
+Mechanical, no post-hoc adjustment. Frozen products untouched.
