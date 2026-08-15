@@ -153,6 +153,8 @@ def download_symbol_months(
             # open_time, open, high, low, close, volume, close_time, quote_volume, ...
             if df.shape[1] < 8:
                 continue
+            if len(df) and str(df.iloc[0, 0]).lower().startswith("open"):
+                df = df.iloc[1:]
             df = df.iloc[:, :11].copy()
             df.columns = [
                 "open_time",
@@ -192,7 +194,15 @@ def download_symbol_months(
     all_df = pd.concat(frames, ignore_index=True)
     all_df["open_time"] = pd.to_numeric(all_df["open_time"], errors="coerce")
     all_df = all_df.dropna(subset=["open_time"])
-    all_df["date"] = pd.to_datetime(all_df["open_time"], unit="ms", utc=True).dt.normalize()
+    if all_df.empty:
+        empty = pd.DataFrame(
+            columns=["date", "open", "high", "low", "close", "volume", "quote_volume", "symbol"]
+        )
+        empty.to_parquet(out_pq, index=False)
+        return out_pq
+    # Vision dumps are usually epoch-ms; some spot files are epoch-us.
+    unit = "us" if float(all_df["open_time"].median()) > 1e14 else "ms"
+    all_df["date"] = pd.to_datetime(all_df["open_time"], unit=unit, utc=True).dt.normalize()
     for c in ["open", "high", "low", "close", "volume", "quote_volume"]:
         all_df[c] = pd.to_numeric(all_df[c], errors="coerce")
     all_df["symbol"] = symbol

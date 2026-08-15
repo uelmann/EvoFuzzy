@@ -105,26 +105,39 @@ def download_one_spot(item: dict) -> dict:
     pq = dest / f"{symbol}.parquet"
     reused = pq.exists()
     t0 = time.time()
-    path = download_spot_symbol_months(symbol, month_range(item["start_month"]), dest)
-    empty = True
-    n = 0
     try:
+        path = download_spot_symbol_months(symbol, month_range(item["start_month"]), dest)
+        empty = True
+        n = 0
         import pandas as pd
 
         df = pd.read_parquet(path)
         empty = bool(df.empty)
         n = int(len(df))
-    except Exception:
-        pass
+        rec = {
+            "symbol": symbol,
+            "path": str(path),
+            "reused": bool(reused),
+            "empty": bool(empty),
+            "n_rows": n,
+            "elapsed": time.time() - t0,
+            "ok": True,
+        }
+    except Exception as e:
+        rec = {
+            "symbol": symbol,
+            "path": str(pq),
+            "reused": bool(reused),
+            "empty": True,
+            "n_rows": 0,
+            "elapsed": time.time() - t0,
+            "ok": False,
+            "error": f"{type(e).__name__}: {e}",
+        }
+        print(f"[spot] {symbol} FAIL {rec['error']}", flush=True)
+        quant_vol.commit()
+        return rec
     quant_vol.commit()
-    rec = {
-        "symbol": symbol,
-        "path": str(path),
-        "reused": bool(reused),
-        "empty": bool(empty),
-        "n_rows": n,
-        "elapsed": time.time() - t0,
-    }
     print(f"[spot] {symbol} reused={reused} empty={empty} n={n}", flush=True)
     return rec
 
