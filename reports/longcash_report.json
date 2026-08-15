@@ -1,0 +1,202 @@
+{
+  "frozen_sha256": "e6b7407c8243ea49df3801ccaacedecd194315f45790e549a68c3368078b3faa",
+  "gpu_used": false,
+  "scheduled_jobs_created": false,
+  "verdict": {
+    "viable": false,
+    "verdict": "NOT VIABLE",
+    "pass_full": false,
+    "pass_trail": false,
+    "pass_total": false,
+    "pass_gross": true,
+    "pass_btc0": true,
+    "pass_null": false,
+    "sharpe_full": -0.6078882587777942,
+    "sharpe_trail18m": -1.1429375509055424,
+    "total_return": -0.7364457777726802,
+    "avg_gross": 0.2709398107509399,
+    "null_verdict": "CONTAMINATED",
+    "need_full": 0.5,
+    "need_trail": 0.0,
+    "need_gross": 0.15
+  },
+  "null": {
+    "bias_pass": false,
+    "skill_pass": true,
+    "n_violate": 2,
+    "n_folds": 2,
+    "verdict": "CONTAMINATED",
+    "passed": false,
+    "cells": [
+      {
+        "fold_id": 0,
+        "n": 10,
+        "mean": 0.027852285012534443,
+        "sd": 0.02007025744393272,
+        "p95": 0.05259946575309796,
+        "se": 0.006346772674877656,
+        "bias_lim": 0.012693545349755312,
+        "bias_ok": false,
+        "real": 0.10466016917935753,
+        "exceeds_p95": true
+      },
+      {
+        "fold_id": 1,
+        "n": 10,
+        "mean": -0.014671822035439184,
+        "sd": 0.015439084923241064,
+        "p95": 0.007570692126266872,
+        "se": 0.004882267334620765,
+        "bias_lim": 0.00976453466924153,
+        "bias_ok": false,
+        "real": 0.035486020968633195,
+        "exceeds_p95": true
+      }
+    ]
+  },
+  "seed_gate": {
+    "name": "seed_determinism",
+    "passed": true,
+    "max_score_diff": 0.0
+  },
+  "book": {
+    "tau_pct": 0.0,
+    "tau": 0.0,
+    "variant": "long_cash",
+    "horizon": 10,
+    "lag": 0,
+    "funding_on": true,
+    "net_sharpe": -0.6078882587777942,
+    "gross_sharpe": -0.5602760409986413,
+    "net_cagr": -0.2596511494618111,
+    "max_drawdown": -0.8064440371294631,
+    "total_return": -0.7364457777726802,
+    "avg_n_positions": 5.569487337862879,
+    "avg_n_long": 5.569487337862879,
+    "avg_n_short": 0.0,
+    "n_flat_days": 1083,
+    "n_days": 1619,
+    "pct_flat_days": 0.6689314391599753,
+    "ann_turnover": 5.221478419394851,
+    "gross_total_pnl": -0.9349470360094762,
+    "hedge_total_pnl": 0.0,
+    "cost_drag": 0.03158607602002895,
+    "funding_total_pnl": -0.04834407247132572,
+    "net_total_pnl": -1.0148771845008306,
+    "identity_gap": 2.220446049250313e-16,
+    "gross_ann_return": -0.2107817591991716,
+    "hedge_ann_return": 0.0,
+    "cost_ann_drag": 0.007121011579561808,
+    "funding_ann_return": -0.010899065134054286,
+    "net_ann_return": -0.22880183591278763,
+    "avg_holding_days": NaN,
+    "n_closed_trades": 0,
+    "trade_pnl_p10": NaN,
+    "trade_pnl_p50": NaN,
+    "trade_pnl_p90": NaN,
+    "turnover_entry_exit_ann": 5.221478419394851,
+    "turnover_resize_ann": 0.0,
+    "turnover_hedge_ann": 0.0,
+    "avg_gross_deployed": 0.2709398107509399,
+    "n_forced_exits": 0,
+    "forced_exit_pnl": 0.0,
+    "max_abs_btc_weight": 0.0,
+    "btc_weight_identically_zero": true,
+    "long_only": true,
+    "apply_beta_hedge": false,
+    "er_hurdle": 0.0,
+    "p_up_hurdle": 0.5,
+    "min_names": 3,
+    "max_names": 10,
+    "net_sharpe_full": -0.6078882587777942,
+    "net_sharpe_trail18m": -1.1429375509055424,
+    "net_sharpe_by_year": {
+      "2022": -0.4753223202627984,
+      "2023": -0.6634856793751472,
+      "2024": 0.05368471026121409,
+      "2025": -1.696804257667294,
+      "2026": 2.316821133597054
+    },
+    "mean_ann": -0.22880183591278763,
+    "nw_t_vs_cash": -1.5036983276946732,
+    "nw_t_vs_cash_trail18m": -1.7908486666277779,
+    "top5_names": [
+      {
+        "symbol": "ARBUSDT",
+        "pnl": -0.0796247173001891
+      },
+      {
+        "symbol": "SOLUSDT",
+        "pnl": -0.07665787679328026
+      },
+      {
+        "symbol": "AAVEUSDT",
+        "pnl": -0.07270850258552905
+      },
+      {
+        "symbol": "ETHUSDT",
+        "pnl": -0.06647439747364388
+      },
+      {
+        "symbol": "BNBUSDT",
+        "pnl": 0.05789656957296331
+      }
+    ]
+  },
+  "raw_a0": {
+    "n_days": 1620,
+    "pct_top_pos": 0.48518518518518516,
+    "mean_top": -4.3593628261019544e-05,
+    "nw_t": -0.005364148609136461
+  },
+  "raw_new": {
+    "n_days": 1579,
+    "pct_top_pos": 0.4642178594046865,
+    "mean_top": -0.0059409838043724475,
+    "nw_t": -0.6735501874733003
+  },
+  "used_fixed_trees": false,
+  "n_folds": 18,
+  "n_preds": 167994,
+  "elapsed_sec": 274.2546305656433,
+  "r_iters": [
+    101,
+    225,
+    79,
+    4,
+    2,
+    2,
+    10,
+    13,
+    253,
+    7,
+    9,
+    13,
+    22,
+    2,
+    12,
+    9,
+    1,
+    24
+  ],
+  "c_iters": [
+    1,
+    2,
+    34,
+    168,
+    11,
+    9,
+    66,
+    2,
+    1,
+    10,
+    149,
+    280,
+    12,
+    1,
+    50,
+    15,
+    251,
+    818
+  ]
+}
