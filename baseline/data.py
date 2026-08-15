@@ -29,13 +29,13 @@ def _log(msg: str) -> None:
     print(f"[data {time.strftime('%H:%M:%S')}] {msg}", flush=True)
 
 
-def list_um_symbols(quote: str = "USDT") -> list[str]:
-    """List perpetual symbols present on data.binance.vision monthly klines."""
+def _list_vision_symbols(prefix: str, quote: str = "USDT") -> list[str]:
+    """List symbols under a Binance Vision S3 prefix (CommonPrefixes)."""
     symbols: list[str] = []
     marker = ""
     while True:
         params = {
-            "prefix": "data/futures/um/monthly/klines/",
+            "prefix": prefix,
             "delimiter": "/",
             "max-keys": "1000",
         }
@@ -64,6 +64,16 @@ def list_um_symbols(quote: str = "USDT") -> list[str]:
         if not marker:
             break
     return sorted(set(symbols))
+
+
+def list_um_symbols(quote: str = "USDT") -> list[str]:
+    """List perpetual symbols present on data.binance.vision monthly klines."""
+    return _list_vision_symbols("data/futures/um/monthly/klines/", quote)
+
+
+def list_spot_symbols(quote: str = "USDT") -> list[str]:
+    """List spot symbols present on data.binance.vision monthly klines."""
+    return _list_vision_symbols("data/spot/monthly/klines/", quote)
 
 
 def should_exclude(symbol: str, exclude_bases: Iterable[str]) -> bool:
@@ -95,11 +105,21 @@ def month_range(start_month: str, end: datetime | None = None) -> list[str]:
     return out
 
 
+def _kline_zip_url(symbol: str, interval: str, ym: str, kind: str = "um") -> tuple[str, str]:
+    zip_name = f"{symbol}-{interval}-{ym}.zip"
+    if kind == "spot":
+        url = f"{VISION_FILE}/data/spot/monthly/klines/{symbol}/{interval}/{zip_name}"
+    else:
+        url = f"{VISION_FILE}/data/futures/um/monthly/klines/{symbol}/{interval}/{zip_name}"
+    return url, zip_name
+
+
 def download_symbol_months(
     symbol: str,
     months: list[str],
     dest_dir: Path,
     interval: str = "1d",
+    kind: str = "um",
 ) -> Path:
     """Download and cache monthly zips; return parquet path for the symbol."""
     dest_dir.mkdir(parents=True, exist_ok=True)
@@ -112,12 +132,8 @@ def download_symbol_months(
     raw_dir.mkdir(parents=True, exist_ok=True)
 
     for ym in months:
-        zip_name = f"{symbol}-{interval}-{ym}.zip"
+        url, zip_name = _kline_zip_url(symbol, interval, ym, kind=kind)
         zip_path = raw_dir / zip_name
-        url = (
-            f"{VISION_FILE}/data/futures/um/monthly/klines/{symbol}/"
-            f"{interval}/{zip_name}"
-        )
         if not zip_path.exists():
             try:
                 with httpx.stream("GET", url, timeout=120, follow_redirects=True) as r:
@@ -189,6 +205,16 @@ def download_symbol_months(
     )
     all_df.to_parquet(out_pq, index=False)
     return out_pq
+
+
+def download_spot_symbol_months(
+    symbol: str,
+    months: list[str],
+    dest_dir: Path,
+    interval: str = "1d",
+) -> Path:
+    """Download Binance spot 1d klines (Vision); cache as parquet."""
+    return download_symbol_months(symbol, months, dest_dir, interval=interval, kind="spot")
 
 
 def load_panel(raw_dir: Path, symbols: list[str]) -> pd.DataFrame:

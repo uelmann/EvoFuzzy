@@ -470,6 +470,7 @@ def run_spread_ls(
     blowoff: float = BLOWOFF_RET_7,
     decile_k: int | None = None,
     quintile_k: int | None = None,
+    emit_position_log: bool = False,
 ) -> dict:
     df = panel.copy()
     df["date"] = pd.to_datetime(df["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
@@ -522,6 +523,7 @@ def run_spread_ls(
     forced_exits, forced_covers = [], []
     btc_hits = 0
     contrib: dict[int, float] = {}
+    pos_dt, pos_nxt, pos_id, pos_w, pos_dw = [], [], [], [], []
 
     def _ranks(dt) -> tuple[list[int], dict[int, int]]:
         names = [s for s in members.get(dt, []) if s in close.columns and int(s) != int(btc_id)]
@@ -763,6 +765,17 @@ def run_spread_ls(
         lg_s.append(lg)
         sg_s.append(sg)
         cash_s.append(max(0.0, 1.0 - lg - sg))
+        if emit_position_log:
+            for s in idx:
+                wi = float(a.get(s, 0.0))
+                dwi = float(dw.get(s, 0.0))
+                if wi == 0.0 and dwi == 0.0:
+                    continue
+                pos_dt.append(dt)
+                pos_nxt.append(nxt)
+                pos_id.append(int(s))
+                pos_w.append(wi)
+                pos_dw.append(dwi)
         prev_full = applied
         if i % 60 == 0:
             print(
@@ -816,7 +829,36 @@ def run_spread_ls(
             "concentration": name_concentration(contrib, id_to_sym, top_n=5),
         }
     )
+    if emit_position_log:
+        plog = pd.DataFrame(
+            {
+                "date": pos_dt,
+                "nxt": pos_nxt,
+                "id": pos_id,
+                "w": np.asarray(pos_w, dtype=float),
+                "dw": np.asarray(pos_dw, dtype=float),
+            }
+        )
+        if len(plog):
+            plog["date"] = pd.to_datetime(plog["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
+            plog["nxt"] = pd.to_datetime(plog["nxt"], utc=True).dt.tz_convert("UTC").dt.normalize()
+            plog["id"] = plog["id"].astype(int)
+            plog = plog.sort_values(["date", "id"]).reset_index(drop=True)
+        packed["position_log"] = plog
+        packed["position_sha256"] = _hash_position_log(plog)
     return packed
+
+
+def _hash_position_log(plog: pd.DataFrame) -> str:
+    if plog is None or len(plog) == 0:
+        return hashlib.sha256(b"empty").hexdigest()
+    h = hashlib.sha256()
+    df = plog.sort_values(["date", "id"]).reset_index(drop=True)
+    for row in df.itertuples(index=False):
+        dt = pd.Timestamp(row.date).strftime("%Y-%m-%d")
+        nxt = pd.Timestamp(row.nxt).strftime("%Y-%m-%d")
+        h.update(f"{dt}|{nxt}|{int(row.id)}|{float(row.w):.12f}|{float(row.dw):.12f}\n".encode())
+    return h.hexdigest()
 
 
 def name_concentration(contrib: dict, id_to_sym: dict, top_n: int = 5) -> dict:
