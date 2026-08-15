@@ -154,8 +154,7 @@ def fill_metrics_gaps(
                 existing["date"] = pd.to_datetime(existing["date"], utc=True)
                 have = set(existing["date"].dt.strftime("%Y-%m-%d"))
         last = max(have) if have else None
-        # skip symbols already fresh enough (avoid day-by-day 404 probes)
-        if last is not None and last >= (end - timedelta(days=5)).strftime("%Y-%m-%d"):
+        if last is not None and last >= (end - timedelta(days=3)).strftime("%Y-%m-%d"):
             continue
         todo = [d for d in days if d not in have]
         if not todo:
@@ -271,35 +270,27 @@ def _taker_from_zips(raw_dir: Path, symbol: str) -> pd.DataFrame:
 
 
 def load_taker_panel(klines_dir: Path, symbols: list[str], cache_path: Path | None = None) -> pd.DataFrame:
+    """Load taker-buy from kline parquet when present. No zip re-parse (too slow for one-shot)."""
     if cache_path is not None and cache_path.exists():
         df = pd.read_parquet(cache_path)
         df["date"] = pd.to_datetime(df["date"], utc=True)
-        have = set(df["symbol"].astype(str).str.upper().unique()) if not df.empty else set()
-        missing = [s for s in symbols if s not in have]
-        if not missing:
-            return df
-        _log(f"taker cache missing {len(missing)} symbols; filling")
-        extra = load_taker_panel(klines_dir, missing, cache_path=None)
-        if extra is not None and not extra.empty:
-            df = pd.concat([df, extra], ignore_index=True)
-            if cache_path is not None:
-                cache_path.parent.mkdir(parents=True, exist_ok=True)
-                df.to_parquet(cache_path, index=False)
         return df
     parts = []
     n = len(symbols)
+    n_miss = 0
     for i, sym in enumerate(symbols, 1):
         pq = klines_dir / f"{sym}.parquet"
         got = pd.DataFrame()
         if pq.exists():
             got = _taker_from_kline_parquet(pq, sym)
         if got.empty:
-            got = _taker_from_zips(klines_dir / "raw" / sym, sym)
-        if not got.empty:
+            n_miss += 1
+        else:
             parts.append(got)
-        if i % 50 == 0 or i == n:
-            _log(f"taker {i}/{n} have={len(parts)}")
+        if i % 100 == 0 or i == n:
+            _log(f"taker parquet {i}/{n} have={len(parts)} miss={n_miss}")
     if not parts:
+        _log(f"taker: no kline parquet has taker_buy columns (n_miss={n_miss}); use metrics fallback")
         return pd.DataFrame(columns=["date", "symbol", "quote_volume", "taker_buy_quote"])
     out = pd.concat(parts, ignore_index=True)
     out["date"] = pd.to_datetime(out["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
@@ -397,6 +388,15 @@ def build_positioning_by_symbol(
             out["quote_volume"] = np.nan
             out["taker_buy_quote"] = np.nan
         share = out["taker_buy_quote"] / out["quote_volume"].replace(0, np.nan)
+        # Fallback: Vision metrics taker long/short vol ratio (Phase D cache) when kline
+        # taker columns are absent from the stored parquet schema.
+        if share.notna().sum() < 10 and m_s is not None and not m_s.empty:
+            if "sum_taker_long_short_vol_ratio" in m_s.columns:
+                mt = m_s.sort_values("date")[["date", "sum_taker_long_short_vol_ratio"]].drop_duplicates("date")
+                out = out.merge(mt, on="date", how="left")
+                # ratio long/short → buy share ≈ r/(1+r)
+                r = out["sum_taker_long_short_vol_ratio"].astype(float)
+                share = r / (1.0 + r)
         mu7 = share.rolling(7, min_periods=3).mean()
         mu30 = share.rolling(30, min_periods=10).mean()
         sd30 = share.rolling(30, min_periods=10).std(ddof=0)
