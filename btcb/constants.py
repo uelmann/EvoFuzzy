@@ -453,3 +453,29 @@ ACADEMIC_FACTOR_SHARPE_MIN = 1.0
 ACADEMIC_FACTOR_NW_T_MIN = 3.0
 ACADEMIC_FACTOR_NAIVE_BPS = 10.0
 ACADEMIC_FACTOR_NS = (50, 100)
+
+# ---------------------------------------------------------------------------
+# Phase 3.e — pricing-gap forensics (frozen a priori; analysis only)
+# Mandated by the 3.c suspension. No book redesign.
+# ---------------------------------------------------------------------------
+
+PHASE3E_OUTCOME = (
+    "SIGNAL-CONFIRMED if RankIC(spread vs Binance returns) ≥ RankIC(same-names CMC) "
+    "− 0.02 on both full and trailing windows: the gap is then an execution/pricing-level "
+    "effect; the official record RESUMES as BOOK-HYBRID funding-on, with the suspension "
+    "footnote replaced by the forensic decomposition, and Binance-priced numbers become "
+    "canonical for all future phases. SIGNAL-PARTLY-ARTIFACT if RankIC drops > 0.02 on "
+    "either window: the record stays suspended, the artifact share is quantified, and "
+    "the next phase MUST re-derive the book on Binance-only pricing before anything else. "
+    "Mechanical, no post-hoc adjustment."
+)
+
+PHASE3E_RANKIC_TOL = 0.02
+PHASE3E_H = 14
+PHASE3E_NAME_TIERS = ((1, 30, "1-30"), (31, 60, "31-60"), (61, 100, "61-100"))
+PHASE3E_TOP_N = 30
+PHASE3E_STALE_CMC_BPS = 10.0
+PHASE3E_STALE_BN_MOVE = 0.02
+PHASE3E_REF_BN_SHARPE = 1.2956392949142752
+PHASE3E_REF_CMC_SUB_SHARPE = 1.5585902582860225
+PHASE3E_REF_CORR = 0.9838
