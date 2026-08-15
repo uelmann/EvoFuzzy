@@ -211,8 +211,9 @@ def make_csattn(n_channels: int = PHASE5_N_CHANNELS):
                 out = tokens.float()
                 for layer in self.set_layers:
                     out = layer(out, attn_pad)
-            out = out.to(dtype=emb.dtype)[:, :s_keep, :]
-            coins = out[:, 1:, :] + out[:, :1, :]
+            out = out.to(dtype=emb.dtype)
+            cls = out[:, :1, :]
+            coins = out[:, 1 : 1 + n, :] + cls
             logit_top = self.head_top(coins).squeeze(-1)
             logit_bot = self.head_bot(coins).squeeze(-1)
             return logit_top, logit_bot
