@@ -13,6 +13,9 @@ from btcb.constants import (
     ANNUALIZATION,
     BLOWOFF_RET_7,
     COMBO_OVERLAP_START,
+    HORIZON_FULL_TOL,
+    HORIZON_SWEEP_INCUMBENT,
+    HORIZON_TRAIL_BEAT,
     LS_BETA_MATCH_LOOKBACK,
     LS_BETA_WINDOW,
     LS_DECILE_K,
@@ -288,8 +291,118 @@ def summarize_ls(rets: pd.Series, stats: dict, cycles=PHASE2_CYCLES) -> dict:
         "long_gross": stats["long_gross"],
         "short_gross": stats["short_gross"],
         "cash": stats["cash"],
+        "daily_cost": stats.get("daily_cost"),
+        "daily_gross": stats.get("daily_gross"),
     }
+    if stats.get("daily_cost") is not None and len(stats["daily_cost"]):
+        packed["ann_cost_drag"] = float(np.mean(np.asarray(stats["daily_cost"], dtype=float)) * ANNUALIZATION)
+    else:
+        packed["ann_cost_drag"] = float("nan")
+    if stats.get("daily_gross") is not None and len(stats["daily_gross"]):
+        packed["gross_sharpe"] = _sharpe(pd.Series(stats["daily_gross"], index=rets.index))
     return packed
+
+
+def trade_economics(trades: list[dict], daily_cost, n_days: int) -> dict:
+    """Slot-level round-trip stats. Open trades at the end are excluded."""
+    closed = [t for t in trades if t.get("closed")]
+    years = float(n_days) / float(ANNUALIZATION) if n_days else float("nan")
+    if not closed:
+        drag = float("nan")
+        if daily_cost is not None and len(daily_cost):
+            drag = float(np.mean(np.asarray(daily_cost, dtype=float)) * ANNUALIZATION)
+        return {
+            "n_round_trips": 0,
+            "n_open_end": int(sum(1 for t in trades if not t.get("closed"))),
+            "avg_hold_days": float("nan"),
+            "round_trips_per_year": float("nan"),
+            "avg_gross_bps": float("nan"),
+            "avg_cost_bps": float("nan"),
+            "avg_net_bps": float("nan"),
+            "ann_cost_drag": drag,
+            "n_long_rt": 0,
+            "n_short_rt": 0,
+        }
+    holds = np.array([float(t["hold_days"]) for t in closed], dtype=float)
+    gross = np.array([float(t["gross_bps"]) for t in closed], dtype=float)
+    cost = np.array([float(t["cost_bps"]) for t in closed], dtype=float)
+    net = gross - cost
+    drag = float("nan")
+    if daily_cost is not None and len(daily_cost):
+        drag = float(np.mean(np.asarray(daily_cost, dtype=float)) * ANNUALIZATION)
+    n_long = int(sum(1 for t in closed if int(t.get("side", 0)) > 0))
+    n_short = int(sum(1 for t in closed if int(t.get("side", 0)) < 0))
+    return {
+        "n_round_trips": int(len(closed)),
+        "n_open_end": int(sum(1 for t in trades if not t.get("closed"))),
+        "avg_hold_days": float(np.mean(holds)),
+        "round_trips_per_year": float(len(closed) / years) if np.isfinite(years) and years > 0 else float("nan"),
+        "avg_gross_bps": float(np.mean(gross)),
+        "avg_cost_bps": float(np.mean(cost)),
+        "avg_net_bps": float(np.mean(net)),
+        "ann_cost_drag": drag,
+        "n_long_rt": n_long,
+        "n_short_rt": n_short,
+        "median_hold_days": float(np.median(holds)),
+        "median_gross_bps": float(np.median(gross)),
+    }
+
+
+def choose_production_horizon(books: dict, nulls: dict, incumbent: int = HORIZON_SWEEP_INCUMBENT) -> dict:
+    inc = int(incumbent)
+    ib = books.get(inc) or books.get(str(inc)) or {}
+    inc_full = float(ib.get("net_sharpe"))
+    inc_trail = float(ib.get("net_sharpe_trail18m"))
+    need_trail = inc_trail + float(HORIZON_TRAIL_BEAT)
+    need_full = inc_full - float(HORIZON_FULL_TOL)
+    qualifiers = []
+    details = {}
+    for key, b in books.items():
+        h = int(key)
+        ng = nulls.get(h) or nulls.get(str(h)) or {}
+        full = float(b.get("net_sharpe"))
+        trail = float(b.get("net_sharpe_trail18m"))
+        null_ok = bool(ng.get("passed"))
+        trail_ok = bool(np.isfinite(trail) and trail + 1e-12 >= need_trail)
+        full_ok = bool(np.isfinite(full) and full + 1e-12 >= need_full)
+        judged = bool(h != inc and null_ok)
+        qualifies = bool(judged and trail_ok and full_ok)
+        details[h] = {
+            "null_passed": null_ok,
+            "judged": judged,
+            "full": full,
+            "trail": trail,
+            "trail_ok": trail_ok,
+            "full_ok": full_ok,
+            "qualifies": qualifies,
+            "null_reason": ng.get("reason"),
+        }
+        if qualifies:
+            qualifiers.append(h)
+    fallback = not qualifiers
+    if fallback:
+        chosen = inc
+    else:
+        chosen = max(
+            qualifiers,
+            key=lambda h: (
+                float((books.get(h) or books.get(str(h)) or {}).get("net_sharpe_trail18m")),
+                -int(h),
+            ),
+        )
+    return {
+        "chosen_h": int(chosen),
+        "fallback": bool(fallback),
+        "incumbent": inc,
+        "inc_full": inc_full,
+        "inc_trail": inc_trail,
+        "need_trail": need_trail,
+        "need_full": need_full,
+        "qualifiers": qualifiers,
+        "details": details,
+        "trail_beat": float(HORIZON_TRAIL_BEAT),
+        "full_tol": float(HORIZON_FULL_TOL),
+    }
 
 
 def mechanical_verdicts_ls(headline: dict, combo_overlap: dict) -> dict:
@@ -381,8 +494,12 @@ def run_spread_ls(
     short_c = (LS_SHORT_FEE_BPS + LS_SHORT_SLIP_BPS) * 1e-4
     long_slots = [[] for _ in range(h)]
     short_slots = [[] for _ in range(h)]
+    slot_long_open = [dict() for _ in range(h)]
+    slot_short_open = [dict() for _ in range(h)]
+    trades: list[dict] = []
     prev_full = pd.Series(dtype=float)
     daily, eq_dates, to_list = [], [], []
+    daily_cost, daily_gross = [], []
     n_long_s, n_short_s, n_sh_s, inc_s = [], [], [], []
     lg_s, sg_s, cash_s = [], [], []
     forced_exits, forced_covers = [], []
@@ -484,6 +601,58 @@ def run_spread_ls(
         _drop_dead(long_slots, forced_exits, "exit")
         _drop_dead(short_slots, forced_covers, "cover")
 
+        def _px(when, iid):
+            if when in close.index and iid in close.columns:
+                v = float(close.loc[when, iid])
+                if np.isfinite(v) and v > 0:
+                    return v
+            return float("nan")
+
+        def _close_one(store, iid, when, side, reason):
+            rec = store.pop(int(iid), None)
+            if rec is None:
+                return
+            exit_px = _px(when, int(iid))
+            entry_px = float(rec.get("entry_px", float("nan")))
+            hold = int((pd.Timestamp(when) - pd.Timestamp(rec["entry_dt"])).days)
+            if np.isfinite(entry_px) and entry_px > 0 and np.isfinite(exit_px):
+                gross_bps = float(side) * (exit_px / entry_px - 1.0) * 1e4
+            else:
+                gross_bps = float("nan")
+            one_way = LS_LONG_BPS if side > 0 else (LS_SHORT_FEE_BPS + LS_SHORT_SLIP_BPS)
+            trades.append(
+                {
+                    "closed": True,
+                    "side": int(side),
+                    "id": int(iid),
+                    "entry": str(pd.Timestamp(rec["entry_dt"]).date()),
+                    "exit": str(pd.Timestamp(when).date()),
+                    "hold_days": hold,
+                    "gross_bps": gross_bps,
+                    "cost_bps": float(2.0 * one_way),
+                    "reason": reason,
+                }
+            )
+
+        def _sync_slot(j, when):
+            cur_l = set(int(x) for x in long_slots[j])
+            cur_s = set(int(x) for x in short_slots[j])
+            for iid in list(slot_long_open[j].keys()):
+                if iid not in cur_l:
+                    _close_one(slot_long_open[j], iid, when, 1, "exit")
+            for iid in list(slot_short_open[j].keys()):
+                if iid not in cur_s:
+                    _close_one(slot_short_open[j], iid, when, -1, "cover")
+            for iid in cur_l:
+                if iid not in slot_long_open[j]:
+                    slot_long_open[j][iid] = {"entry_dt": when, "entry_px": _px(when, iid)}
+            for iid in cur_s:
+                if iid not in slot_short_open[j]:
+                    slot_short_open[j][iid] = {"entry_dt": when, "entry_px": _px(when, iid)}
+
+        for j in range(h):
+            _sync_slot(j, dt)
+
         long_w = pd.Series(dtype=float)
         short_w = pd.Series(dtype=float)
         lb = LS_GROSS_LONG / h
@@ -559,6 +728,8 @@ def run_spread_ls(
                     contrib[int(s)] = contrib.get(int(s), 0.0) + rs
         net = r - cost
         daily.append(net)
+        daily_cost.append(float(cost))
+        daily_gross.append(float(r))
         to_list.append(turnover)
         eq_dates.append(nxt)
         n_long_s.append(int((applied > 0).sum()) if len(applied) else 0)
@@ -580,6 +751,9 @@ def run_spread_ls(
             )
 
     rets = pd.Series(daily, index=pd.DatetimeIndex(eq_dates), dtype=float)
+    n_open_end = int(sum(len(s) for s in slot_long_open) + sum(len(s) for s in slot_short_open))
+    for _ in range(n_open_end):
+        trades.append({"closed": False})
     stats = {
         "to_list": to_list,
         "n_long": pd.Series(n_long_s, index=rets.index),
@@ -589,14 +763,18 @@ def run_spread_ls(
         "long_gross": pd.Series(lg_s, index=rets.index),
         "short_gross": pd.Series(sg_s, index=rets.index),
         "cash": pd.Series(cash_s, index=rets.index),
+        "daily_cost": pd.Series(daily_cost, index=rets.index, dtype=float),
+        "daily_gross": pd.Series(daily_gross, index=rets.index, dtype=float),
     }
     packed = summarize_ls(rets, stats)
+    econ = trade_economics(trades, daily_cost, int(len(rets)))
     packed.update(
         {
             "horizon": int(h),
             "beta_matched": bool(beta_matched),
             "btc_id": int(btc_id),
             "btc_in_book_hits": int(btc_hits),
+            "econ": econ,
             "forced_exits": {
                 "n_events": len(forced_exits),
                 "n_ids": len({i for e in forced_exits for i in e["ids"]}),
