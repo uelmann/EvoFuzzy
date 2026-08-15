@@ -645,6 +645,7 @@ def run_btcb_hsweep() -> dict:
         nulls=nulls,
         extra=extra,
     )
+    commit()
     plot_horizon_equity(books, chart_dir / "btcb_horizon_equity.png")
     plot_horizon_rankic(ric_series, ric_means, chart_dir / "btcb_horizon_rankic.png")
     payload = {

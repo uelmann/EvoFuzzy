@@ -235,8 +235,8 @@ def plot_horizon_rankic(series: dict, means: dict, out_path: Path) -> None:
     axb.grid(True, axis="y", alpha=0.3)
     ax = axes[1]
     for h in HORIZON_SWEEP_HS:
-        s = series.get(h) or series.get(str(h))
-        if s is None or not isinstance(s, pd.Series) or s.empty:
+        s = series.get(h, series.get(str(h)))
+        if not isinstance(s, pd.Series) or s.empty:
             continue
         ax.plot(s.index, s.values, lw=0.6, alpha=0.25, color=colors[h])
         rs = s.rolling(30, min_periods=10).mean()

@@ -307,10 +307,10 @@ def trade_economics(trades: list[dict], daily_cost, n_days: int) -> dict:
     """Slot-level round-trip stats. Open trades at the end are excluded."""
     closed = [t for t in trades if t.get("closed")]
     years = float(n_days) / float(ANNUALIZATION) if n_days else float("nan")
+    drag = float("nan")
+    if daily_cost is not None and len(daily_cost):
+        drag = float(np.mean(np.asarray(daily_cost, dtype=float)) * ANNUALIZATION)
     if not closed:
-        drag = float("nan")
-        if daily_cost is not None and len(daily_cost):
-            drag = float(np.mean(np.asarray(daily_cost, dtype=float)) * ANNUALIZATION)
         return {
             "n_round_trips": 0,
             "n_open_end": int(sum(1 for t in trades if not t.get("closed"))),
@@ -323,28 +323,45 @@ def trade_economics(trades: list[dict], daily_cost, n_days: int) -> dict:
             "n_long_rt": 0,
             "n_short_rt": 0,
         }
-    holds = np.array([float(t["hold_days"]) for t in closed], dtype=float)
-    gross = np.array([float(t["gross_bps"]) for t in closed], dtype=float)
-    cost = np.array([float(t["cost_bps"]) for t in closed], dtype=float)
-    net = gross - cost
-    drag = float("nan")
-    if daily_cost is not None and len(daily_cost):
-        drag = float(np.mean(np.asarray(daily_cost, dtype=float)) * ANNUALIZATION)
+    def _arr(key):
+        xs = [float(t[key]) for t in closed if t.get(key) is not None and np.isfinite(float(t[key]))]
+        return np.asarray(xs, dtype=float)
+
+    holds = _arr("hold_days")
+    gross = _arr("gross_bps")
+    cost = _arr("cost_bps")
+    net = gross - cost[: len(gross)] if len(cost) == len(gross) else np.array(
+        [
+            float(t["gross_bps"]) - float(t["cost_bps"])
+            for t in closed
+            if t.get("gross_bps") is not None
+            and t.get("cost_bps") is not None
+            and np.isfinite(float(t["gross_bps"]))
+            and np.isfinite(float(t["cost_bps"]))
+        ],
+        dtype=float,
+    )
+    def _mean(a):
+        a = np.asarray(a, dtype=float)
+        a = a[np.isfinite(a)]
+        return float(np.mean(a)) if len(a) else float("nan")
+
     n_long = int(sum(1 for t in closed if int(t.get("side", 0)) > 0))
     n_short = int(sum(1 for t in closed if int(t.get("side", 0)) < 0))
     return {
         "n_round_trips": int(len(closed)),
         "n_open_end": int(sum(1 for t in trades if not t.get("closed"))),
-        "avg_hold_days": float(np.mean(holds)),
+        "avg_hold_days": _mean(holds),
         "round_trips_per_year": float(len(closed) / years) if np.isfinite(years) and years > 0 else float("nan"),
-        "avg_gross_bps": float(np.mean(gross)),
-        "avg_cost_bps": float(np.mean(cost)),
-        "avg_net_bps": float(np.mean(net)),
+        "avg_gross_bps": _mean(gross),
+        "avg_cost_bps": _mean(cost),
+        "avg_net_bps": _mean(net),
         "ann_cost_drag": drag,
         "n_long_rt": n_long,
         "n_short_rt": n_short,
-        "median_hold_days": float(np.median(holds)),
-        "median_gross_bps": float(np.median(gross)),
+        "n_finite_gross": int(np.isfinite(gross).sum()) if len(gross) else 0,
+        "median_hold_days": float(np.median(holds[np.isfinite(holds)])) if np.isfinite(holds).any() else float("nan"),
+        "median_gross_bps": float(np.median(gross[np.isfinite(gross)])) if np.isfinite(gross).any() else float("nan"),
     }
 
 
@@ -602,10 +619,15 @@ def run_spread_ls(
         _drop_dead(short_slots, forced_covers, "cover")
 
         def _px(when, iid):
-            if when in close.index and iid in close.columns:
-                v = float(close.loc[when, iid])
-                if np.isfinite(v) and v > 0:
-                    return v
+            iid = int(iid)
+            if when not in close.index:
+                return float("nan")
+            if iid not in close.columns:
+                return float("nan")
+            v = close.at[when, iid]
+            v = float(v) if v is not None else float("nan")
+            if np.isfinite(v) and v > 0:
+                return v
             return float("nan")
 
         def _close_one(store, iid, when, side, reason):
