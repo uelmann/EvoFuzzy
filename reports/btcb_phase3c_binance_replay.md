@@ -70,7 +70,7 @@ Mechanical, no post-hoc adjustment.
 | 2026 | 5211 | 5032 | 96.6% |
 
 Hybrid flagged (CMC-priced) share of name-days = `15.7%`.
-Spot symbols downloaded this run = 169; reused = 1; attempted = 170.
+Spot symbols downloaded this run = 0; reused = 170; attempted = 170.
 Funding events applied = 45750; short name-days with missing funding (treated as 0) = 447.
 
 ### Never-listed / unmapped names (kept at CMC in hybrid, flagged)
@@ -154,7 +154,7 @@ Squeeze-day mean CMC = `-1.18%`; hybrid (funding-in) = `-1.10%`.
 
 OFFICIAL SPREAD-LS RECORD SUSPENDED.
 
-- GPU=False. Elapsed s=405.1.
+- GPU=False. Elapsed s=88.8.
 - Charts: `charts/btcb_phase3c_hybrid_equity.png`, `charts/btcb_phase3c_pnl_scatter.png`.
 - COMBO untouched (v2.0-combo-final). Frozen BTC-BEATER v1 untouched. No MASTER book.
 
