@@ -253,6 +253,42 @@ def _stouffer_z(cells: list[dict], real_key: str) -> float:
     return float(np.sum(zs) / np.sqrt(len(zs)))
 
 
+def metric_verdict_e1b_house(
+    cells: list[dict],
+    real_key: str,
+    k_exceed: int,
+    z_min: float,
+    min_violations: int | None = None,
+) -> dict:
+    """E.1b skill + Phase 3.c house-rule bias (CONTAMINATED iff ≥2 2·SE violations)."""
+    from btcb.constants import FUTURE_NULL_BIAS_MIN_VIOLATIONS
+
+    n_exceed = int(sum(1 for c in cells if c.get("exceeds_p95")))
+    n_violate = int(sum(1 for c in cells if not c.get("bias_ok")))
+    z = _stouffer_z(cells, real_key)
+    need = int(FUTURE_NULL_BIAS_MIN_VIOLATIONS if min_violations is None else min_violations)
+    bias_pass = bool(cells) and n_violate < need
+    skill_pass = bool(n_exceed >= int(k_exceed) or (np.isfinite(z) and z >= float(z_min)))
+    if not bias_pass:
+        verdict = "CONTAMINATED"
+    elif not skill_pass:
+        verdict = "PARKED"
+    else:
+        verdict = "GREEN"
+    return {
+        "bias_pass": bias_pass,
+        "skill_pass": skill_pass,
+        "passed": bool(bias_pass and skill_pass),
+        "verdict": verdict,
+        "n_exceed": n_exceed,
+        "n_violate": n_violate,
+        "n_folds": len(cells),
+        "stouffer_z": z,
+        "min_violations": need,
+        "cells": cells,
+    }
+
+
 def _metric_verdict(cells: list[dict], real_key: str, k_exceed: int, z_min: float) -> dict:
     # RECORD ONLY (Phase 3.c house-rule): future null gates revert to the E.1b
     # tolerance — CONTAMINATED requires ≥2 fold-level 2·SE violations, not 1

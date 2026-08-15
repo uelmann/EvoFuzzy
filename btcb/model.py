@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import time
 from dataclasses import dataclass
+from pathlib import Path
 
 import lightgbm as lgb
 import numpy as np
@@ -17,6 +18,7 @@ from baseline.seedutil import seed_everything
 from btcb.constants import (
     FEATURE_COLS_V1,
     INNER_HOLDOUT_CALENDAR_DAYS,
+    LGBM_RANK,
     LGBM_V1,
     MIN_TRAIN_CALENDAR_DAYS,
     PRICE_COLS,
@@ -463,6 +465,7 @@ def train_all_folds(
     early_stop: str = "auc",
     ycol: str | None = None,
     tag: str | None = None,
+    commit_fn=None,
 ) -> tuple[pd.DataFrame, list[dict], list[FoldSpec]]:
     folds = make_expanding_folds(pd.DatetimeIndex(df["date"].unique()), horizon=horizon)
     print(f"[HB] h={horizon} folds={len(folds)} early_stop={early_stop} ycol={ycol or f'y_h{horizon}'} tag={tag}", flush=True)
@@ -475,6 +478,15 @@ def train_all_folds(
             f"val={pd.Timestamp(fold.val_start).date()}→{pd.Timestamp(fold.val_end).date()}",
             flush=True,
         )
+        if out_dir is not None:
+            stem = f"preds_{tag}_h{horizon}_fold{fold.fold_id}" if tag else f"preds_h{horizon}_fold{fold.fold_id}"
+            dest = Path(out_dir) / f"{stem}.parquet"
+            if dest.exists():
+                pred_df = pd.read_parquet(dest)
+                all_preds.append(pred_df)
+                metas.append({"fold_id": fold.fold_id, "status": "cached", "horizon": horizon})
+                print(f"[HB] fold {fold.fold_id} cached {dest.name}", flush=True)
+                continue
         pred_df, meta = fit_predict_fold(
             df, fold, feature_cols=feature_cols, early_stop=early_stop, ycol=ycol
         )
@@ -483,7 +495,9 @@ def train_all_folds(
             all_preds.append(pred_df)
             if out_dir is not None:
                 stem = f"preds_{tag}_h{horizon}_fold{fold.fold_id}" if tag else f"preds_h{horizon}_fold{fold.fold_id}"
-                pred_df.to_parquet(out_dir / f"{stem}.parquet", index=False)
+                pred_df.to_parquet(Path(out_dir) / f"{stem}.parquet", index=False)
+                if commit_fn is not None:
+                    commit_fn()
         print(
             f"[HB] fold {fold.fold_id} status={meta.get('status')} "
             f"pdauc={meta.get('pdauc_oos')} auc_oos={meta.get('auc_oos')} "
@@ -517,6 +531,235 @@ def merge_twin_preds(top: pd.DataFrame, bot: pd.DataFrame, horizon: int) -> pd.D
     m["uncertainty"] = m["p_top"].astype(float) + m["p_bot"].astype(float)
     m["horizon"] = int(horizon)
     return m
+
+
+def _group_sizes(dates) -> list[int]:
+    dates = pd.to_datetime(np.asarray(dates), utc=True)
+    if hasattr(dates, "tz_convert"):
+        dates = dates.tz_convert("UTC").normalize()
+    sizes = []
+    i, n = 0, len(dates)
+    while i < n:
+        j = i + 1
+        while j < n and dates[j] == dates[i]:
+            j += 1
+        sizes.append(int(j - i))
+        i = j
+    return sizes
+
+
+def fit_predict_rank_fold(
+    df: pd.DataFrame,
+    fold: FoldSpec,
+    seed: int = SEED,
+    feature_cols: list[str] | None = None,
+    inner_holdout_days: int = INNER_HOLDOUT_CALENDAR_DAYS,
+    shuffle_labels: bool = False,
+    shuffle_seed: int | None = None,
+    lgbm_params: dict | None = None,
+    ycol: str | None = None,
+) -> tuple[pd.DataFrame, dict]:
+    """LightGBM LambdaRank on per-date groups. Raw scores; no isotonic calibration."""
+    seed_everything(seed + fold.fold_id + (0 if shuffle_seed is None else int(shuffle_seed)))
+    ycol = ycol or f"y_rank_h{fold.horizon}"
+    feats = list(feature_cols) if feature_cols is not None else list(FEATURE_COLS_V1)
+    cfg = dict(LGBM_RANK)
+    if lgbm_params:
+        cfg.update(lgbm_params)
+    t0 = time.time()
+
+    train_mask = (df["date"] >= fold.train_start) & (df["date"] <= fold.train_end)
+    val_mask = (df["date"] >= fold.val_start) & (df["date"] <= fold.val_end)
+    price_need = [c for c in PRICE_COLS if c in df.columns]
+    train = df.loc[train_mask].dropna(subset=price_need + [ycol])
+    valid = df.loc[val_mask].dropna(subset=price_need)
+    if train.empty or valid.empty:
+        return pd.DataFrame(), {
+            "fold_id": fold.fold_id,
+            "status": "empty",
+            "elapsed": time.time() - t0,
+            "n_train": int(len(train)),
+            "n_valid": int(len(valid)),
+        }
+
+    cut = fold.train_end - pd.Timedelta(days=int(inner_holdout_days))
+    inner_tr = train[train["date"] <= cut]
+    inner_ho = train[train["date"] > cut]
+    if inner_tr.empty or inner_ho.empty:
+        n = max(1, int(len(train) * 0.85))
+        inner_tr = train.iloc[:n]
+        inner_ho = train.iloc[n:]
+
+    if shuffle_labels:
+        ss = int(shuffle_seed) if shuffle_seed is not None else int(seed) + 90_017
+        rng = np.random.default_rng(ss)
+
+        def _shuf(d: pd.DataFrame) -> pd.DataFrame:
+            d = d.copy()
+            d[ycol] = d.groupby("date", sort=False)[ycol].transform(lambda s: rng.permutation(s.to_numpy()))
+            return d
+
+        inner_tr = _shuf(inner_tr)
+        inner_ho = _shuf(inner_ho)
+
+    inner_tr = inner_tr.sort_values(["date", "id"]).reset_index(drop=True)
+    inner_ho = inner_ho.sort_values(["date", "id"]).reset_index(drop=True)
+    y_tr = inner_tr[ycol].astype(int)
+    y_ho = inner_ho[ycol].astype(int)
+    g_tr = _group_sizes(inner_tr["date"].to_numpy())
+    g_ho = _group_sizes(inner_ho["date"].to_numpy())
+    if int(sum(g_tr)) != len(inner_tr) or int(sum(g_ho)) != len(inner_ho):
+        return pd.DataFrame(), {
+            "fold_id": fold.fold_id,
+            "status": "group_mismatch",
+            "elapsed": time.time() - t0,
+        }
+
+    dtrain = lgb.Dataset(inner_tr[feats], label=y_tr, group=g_tr, free_raw_data=False)
+    dvalid = lgb.Dataset(inner_ho[feats], label=y_ho, group=g_ho, reference=dtrain, free_raw_data=False)
+
+    ndcg_at = list(cfg.get("ndcg_eval_at", (10,)))
+    params = {
+        "objective": "lambdarank",
+        "metric": "ndcg",
+        "ndcg_eval_at": ndcg_at,
+        "eval_at": ndcg_at,
+        "lambdarank_truncation_level": int(cfg.get("lambdarank_truncation_level", 10)),
+        "num_leaves": cfg.get("num_leaves", 31),
+        "learning_rate": cfg.get("learning_rate", 0.03),
+        "min_data_in_leaf": cfg.get("min_data_in_leaf", 200),
+        "feature_fraction": cfg.get("feature_fraction", 0.8),
+        "bagging_fraction": cfg.get("bagging_fraction", 0.8),
+        "bagging_freq": cfg.get("bagging_freq", 1),
+        "lambda_l2": cfg.get("lambda_l2", 1.0),
+        "verbosity": cfg.get("verbosity", -1),
+        "seed": seed + fold.fold_id,
+        "feature_fraction_seed": seed + fold.fold_id,
+        "bagging_seed": seed + fold.fold_id,
+        "deterministic": True,
+        "force_row_wise": True,
+        "num_threads": 8,
+    }
+    n_estimators = int(cfg.get("n_estimators", 3000))
+    patience = int(cfg.get("early_stopping_rounds", 100))
+    evals_result: dict = {}
+    callbacks = [
+        lgb.record_evaluation(evals_result),
+        lgb.early_stopping(stopping_rounds=patience, first_metric_only=True, verbose=False),
+        lgb.log_evaluation(period=0),
+    ]
+    booster = lgb.train(
+        params,
+        dtrain,
+        num_boost_round=n_estimators,
+        valid_sets=[dvalid],
+        valid_names=["inner_ho"],
+        callbacks=callbacks,
+    )
+    best_iteration = int(booster.best_iteration or 0) or n_estimators
+
+    raw_val = booster.predict(valid[feats], num_iteration=best_iteration)
+    pred_df = valid[["date", "id", "symbol"]].copy()
+    pred_df["p_raw"] = raw_val
+    pred_df["p"] = raw_val
+    pred_df["horizon"] = fold.horizon
+    pred_df["fold_id"] = fold.fold_id
+    pred_df[ycol] = valid[ycol].to_numpy()
+    excol = f"excess_h{fold.horizon}"
+    if excol in valid.columns:
+        pred_df[excol] = valid[excol].to_numpy()
+
+    gain = booster.feature_importance(importance_type="gain")
+    gain_map = {f: float(g) for f, g in zip(feats, gain)}
+    ric = float("nan")
+    if excol in valid.columns:
+        ric = mean_per_date_rank_ic(raw_val, valid[excol].to_numpy(), valid["date"].to_numpy())
+    ndcg_ho = float("nan")
+    try:
+        ho_hist = (evals_result.get("inner_ho") or {}).get("ndcg@10") or (evals_result.get("inner_ho") or {}).get("ndcg")
+        if ho_hist:
+            ndcg_ho = float(ho_hist[best_iteration - 1] if best_iteration - 1 < len(ho_hist) else ho_hist[-1])
+    except Exception:
+        ndcg_ho = float("nan")
+
+    elapsed = time.time() - t0
+    meta = {
+        "fold_id": fold.fold_id,
+        "status": "ok",
+        "elapsed": elapsed,
+        "best_iteration": best_iteration,
+        "n_train": int(len(inner_tr)),
+        "n_holdout": int(len(inner_ho)),
+        "n_valid": int(len(valid)),
+        "train_end": str(pd.Timestamp(fold.train_end).date()),
+        "val_start": str(pd.Timestamp(fold.val_start).date()),
+        "val_end": str(pd.Timestamp(fold.val_end).date()),
+        "ndcg_holdout": ndcg_ho,
+        "rankic_oos": ric,
+        "feature_importance_gain": gain_map,
+        "feature_cols": feats,
+        "ycol": ycol,
+        "shuffle_labels": bool(shuffle_labels),
+        "shuffle_seed": int(shuffle_seed) if shuffle_seed is not None else None,
+        "calibrated": False,
+        "horizon": fold.horizon,
+        "objective": "lambdarank",
+    }
+    return pred_df, meta
+
+
+def train_all_rank_folds(
+    df: pd.DataFrame,
+    horizon: int,
+    out_dir=None,
+    feature_cols: list[str] | None = None,
+    ycol: str | None = None,
+    tag: str | None = None,
+    commit_fn=None,
+) -> tuple[pd.DataFrame, list[dict], list[FoldSpec]]:
+    folds = make_expanding_folds(pd.DatetimeIndex(df["date"].unique()), horizon=horizon)
+    print(
+        f"[HB] RANK h={horizon} folds={len(folds)} ycol={ycol or f'y_rank_h{horizon}'} tag={tag}",
+        flush=True,
+    )
+    all_preds = []
+    metas = []
+    for fold in folds:
+        print(
+            f"[HB] rank fold {fold.fold_id+1}/{len(folds)} h={horizon} tag={tag} "
+            f"train≤{pd.Timestamp(fold.train_end).date()} "
+            f"val={pd.Timestamp(fold.val_start).date()}→{pd.Timestamp(fold.val_end).date()}",
+            flush=True,
+        )
+        if out_dir is not None:
+            stem = f"preds_{tag}_h{horizon}_fold{fold.fold_id}" if tag else f"preds_rank_h{horizon}_fold{fold.fold_id}"
+            dest = Path(out_dir) / f"{stem}.parquet"
+            if dest.exists():
+                pred_df = pd.read_parquet(dest)
+                all_preds.append(pred_df)
+                metas.append({"fold_id": fold.fold_id, "status": "cached", "horizon": horizon})
+                print(f"[HB] rank fold {fold.fold_id} cached {dest.name}", flush=True)
+                continue
+        pred_df, meta = fit_predict_rank_fold(df, fold, feature_cols=feature_cols, ycol=ycol)
+        metas.append(meta)
+        if not pred_df.empty:
+            all_preds.append(pred_df)
+            if out_dir is not None:
+                stem = f"preds_{tag}_h{horizon}_fold{fold.fold_id}" if tag else f"preds_rank_h{horizon}_fold{fold.fold_id}"
+                pred_df.to_parquet(Path(out_dir) / f"{stem}.parquet", index=False)
+                if commit_fn is not None:
+                    commit_fn()
+        print(
+            f"[HB] rank fold {fold.fold_id} status={meta.get('status')} "
+            f"rankic={meta.get('rankic_oos')} best_iter={meta.get('best_iteration')} "
+            f"elapsed={meta.get('elapsed'):.1f}s",
+            flush=True,
+        )
+    preds = pd.concat(all_preds, ignore_index=True) if all_preds else pd.DataFrame()
+    if out_dir is not None:
+        meta_name = f"fold_meta_{tag}_h{horizon}.json" if tag else f"fold_meta_rank_h{horizon}.json"
+        (out_dir / meta_name).write_text(json.dumps(metas, indent=2, default=str))
+    return preds, metas, folds
 
 
 def mean_gain(metas: list[dict], top_n: int = 15) -> list[tuple[str, float]]:

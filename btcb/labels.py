@@ -87,3 +87,30 @@ def add_twin_quintile_labels(
 
         out[yb] = out.groupby("date", sort=False)[ex].transform(_botq)
     return out
+
+
+def add_rank_grade_labels(
+    feat: pd.DataFrame,
+    horizon: int = 14,
+    n_grades: int = 5,
+) -> pd.DataFrame:
+    """Integer 0..n_grades-1 within-date rank buckets of excess (higher = better)."""
+    out = feat.copy()
+    ex = f"excess_h{horizon}"
+    ycol = f"y_rank_h{horizon}"
+    if ex not in out.columns:
+        raise RuntimeError(f"missing {ex} for rank-grade labels")
+    n_grades = int(n_grades)
+
+    def _grades(s: pd.Series) -> pd.Series:
+        m = s.notna() & np.isfinite(s.to_numpy())
+        out_s = pd.Series(np.nan, index=s.index)
+        if int(m.sum()) < 10:
+            return out_s
+        pct = s[m].rank(method="average", pct=True)
+        g = np.minimum((pct.to_numpy(dtype=float) * n_grades).astype(int), n_grades - 1)
+        out_s.loc[m] = g.astype(float)
+        return out_s
+
+    out[ycol] = out.groupby("date", sort=False)[ex].transform(_grades)
+    return out

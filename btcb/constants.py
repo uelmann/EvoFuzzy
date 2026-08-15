@@ -555,3 +555,78 @@ ORACLE_LADDER2_V3_Q = 0.95
 ORACLE_LADDER2_V3_CAP = 0.10
 ORACLE_LADDER2_MONSTER_K = 3
 
+# ---------------------------------------------------------------------------
+# Phase 4 v2 — TAIL ROUND 1: LambdaRank head + positioning block
+# (frozen a priori; backtest/analysis only; nothing adopted)
+# ---------------------------------------------------------------------------
+
+PHASE4V2_PI_SCOPE = (
+    "Catalyst and attention data families (unlocks, listing announcements, search "
+    "volume) are OUT OF SCOPE by PI decision; the data perimeter is price/volume "
+    "plus derivatives data already retrievable (funding, open interest, basis, "
+    "taker flows)."
+)
+
+PHASE4V2_PI_KILL = (
+    "The old project's microstructure KILL applied to the mean-regression label "
+    "on the old system; this phase judges a positioning block on the NEW system's "
+    "tail metrics — fresh pre-registration, not a kill-list retest."
+)
+
+PHASE4V2_CRITERION = (
+    "TAIL-LOSS EXTRACTS if RANK or blend improves tail-IC(top-half) ≥ +0.010 AND "
+    "overlap ≥ +0.015 vs baseline with the null passing; BARREN otherwise. "
+    "POSITIONING LIVE if the positioning block adds tail-IC(top-half) ≥ +0.010 "
+    "OR overlap ≥ +0.015 on top of the best A-signal, with ≥50% perp coverage of "
+    "top-100 name-days from 2021. PRICE-ADDITIONS LIVE at the same thresholds. "
+    "Verdicts mechanical; nothing adopted; any production change requires a "
+    "fresh pre-registered phase. No post-hoc adjustment."
+)
+
+PHASE4V2_H = 14
+PHASE4V2_RANK_GRADES = 5
+PHASE4V2_TRUNCATION = 10
+PHASE4V2_NDCG_AT = 10
+PHASE4V2_TAIL_IC_DELTA = 0.010
+PHASE4V2_OVERLAP_DELTA = 0.015
+PHASE4V2_PERP_COV_MIN = 0.50
+PHASE4V2_PERP_COV_FROM = "2021-01-01"
+PHASE4V2_OVERLAP_NULL_CENTER = 0.10  # 1 / top-decile
+PHASE4V2_NW_LAG = 14
+
+LGBM_RANK = dict(
+    objective="lambdarank",
+    metric="ndcg",
+    ndcg_eval_at=(10,),
+    lambdarank_truncation_level=10,
+    num_leaves=31,
+    learning_rate=0.03,
+    min_data_in_leaf=200,
+    feature_fraction=0.8,
+    bagging_fraction=0.8,
+    bagging_freq=1,
+    lambda_l2=1.0,
+    n_estimators=3000,
+    early_stopping_rounds=100,
+    verbosity=-1,
+)
+
+POSITIONING_COLS = (
+    "funding_z_7",
+    "funding_z_30",
+    "funding_level_3d",
+    "dOI_7",
+    "dOI_30",
+    "basis",
+    "taker_imbalance_7",
+    "pos_missing",
+)
+PRICE_ADD_COLS = (
+    "past_alpha_60",
+    "trend_composite",
+)
+assert len(POSITIONING_COLS) == 8, len(POSITIONING_COLS)
+assert len(PRICE_ADD_COLS) == 2, len(PRICE_ADD_COLS)
+assert not set(POSITIONING_COLS) & set(STAGE_S_COLS)
+assert not set(PRICE_ADD_COLS) & set(STAGE_S_COLS)
+
