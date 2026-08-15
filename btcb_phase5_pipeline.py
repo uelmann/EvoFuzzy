@@ -691,6 +691,25 @@ def stage_b_csattn() -> dict:
     null = null_verdict(cells)
 
     verdict = mechanical_verdict(grid.get("gbm") or {}, seed_metrics, grid.get("ensemble") or {}, null)
+    if budget.aborted or len(seeds_done) < 3 or null_done < len(PHASE5_NULL_FOLDS) * len(PHASE5_NULL_SHUFFLE_SEEDS):
+        verdict = dict(verdict)
+        verdict["live"] = False
+        verdict["verdict"] = "PARKED"
+        extra_fail = []
+        if budget.aborted or len(seeds_done) < 3:
+            extra_fail.append("incomplete_budget")
+            verdict["clause_a"] = False
+            verdict["clause_b"] = False
+        if null_done < len(PHASE5_NULL_FOLDS) * len(PHASE5_NULL_SHUFFLE_SEEDS):
+            extra_fail.append("incomplete_null")
+            verdict["clause_c"] = False
+        failed = list(verdict.get("failed_clauses") or [])
+        for f in extra_fail:
+            if f not in failed:
+                failed.append(f)
+        verdict["failed_clauses"] = failed
+        verdict["record_ceiling"] = False
+        verdict["ceiling_sentence"] = None
 
     audit = {}
     ap = Path("/data/quant/hourly/audit.json")
