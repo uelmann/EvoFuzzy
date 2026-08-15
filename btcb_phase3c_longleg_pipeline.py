@@ -23,9 +23,12 @@ image = (
         "numpy",
         "pandas==2.2.2",
         "pyarrow",
+        "scipy",
+        "lightgbm",
         "matplotlib",
         "httpx",
         "pyyaml",
+        "scikit-learn",
     )
     .env({"PYTHONUNBUFFERED": "1"})
     .add_local_python_source("baseline", "btcb")
