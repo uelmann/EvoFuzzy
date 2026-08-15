@@ -26,6 +26,7 @@ image = (
         "pandas==2.2.2",
         "pyarrow",
         "scipy",
+        "lightgbm",
         "matplotlib",
         "httpx",
         "pyyaml",
