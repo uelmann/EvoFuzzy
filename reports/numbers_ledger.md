@@ -59,3 +59,12 @@ IMPLEMENTATION TAX (paper GROSS − 3.c hybrid) = `-0.033`. Waterfall Sharpe: `1
 
 Paper alpha lives mainly in the short side: universe−short Sharpe `1.637` (mean share 0.76) vs long−universe `0.770` (0.24). Corr vs BOOK-CMC `0.693` / vs hybrid `0.677`.
 
+## BTC-BEATER LONG-TIDE
+
+Full-size long leg + frozen Stage-T gate, BTC parking. Backtest only. Binance-priced (3.e canonical). 2.c spread cache reused. No shorts, no funding. SPREAD-LS BOOK-HYBRID remains the official long/short product. COMBO untouched.
+
+**OFFICIAL long product = LONG-TIDE.** SUPERSEDES BTC-BEATER v1 (v1 demoted to record-only).
+
+LONG-TIDE rel-line Sharpe `0.780` / USD Sharpe `1.008` / trail `-0.397` / total `1917.9%` / MaxDD `-73.2%` / alt deployment `19.2%` / gate ON `19.2%`. status=`SUPERSEDES-V1`. Window 2019-10-19→2026-07-31 n=2478.
+
+Mechanical, no post-hoc adjustment.
