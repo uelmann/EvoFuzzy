@@ -431,3 +431,25 @@ COMBO_SPREADLS_CORR = 0.157
 # Future null gates only. Existing _metric_verdict still requires every fold.
 FUTURE_NULL_BIAS_MIN_VIOLATIONS = 2
 PHASE3C_NAME_TIERS = ((1, 10, "1-10"), (11, 50, "11-50"), (51, 100, "51-100"))
+PHASE3C_POSITION_SHA256 = "f47f7ece40d6cee536b2a07c25961d1d69284f92ddf716447a52b5f57fcc232b"
+PHASE3C_REF_HYBRID_SHARPE = 1.5551874624157
+
+# ---------------------------------------------------------------------------
+# Academic factor — unconstrained D10−D1 on CMC + implementation-tax waterfall
+# (frozen a priori; analysis only; nothing adopted)
+# ---------------------------------------------------------------------------
+
+ACADEMIC_FACTOR_CRITERION = (
+    "PAPER ALPHA EXISTS if FACTOR-JT top-100 gross Sharpe ≥ 1.0 with NW-t ≥ 3.0 "
+    "on the full OOS window. The IMPLEMENTATION TAX is recorded as (paper gross "
+    "Sharpe − implementable hybrid Sharpe), decomposed per the waterfall. Labels "
+    "are diagnostic; nothing is adopted or changed. Mechanical, no post-hoc "
+    "adjustment."
+)
+
+ACADEMIC_FACTOR_H = 14
+ACADEMIC_FACTOR_NW_LAG = 14
+ACADEMIC_FACTOR_SHARPE_MIN = 1.0
+ACADEMIC_FACTOR_NW_T_MIN = 3.0
+ACADEMIC_FACTOR_NAIVE_BPS = 10.0
+ACADEMIC_FACTOR_NS = (50, 100)
