@@ -108,3 +108,9 @@ gauss(ret14)·gauss(ret28)/gauss(std63), top-50 mcap, top 5%, long-only. Backtes
 **MANUEL-2 STRONG.** Best=`daily_btc_in` total `59.39273490080397` vs BTC `6.892730650871092`; corr `0.41445744898283027`. Clause1=True clause2=True. Score-vol tilt `-0.4419882390985122`.
 
 Mechanical, no post-hoc adjustment. Frozen products untouched.
+
+## Phase 7 NFN (record only; nothing adopted)
+
+- **NFN PARKED** clauses a/b/c = False/False/False
+- Δtail-IC `-0.005180423115375546` Δoverlap `-0.0073516197151457935` dispersion `0.023081138810684305`
+- UNDERTRAINED count `68` warm-start `random_init`
