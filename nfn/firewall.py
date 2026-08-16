@@ -9,7 +9,7 @@ from nfn.constants import FORBIDDEN_TOKENS
 
 NFN_ROOT = Path(__file__).resolve().parent
 
-SKIP_NAMES = {"firewall.py", "constants.py"}
+SKIP_NAMES = {"firewall.py", "constants.py", "constants_v1.py"}
 
 
 def miner_source_files() -> list[Path]:
@@ -18,9 +18,10 @@ def miner_source_files() -> list[Path]:
         if p.name in SKIP_NAMES:
             continue
         files.append(p)
-    pipe = NFN_ROOT.parent / "btcb_phase7_nfn_pipeline.py"
-    if pipe.exists():
-        files.append(pipe)
+    for name in ("btcb_phase7_nfn_pipeline.py", "btcb_phase7c_nfn_v1_pipeline.py"):
+        pipe = NFN_ROOT.parent / name
+        if pipe.exists():
+            files.append(pipe)
     return files
 
 
