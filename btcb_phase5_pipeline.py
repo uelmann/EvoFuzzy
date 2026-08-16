@@ -643,6 +643,11 @@ def persist_a10g_sunk(usd: float, hours: float, note: str = "") -> dict:
     spend_dir.mkdir(parents=True, exist_ok=True)
     (root / "gpu_spend.json").write_text(json.dumps(rec, indent=2))
     (spend_dir / "a10g_sunk.json").write_text(json.dumps(rec, indent=2))
+    for p in spend_dir.glob("worker_*.json"):
+        try:
+            p.unlink()
+        except Exception:
+            pass
     _volume_commit()
     print(f"[HB] persisted A10G sunk ${usd:.2f} ({hours:.2f} h)", flush=True)
     return rec

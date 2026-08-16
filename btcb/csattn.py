@@ -256,12 +256,33 @@ def _device():
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
+_SEQ_CACHE: dict[str, tuple] = {}
+
+
 def load_seq_cache(cache_dir: Path):
+    """Load index + X into process RAM.
+
+    mmap_mode='r' on the Modal volume turns every batch gather into random
+    remote reads (~2 s/batch, GPU idle). 2 GB fits in the Stage B container.
+    Numerics unchanged: same float32 rows, just DRAM instead of volume mmap.
+    """
     cache_dir = Path(cache_dir)
+    key = str(cache_dir.resolve())
+    hit = _SEQ_CACHE.get(key)
+    if hit is not None:
+        return hit
     idx = pd.read_parquet(cache_dir / "index.parquet")
     idx["date"] = pd.to_datetime(idx["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
     idx["id"] = idx["id"].astype(int)
-    X = np.load(cache_dir / "X.npy", mmap_mode="r")
+    t0 = time.time()
+    loaded = np.load(cache_dir / "X.npy")
+    X = np.array(loaded, dtype=np.float32, copy=True, order="C")
+    del loaded
+    print(
+        f"[csattn] X.npy RAM shape={tuple(X.shape)} nbytes={X.nbytes} elapsed={time.time()-t0:.1f}s",
+        flush=True,
+    )
+    _SEQ_CACHE[key] = (idx, X)
     return idx, X
 
 
