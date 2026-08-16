@@ -1,0 +1,16 @@
+{
+  "passed": false,
+  "gates": [
+    {"name": "test_no_lookahead_filters", "passed": true},
+    {"name": "test_scaler_fold_isolation", "passed": true, "status": "N/A"},
+    {"name": "feature_lookahead", "passed": true},
+    {"name": "universe_lookahead_top20", "passed": true},
+    {"name": "universe_lookahead_top40", "passed": true},
+    {"name": "universe_lookahead_top120", "passed": true},
+    {"name": "test_gate_identity_leakage", "passed": true, "status": "N/A"},
+    {"name": "label_shuffle", "passed": true, "mean_ic": 0.0005157159614555648, "threshold": 0.005},
+    {"name": "seed_determinism", "passed": true, "max_score_diff": 0.0},
+    {"name": "test_shifted_target_degrades", "passed": false, "shift": 10, "mean_ic": 0.08032113973646492, "mean_ic_shifted": 0.058511608345255456, "half_unshifted": 0.04016056986823246, "nw_tstat_shifted": 6.744415717089078, "n_days": 1620, "fail_ic_too_high": true, "fail_nw_t": true},
+    {"name": "test_axis_slicing", "passed": true, "shape": [1620, 239]}
+  ]
+}

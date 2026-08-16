@@ -187,8 +187,11 @@ def slim_portfolio(res: dict) -> dict:
     drop = {
         "equity", "daily_ret", "daily_gross", "daily_hedge", "daily_cost",
         "daily_funding", "sym_contrib", "side_days", "daily_flat",
+        "daily_n_pos", "daily_n_long", "daily_n_short", "daily_long",
+        "daily_short", "daily_gross_deployed", "daily_gross_full",
+        "daily_long_names", "name_alpha_pnl", "traded_ranks",
     }
-    out = {k: v for k, v in res.items() if k not in drop}
+    out = {k: v for k, v in res.items() if k not in drop and not str(k).startswith("daily_")}
     daily = res.get("daily_ret")
     if isinstance(daily, pd.Series) and len(daily):
         eq = (1.0 + daily.fillna(0.0)).cumprod()

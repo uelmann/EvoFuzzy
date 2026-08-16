@@ -489,7 +489,7 @@ def main() -> int:
     print(f"[fase1] wrote {out_path}", flush=True)
 
     suite_path = Path("results/fase1_suite.json")
-    suite_path.write_text(json.dumps(json_safe({"passed": True, "gates": gates}), indent=2))
+    suite_path.write_text(json.dumps(json_safe({"passed": bool(suite_ok), "gates": gates}), indent=2))
     print(f"[fase1] wrote {suite_path}", flush=True)
 
     lines = [
