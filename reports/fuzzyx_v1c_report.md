@@ -125,3 +125,11 @@
 
 - Clause (iv) SKIP: A0 h=7 preds missing.
 - Official VIABLE is disabled for LOCAL-RESTRICTED even if Sharpe≥0.
+
+## Reading (not a retune)
+
+The notebook line as the **only** train loss does put the book back in the market (`traded_frac = 0.95`, vs v1b’s 0). Full-OOS hard Sharpe is **+0.391** (weekly, costs on) and `corr(st_r, t)` itself is **−0.109** — the train scalar is not even achieved OOS. Inner-holdout `hold_loss` is often negative (local 12–13 week slope fits); the concatenated path does not.
+
+Shuffle-bias is a clean FAIL: fold 0 null mean weekly PnL **+1.09%** with SD 5.5 bps (threshold 3.5 bps). That is residual **net-long × crypto CS-mean**. Within-date shuffle keeps the date’s average return; `E[w·π(r)] = mean(r)·Σw`. Reported `|mean w| = 0.006` on 30 names is ~18% net long notional, which times a fat weekly CS mean ≈ the +1.1% null. Occupancy looks two-sided (L 0.35 / S 0.60) and still has market beta.
+
+So this shot did **not** recover the notebook as a skillful CS policy. It recovered “a fully invested book with a bit of net long,” which is why a single in-sample window can look like the file “worked.” No retune. v1/v1b untouched. COMBO / A0 not replaced.
