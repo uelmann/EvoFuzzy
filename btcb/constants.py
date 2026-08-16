@@ -677,3 +677,97 @@ PHASE4B_DIR_BOOST = 2.0  # w_i = 1 + BOOST * 1[top decile]
 PHASE4B_TAIL_IC_DELTA = 0.010
 PHASE4B_OVERLAP_DELTA = 0.015
 
+# ---------------------------------------------------------------------------
+# MANUEL-2 — gauss(ret14)·gauss(ret28)/gauss(std63), top-50 mcap, top 5%, long-only
+# (frozen a priori; backtest/analysis only; nothing adopted)
+# ---------------------------------------------------------------------------
+
+MANUEL2_CRITERION = (
+    "MANUEL-2 is CONFIRMED if the best pre-declared book (daily or weekly, btc-in "
+    "or btc-ex — 4 books, disclosed as a 4-way look) on Binance-hybrid pricing has: "
+    "total ≥ BTC B&H AND daily correlation with BTC ≤ 0.70. It is STRONG if additionally "
+    "relative-line Sharpe ≥ 0.50 and MaxDD ≤ 1.10 × BTC's. It is PARTIAL if exactly one "
+    "of the two claim clauses passes (state which). REFUTED if neither. Per-cycle honesty "
+    "table mandatory; no single cycle overrides. If CONFIRMED, a fresh pre-registered "
+    "phase evaluates adoption. Mechanical, no post-hoc adjustment."
+)
+
+MANUEL2_FORMULA = (
+    "Score = gauss(ret_14d) × gauss(ret_28d) / gauss(std_63d), "
+    "gauss(x) = Φ(z_cs(x)), z_cs = cross-sectional z-score per date across that day's universe. "
+    "All inputs use data ≤ t."
+)
+
+MANUEL2_STABLE_COMPLETION = (
+    "STABLECOIN EXCLUSION: pegged assets (stablecoins, wrapped/pegged tokens) are excluded "
+    "from the universe. Rationale on record: the formula divides by gauss(std63); std≈0 names "
+    "get near-infinite scores — the literal formula would buy Tether. Exclusion list built from "
+    "the panel's pegged-asset tags + |90d total return| < 2% heuristic, logged."
+)
+
+MANUEL2_BTC_COMPLETION = (
+    "BTC VARIANTS: run BOTH btc-in and btc-ex universes (BTC's low std makes the denominator "
+    "favor it; the PI's thesis is a non-BTC-like curve, so both are shown)."
+)
+
+MANUEL2_GAUSS_COMPLETION = (
+    "gauss(x) = Φ(z_cs(x)): normal CDF of the CROSS-SECTIONAL z-score, computed per date "
+    "across the day's universe. All inputs use data ≤ t."
+)
+
+MANUEL2_BEST_RULE = (
+    "Best book = highest full-window total return among the four pre-declared books "
+    "(daily/weekly × btc-in/btc-ex). Verdicts apply to that book. All four are reported. "
+    "This is the disclosed 4-way look. No other selection."
+)
+
+MANUEL2_MAXDD_RULE = (
+    "MaxDD is the house signed quantity (negative). STRONG clause 'MaxDD ≤ 1.10 × BTC's' "
+    "is |book MaxDD| ≤ 1.10 × |BTC MaxDD|, i.e. book_maxdd >= 1.10 * btc_maxdd when both ≤ 0."
+)
+
+MANUEL2_UNIVERSE_N = 50
+MANUEL2_TOP_PCT = 0.05
+MANUEL2_RET_A = 14
+MANUEL2_RET_B = 28
+MANUEL2_STD_W = 63
+MANUEL2_PEG_LOOKBACK = 90
+MANUEL2_PEG_ABS_RET = 0.02
+MANUEL2_CORR_MAX = 0.70
+MANUEL2_REL_SHARPE_STRONG = 0.50
+MANUEL2_MAXDD_MULT = 1.10
+MANUEL2_ROLL_CORR = 90
+MANUEL2_COST_BPS = 10.0
+MANUEL2_WEEKDAY = 0  # Monday
+MANUEL2_START = PHASE3C_REF_START
+MANUEL2_STD_DDOF = 1  # pandas rolling std of daily simple returns
+MANUEL2_CS_DDOF = 0  # cross-sectional z
+MANUEL2_EXTRA_STABLES = frozenset(
+    {
+        "UST", "USTC", "USDE", "USDS", "USDY", "USDJ", "USDX", "CUSD", "SUSD", "LUSD",
+        "MUSD", "OUSD", "DUSD", "HUSD", "EURS", "EUROC", "AGEUR", "USDBC", "USD0",
+        "CRVUSD", "GHO", "USDA", "USR", "USD1", "RLUSD", "TBTC", "HBTC", "SBTC",
+        "TETH", "WEETH", "EZETH", "RSETH", "SWETH", "METH", "CBBTC", "SOLBTC",
+    }
+)
+MANUEL2_PEG_NEEDLES = (
+    "tether",
+    "trueusd",
+    "usd-coin",
+    "usd coin",
+    "binance-usd",
+    "binance usd",
+    "wrapped-bitcoin",
+    "wrapped bitcoin",
+    "wrapped-ether",
+    "wrapped ether",
+    "wrapped-btc",
+    "wrapped-eth",
+    "binance-peg",
+    "pegged",
+    "stablecoin",
+    "terrausd",
+    "first-digital-usd",
+)
+MANUEL2_PEG_USD_EXCEPT = frozenset({"SAND", "BAND", "BOND", "AMP"})
+
