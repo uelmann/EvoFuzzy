@@ -92,18 +92,6 @@ def _jsonable(x, drop=None):
     return x
 
 
-def _load_tagged_preds(out_dir: Path, tag: str, horizon: int):
-    import pandas as pd
-
-    files = sorted(out_dir.glob(f"preds_{tag}_h{horizon}_fold*.parquet"))
-    if not files:
-        return None
-    df = pd.concat([pd.read_parquet(p) for p in files], ignore_index=True)
-    df["date"] = pd.to_datetime(df["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
-    df["id"] = df["id"].astype(int)
-    return df
-
-
 def _load_close_long(raw_dir: Path, symbols: list[str]):
     import pandas as pd
 
@@ -190,8 +178,10 @@ def run_btcb_p4b() -> dict:
         gate_vol_matched_dir_null,
         gate_vol_matched_rank_null,
         gate_vol_matched_twinrank_null,
+        load_tagged_preds,
         mechanical_verdicts,
         merge_dir_spread,
+        persist_book_daily_rets,
         real_fold_metrics,
         twinrank_from_heads,
         vol_col_name,
@@ -204,6 +194,7 @@ def run_btcb_p4b() -> dict:
         restrict_eval_frame,
     )
     from btcb.phase4b_report import (
+        plot_equity_curves,
         plot_overlap_cycles,
         plot_tail_ic_bars,
         update_ledger_phase4b,
@@ -326,7 +317,7 @@ def run_btcb_p4b() -> dict:
     w_dir = f"w_dir_h{PHASE4B_H}"
 
     p4v2_pred = Path("/data/quant/btcb/phase4v2/preds")
-    rank_top = _load_tagged_preds(p4v2_pred, "rank_s", PHASE4B_H)
+    rank_top = load_tagged_preds(p4v2_pred, "rank_s", PHASE4B_H)
     rank_cache_reused = bool(rank_top is not None and not rank_top.empty)
     if rank_cache_reused:
         print(f"[HB] reuse 4v2 RANK top cache rows={len(rank_top)} folds={rank_top['fold_id'].nunique()}", flush=True)
@@ -516,6 +507,7 @@ def run_btcb_p4b() -> dict:
             f"RankIC={packed.get('rankic')}",
             flush=True,
         )
+    persist_book_daily_rets(books, work / "books")
 
     verdict = mechanical_verdicts(grid, null_twin, null_dir, null_rank)
     base = grid["frozen_spread"]
@@ -595,6 +587,7 @@ def run_btcb_p4b() -> dict:
         chart_dir / "btcb_phase4b_tail_ic.png",
     )
     plot_overlap_cycles(grid, chart_dir / "btcb_phase4b_overlap_cycle.png")
+    plot_equity_curves(books, chart_dir / "btcb_phase4b_equity.png")
     (rep_dir / "numbers_ledger.md").write_text(ledger_path.read_text())
     payload = {
         "criterion": PHASE4B_CRITERION,
@@ -655,6 +648,7 @@ def main():
         ("reports/numbers_ledger.md", "reports"),
         ("charts/btcb_phase4b_tail_ic.png", "charts"),
         ("charts/btcb_phase4b_overlap_cycle.png", "charts"),
+        ("charts/btcb_phase4b_equity.png", "charts"),
     ]
     for remote, kind in pulls:
         name = Path(remote).name

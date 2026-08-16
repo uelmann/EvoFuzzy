@@ -9,6 +9,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
 from btcb.constants import (
     DEATH_CONVENTION,
@@ -57,6 +58,22 @@ SIGNAL_ORDER = (
     ("spread_twinrank", "SPREAD+TWIN-RANK"),
     ("dir_spread", "DIR-spread"),
     ("dir_twinrank", "DIR-spread+TWIN-RANK"),
+)
+
+SIGNAL_COLORS = {
+    "frozen_spread": "#4C78A8",
+    "twinrank": "#E45756",
+    "spread_twinrank": "#F58518",
+    "dir_spread": "#54A24B",
+    "dir_twinrank": "#B279A2",
+}
+
+EQUITY_CHART = "charts/btcb_phase4b_equity.png"
+EQUITY_CHART_LINE = (
+    f"Chart: `{EQUITY_CHART}` (log equity + drawdown). Information only; nothing adopted."
+)
+EQUITY_NOTE = (
+    f"- Crude 14d equity (log + drawdown): `{EQUITY_CHART}`. Information only; nothing adopted."
 )
 
 
@@ -245,6 +262,8 @@ def write_phase4b(
             "",
             "Ladder-1 construction: EW top decile, 10% cap, idle cash, 10 bps/side, h=14 full rebalance.",
             "",
+            EQUITY_CHART_LINE,
+            "",
             "| book | total | CAGR | MaxDD | Sharpe | n |",
             "|------|-------|------|-------|--------|---|",
         ]
@@ -285,6 +304,7 @@ def write_phase4b(
             "- Frozen spread is the 2.c cache (not retrained). TWIN-RANK uses one LambdaRank config per head.",
             "- Vol-matched null supersedes plain within-date shuffle for tail metrics going forward.",
             "- Crude 14d CAGR/MaxDD is an information check. **Nothing is adopted.**",
+            EQUITY_NOTE,
             f"- Elapsed s=`{_fmt(extra.get('elapsed_sec'), 1)}`. GPU=`{extra.get('gpu_used', False)}`.",
             "",
             "COMBO, SPREAD-LS BOOK-HYBRID, LONG-TIDE, and BTC-BEATER v1 untouched.",
@@ -377,6 +397,81 @@ def plot_tail_ic_bars(grid: dict, nulls: dict, out_path: Path) -> None:
     ax.grid(True, axis="y", alpha=0.3)
     fig.savefig(out_path, dpi=120)
     plt.close(fig)
+
+
+def _book_equity(book: dict):
+    if not isinstance(book, dict):
+        return None
+    eq = book.get("equity")
+    if isinstance(eq, pd.Series) and len(eq):
+        s = eq.astype(float)
+        s.index = pd.DatetimeIndex(pd.to_datetime(s.index, utc=True)).tz_convert("UTC").normalize()
+        return s.sort_index()
+    rets = book.get("daily_ret")
+    if rets is None:
+        return None
+    r = pd.Series(rets, dtype=float).fillna(0.0)
+    r.index = pd.DatetimeIndex(pd.to_datetime(r.index, utc=True)).tz_convert("UTC").normalize()
+    r = r.sort_index()
+    if r.empty:
+        return None
+    return (1.0 + r).cumprod()
+
+
+def plot_equity_curves(books: dict, out_path: Path) -> None:
+    """Log equity + drawdown for the five crude 14d books. Information only."""
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig, axes = plt.subplots(
+        2,
+        1,
+        figsize=(11, 7.2),
+        sharex=True,
+        constrained_layout=True,
+        gridspec_kw={"height_ratios": [2.2, 1.0]},
+    )
+    ax, ax2 = axes
+    n_plotted = 0
+    for key, lab in SIGNAL_ORDER:
+        eq = _book_equity((books or {}).get(key) or {})
+        if eq is None or eq.empty:
+            continue
+        b = (books or {}).get(key) or {}
+        cagr, mdd = b.get("cagr"), b.get("maxdd")
+        label = lab
+        if cagr is not None and np.isfinite(float(cagr)):
+            label += f"  CAGR={100.0 * float(cagr):.1f}%"
+        if mdd is not None and np.isfinite(float(mdd)):
+            label += f"  DD={100.0 * float(mdd):.0f}%"
+        color = SIGNAL_COLORS.get(key, "#4C78A8")
+        ax.plot(eq.index, eq.values, lw=1.4, color=color, label=label)
+        dd = eq / eq.cummax() - 1.0
+        ax2.plot(dd.index, dd.values, lw=1.05, color=color)
+        n_plotted += 1
+    if n_plotted == 0:
+        plt.close(fig)
+        raise RuntimeError("plot_equity_curves: no equity series")
+    ax.set_yscale("log")
+    ax.set_ylabel("equity (log)")
+    ax.set_title("Phase 4.b — crude 14d books (information only; nothing adopted)")
+    ax.legend(fontsize=8, loc="upper left")
+    ax.grid(True, alpha=0.3)
+    ax2.axhline(0.0, color="0.5", lw=0.8)
+    ax2.set_ylabel("drawdown")
+    ax2.grid(True, alpha=0.3)
+    fig.savefig(out_path, dpi=120)
+    plt.close(fig)
+
+
+def ensure_equity_chart_notes(text: str) -> str:
+    if EQUITY_CHART in text:
+        return text
+    needle = "Ladder-1 construction: EW top decile, 10% cap, idle cash, 10 bps/side, h=14 full rebalance."
+    if needle in text:
+        text = text.replace(needle, needle + "\n\n" + EQUITY_CHART_LINE, 1)
+    note_needle = "- Crude 14d CAGR/MaxDD is an information check. **Nothing is adopted.**"
+    if note_needle in text:
+        text = text.replace(note_needle, note_needle + "\n" + EQUITY_NOTE, 1)
+    return text
 
 
 def plot_overlap_cycles(grid: dict, out_path: Path) -> None:

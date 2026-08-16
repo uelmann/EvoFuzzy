@@ -567,6 +567,59 @@ def merge_dir_spread(top: pd.DataFrame, twin_2c: pd.DataFrame) -> pd.DataFrame:
     return m
 
 
+def load_tagged_preds(out_dir: Path, tag: str, horizon: int) -> pd.DataFrame | None:
+    files = sorted(out_dir.glob(f"preds_{tag}_h{horizon}_fold*.parquet"))
+    if not files:
+        return None
+    df = pd.concat([pd.read_parquet(p) for p in files], ignore_index=True)
+    df["date"] = pd.to_datetime(df["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
+    df["id"] = df["id"].astype(int)
+    return df
+
+
+def persist_book_daily_rets(books: dict, out_dir: Path) -> Path:
+    """Write per-signal and combined daily_ret parquet. Analysis cache only."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    frames = []
+    for name, packed in (books or {}).items():
+        rets = packed.get("daily_ret") if isinstance(packed, dict) else None
+        if rets is None:
+            continue
+        s = pd.Series(rets, dtype=float)
+        s.index = pd.DatetimeIndex(pd.to_datetime(s.index, utc=True)).tz_convert("UTC").normalize()
+        s = s.sort_index()
+        s.name = str(name)
+        one = s.rename("daily_ret").to_frame()
+        one.index.name = "date"
+        one.to_parquet(out_dir / f"daily_ret_{name}.parquet")
+        frames.append(s)
+    if frames:
+        wide = pd.concat(frames, axis=1).sort_index()
+        wide.index.name = "date"
+        wide.to_parquet(out_dir / "daily_ret_all.parquet")
+    return out_dir
+
+
+def assert_books_match(books: dict, recorded: dict, *, atol: float = 5e-4) -> None:
+    """Sanity: reconstructed crude books match the recorded CAGR/MaxDD/Sharpe."""
+    if not recorded:
+        return
+    for name, packed in books.items():
+        rec = recorded.get(name) or {}
+        if not rec:
+            continue
+        for key in ("cagr", "maxdd", "sharpe"):
+            a, b = packed.get(key), rec.get(key)
+            if a is None or b is None:
+                continue
+            if not (np.isfinite(float(a)) and np.isfinite(float(b))):
+                continue
+            if abs(float(a) - float(b)) > float(atol):
+                raise RuntimeError(
+                    f"book {name} {key} mismatch recon={a} recorded={b} atol={atol}"
+                )
+
+
 def real_fold_metrics(preds: pd.DataFrame, folds: list[FoldSpec], labeled, close, btc_id, score_col: str) -> dict[int, dict]:
     out = {}
     pr = preds.copy()
