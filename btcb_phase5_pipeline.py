@@ -21,6 +21,7 @@ import modal
 APP_NAME = "quant-btcb-p5-csattn"
 VOL_Q = "quant-baseline"
 quant_vol = modal.Volume.from_name(VOL_Q, create_if_missing=True)
+quant_vol_ro = modal.Volume.from_name(VOL_Q).with_mount_options(read_only=True)
 
 cpu_image = (
     modal.Image.debian_slim(python_version="3.11")
@@ -428,6 +429,16 @@ def _volume_commit() -> None:
     quant_vol.commit()
 
 
+def _upload_files(mapping: dict[str, Path]) -> None:
+    """Put individual files onto the volume (merge-safe). Avoids snapshot clobber."""
+    if not mapping:
+        return
+    with quant_vol.batch_upload(force=True) as batch:
+        for remote, local in mapping.items():
+            batch.put_file(str(local), remote.lstrip("/"))
+    print(f"[HB] uploaded {len(mapping)} files via batch_upload", flush=True)
+
+
 def _a10g_sunk_usd(fallback: float = 0.0) -> float:
     p = Path("/data/quant/btcb/phase5/gpu_spend.json")
     if p.exists():
@@ -455,18 +466,29 @@ class SharedGpuBudget:
     volume commits do not clobber peer files.
     """
 
-    def __init__(self, cap_usd: float, usd_per_hour: float, a10g_sunk: float, worker_id: str, reserve_usd: float):
+    def __init__(
+        self,
+        cap_usd: float,
+        usd_per_hour: float,
+        a10g_sunk: float,
+        worker_id: str,
+        reserve_usd: float,
+        run_t0: float | None = None,
+        n_parallel: int = 12,
+    ):
         self.cap = float(cap_usd)
         self.rate = float(usd_per_hour)
         self.a10g_sunk = float(a10g_sunk)
         self.worker_id = str(worker_id)
         self.reserve = float(reserve_usd)
+        self.run_t0 = float(run_t0) if run_t0 else None
+        self.n_parallel = int(n_parallel)
         self.t0 = time.time()
         self.aborted = False
         self.abort_reason = None
         self._peer_hours = 0.0
         self._peer_at = 0.0
-        self.dir = Path("/data/quant/btcb/phase5/gpu_spend")
+        self.dir = Path("/tmp/gpu_spend")
         self.dir.mkdir(parents=True, exist_ok=True)
 
     def my_hours(self) -> float:
@@ -496,7 +518,9 @@ class SharedGpuBudget:
         return total
 
     def h100_hours_total(self, force: bool = False) -> float:
-        return self._read_peer_hours(force=force) + self.my_hours()
+        if self.run_t0:
+            return self.n_parallel * max(0.0, (time.time() - self.run_t0) / 3600.0)
+        return self.my_hours()
 
     def usd(self, force: bool = False) -> float:
         return self.a10g_sunk + self.h100_hours_total(force=force) * self.rate
@@ -509,7 +533,7 @@ class SharedGpuBudget:
             "gpu": "A10G",
             "usd_per_hour": self.rate,
             "a10g_sunk_usd": self.a10g_sunk,
-            "peer_hours": self._read_peer_hours(force=True),
+            "peer_hours": None,
             "total_usd_est": self.usd(force=True),
             "aborted": self.aborted,
             "abort_reason": self.abort_reason,
@@ -527,11 +551,10 @@ class SharedGpuBudget:
             self.aborted = True
             self.abort_reason = (
                 f"gpu spend {u:.2f}+reserve {r:.2f} >= cap {self.cap:.2f} "
-                f"(a10g_sunk {self.a10g_sunk:.2f} + h100_h {self.h100_hours_total():.2f} × {self.rate:.2f})"
+                f"(a10g_sunk {self.a10g_sunk:.2f} + envelope_h {self.h100_hours_total():.2f} × {self.rate:.2f})"
             )
             print(f"[HB] BUDGET ABORT {self.abort_reason}", flush=True)
             self.persist()
-            _volume_commit()
             return False
         return True
 
@@ -577,7 +600,7 @@ def _smoke(hb: StageHeartbeat) -> dict:
     return smoke
 
 
-def _train_one(seq_dir, fold, seed, budget, hb, pred_root, tag="real", shuffle=False, shuf_seed=None):
+def _train_one(seq_dir, fold, seed, budget, hb, pred_root, tag="real", shuffle=False, shuf_seed=None, persist_volume=True):
     import pandas as pd
 
     from btcb.csattn import train_csattn_fold
@@ -614,7 +637,8 @@ def _train_one(seq_dir, fold, seed, budget, hb, pred_root, tag="real", shuffle=F
         pred.to_parquet(dest, index=False)
     mp.write_text(json.dumps(meta, indent=2, default=str))
     budget.persist()
-    _volume_commit()
+    if persist_volume:
+        _volume_commit()
     return pred, meta
 
 
@@ -724,15 +748,16 @@ def stage_b_smoke() -> dict:
 
 @app.function(
     image=gpu_image,
-    timeout=60 * 60 * 4,
+    timeout=60 * 60 * 6,
     retries=0,
-    volumes={"/data/quant": quant_vol},
+    volumes={"/data/quant": quant_vol_ro},
     gpu="A10G",
     memory=32768,
     max_containers=12,
 )
 def stage_b_train_job(item: dict) -> dict:
     from btcb.constants import (
+        PHASE5_GPU_MAX_CONTAINERS,
         PHASE5_GPU_RESERVE_USD,
         PHASE5_GPU_TYPE,
         PHASE5_GPU_USD_CAP,
@@ -745,21 +770,25 @@ def stage_b_train_job(item: dict) -> dict:
     tag = str(item.get("tag") or "real")
     shuffle = bool(item.get("shuffle"))
     shuf_seed = item.get("shuf_seed")
+    run_t0 = float(item.get("run_t0") or time.time())
+    sunk = float(item.get("a10g_sunk") or 0.0)
     wid = f"s{seed}_f{fold_id}_{tag}"[:80]
     hb = StageHeartbeat(f"B-{wid}")
-    quant_vol.reload()
     try:
         import torch
 
         if torch.cuda.is_available():
             print(f"[HB] cuda device={torch.cuda.get_device_name(0)} job={wid}", flush=True)
-        sunk = _a10g_sunk_usd(0.0)
+        if sunk <= 0:
+            sunk = _a10g_sunk_usd(0.0)
         budget = SharedGpuBudget(
             PHASE5_GPU_USD_CAP,
             PHASE5_GPU_USD_PER_HOUR,
             sunk,
             worker_id=wid,
             reserve_usd=PHASE5_GPU_RESERVE_USD,
+            run_t0=run_t0,
+            n_parallel=int(PHASE5_GPU_MAX_CONTAINERS),
         )
         if not budget.ok():
             rec = {
@@ -774,12 +803,12 @@ def stage_b_train_job(item: dict) -> dict:
             }
             hb.close()
             return rec
+        hb.ping("load folds + seq cache into RAM")
         seq_dir, _, folds = _load_folds_idx()
         fr = next((f for f in folds if int(f.fold_id) == fold_id), None)
         if fr is None:
             raise RuntimeError(f"fold_id {fold_id} missing from schedule n={len(folds)}")
-        pred_root = Path("/data/quant/btcb/phase5/preds")
-        pred_root.mkdir(parents=True, exist_ok=True)
+        pred_root = Path(f"/tmp/p5preds")
         pred, meta = _train_one(
             seq_dir,
             fr,
@@ -790,10 +819,23 @@ def stage_b_train_job(item: dict) -> dict:
             tag=tag,
             shuffle=shuffle,
             shuf_seed=None if shuf_seed is None else int(shuf_seed),
+            persist_volume=False,
         )
         ok = meta.get("status") in {"ok", "reuse", "empty", "empty_val"}
         budget.persist()
-        _volume_commit()
+        local_pred = pred_root / tag / f"seed{seed}" / f"fold{fold_id}.parquet"
+        local_meta = local_pred.with_suffix(".json")
+        local_spend = Path("/tmp/gpu_spend") / f"worker_{wid}.json"
+        mapping = {}
+        if local_pred.exists():
+            mapping[f"btcb/phase5/preds/{tag}/seed{seed}/fold{fold_id}.parquet"] = local_pred
+        if local_meta.exists():
+            mapping[f"btcb/phase5/preds/{tag}/seed{seed}/fold{fold_id}.json"] = local_meta
+        if local_spend.exists():
+            mapping[f"btcb/phase5/gpu_spend/worker_{wid}.json"] = local_spend
+        if mapping:
+            hb.ping(f"upload {list(mapping)}")
+            _upload_files(mapping)
         rec = {
             **item,
             "status": meta.get("status"),
@@ -805,6 +847,7 @@ def stage_b_train_job(item: dict) -> dict:
             "hours": budget.my_hours(),
             "elapsed_sec": time.time() - t0,
             "gpu_type": PHASE5_GPU_TYPE,
+            "uploaded": list(mapping),
             "meta": _jsonable(meta),
         }
         hb.close()
@@ -1469,6 +1512,68 @@ def _pull_artifacts() -> None:
             (opt / "screenshots" / src.name).write_bytes(src.read_bytes())
 
 
+@app.function(
+    image=cpu_image,
+    timeout=60 * 60 * 24,
+    retries=0,
+    cpu=2,
+    memory=4096,
+)
+def stage_b_orchestrate(a10g_usd: float) -> dict:
+    """Runs inside Modal so a local client disconnect cannot kill Stage B."""
+    print("[orch] STAGE B smoke (one A10G)...", flush=True)
+    try:
+        smoke = stage_b_smoke.remote()
+        print(json.dumps(smoke, indent=2, default=str)[:1500], flush=True)
+    except Exception as e:
+        print(f"[orch] smoke raised {type(e).__name__}: {e}", flush=True)
+        smoke = {"error": str(e)}
+
+    run_t0 = time.time()
+    job_recs: list[dict] = []
+    for attempt in range(1, 4):
+        jobs = list_train_jobs.remote()
+        for j in jobs:
+            j["run_t0"] = run_t0
+            j["a10g_sunk"] = float(a10g_usd)
+        print(f"[orch] attempt {attempt}/3 pending jobs={len(jobs)} run_t0={run_t0}", flush=True)
+        if not jobs:
+            break
+        try:
+            recs = list(stage_b_train_job.map(jobs, order_outputs=False))
+        except Exception as e:
+            print(f"[orch] map attempt {attempt} raised {type(e).__name__}: {e}", flush=True)
+            recs = [{"status": "error", "complete": False, "error": f"{type(e).__name__}: {e}"}]
+        job_recs.extend(recs)
+        n_ok = sum(1 for r in recs if r.get("complete"))
+        n_abort = sum(1 for r in recs if r.get("aborted"))
+        print(f"[orch] attempt {attempt} complete={n_ok}/{len(recs)} aborted={n_abort}", flush=True)
+        if n_abort and n_ok == 0:
+            break
+        leftover = list_train_jobs.remote()
+        print(f"[orch] leftover={len(leftover)}", flush=True)
+        if not leftover:
+            break
+
+    print("[orch] STAGE B judge (CPU)...", flush=True)
+    try:
+        b_sum = stage_b_judge.remote(float(a10g_usd), {}, {})
+    except Exception as e:
+        print(f"[orch] judge raised {type(e).__name__}: {e}", flush=True)
+        b_sum = {
+            "verdict": "PARKED",
+            "failed_clauses": ["incomplete_budget"],
+            "error": f"{type(e).__name__}: {e}",
+            "aborted": True,
+            "gpu_usd": a10g_usd,
+        }
+    b_sum = dict(b_sum or {})
+    b_sum["n_job_recs"] = len(job_recs)
+    b_sum["smoke"] = smoke
+    print(json.dumps({k: v for k, v in b_sum.items() if k != "smoke"}, indent=2, default=str), flush=True)
+    return b_sum
+
+
 @app.local_entrypoint()
 def main():
     print("[local] BTC-BEATER P5 CS-ATTN — Stage A CPU + 12×A10G fold-parallel + CPU judge", flush=True)
@@ -1485,45 +1590,18 @@ def main():
         a10g_hours = float(sunk_blob.get("hours") or sunk_blob.get("a10g_hours") or 0.0)
         note = str(sunk_blob.get("note") or "")
     else:
-        a10g_usd, a10g_hours = 13.38, 10.01
-        note = "prior GPU sunk (A10G sequential + short H100 probes)"
+        a10g_usd, a10g_hours = 17.50, 12.0
+        note = "prior GPU sunk (A10G sequential + H100 probes + disconnected 12×A10G wave)"
     print(f"[local] persist prior GPU sunk ${a10g_usd:.2f} ({a10g_hours:.2f} h)", flush=True)
     persist_a10g_sunk.remote(a10g_usd, a10g_hours, note)
 
-    print("[local] STAGE B smoke (one A10G)...", flush=True)
+    print("[local] spawning Stage B orchestrator inside Modal (--detach safe)...", flush=True)
+    h = stage_b_orchestrate.spawn(float(a10g_usd))
+    print(f"[local] spawned orchestrator {getattr(h, 'object_id', h)}", flush=True)
     try:
-        smoke = stage_b_smoke.remote()
-        print(json.dumps(smoke, indent=2, default=str)[:1500], flush=True)
+        b_sum = h.get()
     except Exception as e:
-        print(f"[local] smoke raised {type(e).__name__}: {e}", flush=True)
-
-    job_recs: list[dict] = []
-    for attempt in range(1, 4):
-        jobs = list_train_jobs.remote()
-        print(f"[local] STAGE B attempt {attempt}/3 pending jobs={len(jobs)} (12×A10G map, $80 cap)", flush=True)
-        if not jobs:
-            break
-        try:
-            recs = list(stage_b_train_job.map(jobs, order_outputs=False))
-        except Exception as e:
-            print(f"[local] map attempt {attempt} raised {type(e).__name__}: {e}", flush=True)
-            recs = [{"status": "error", "complete": False, "error": f"{type(e).__name__}: {e}"}]
-        job_recs.extend(recs)
-        n_ok = sum(1 for r in recs if r.get("complete"))
-        n_abort = sum(1 for r in recs if r.get("aborted"))
-        print(f"[local] attempt {attempt} complete={n_ok}/{len(recs)} aborted={n_abort}", flush=True)
-        if n_abort and n_ok == 0:
-            break
-        leftover = list_train_jobs.remote()
-        if not leftover:
-            break
-        print(f"[local] still pending={len(leftover)} — retry", flush=True)
-
-    print("[local] STAGE B judge (CPU)...", flush=True)
-    try:
-        b_sum = stage_b_judge.remote(float(a10g_usd), {}, {})
-    except Exception as e:
-        print(f"[local] judge raised {type(e).__name__}: {e}", flush=True)
+        print(f"[local] orchestrator wait raised {type(e).__name__}: {e}", flush=True)
         b_sum = {
             "verdict": "PARKED",
             "failed_clauses": ["incomplete_budget"],
@@ -1542,4 +1620,5 @@ def main():
         flush=True,
     )
     print("[local] BTC-BEATER P5 complete.", flush=True)
+
 
