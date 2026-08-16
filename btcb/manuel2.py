@@ -149,7 +149,7 @@ def price_features(close: pd.DataFrame) -> dict[str, pd.DataFrame]:
     px = close.copy()
     px.index = _utc_idx(px.index)
     px = px.sort_index().astype(float)
-    r1 = px.pct_change()
+    r1 = px.pct_change(fill_method=None)
     ret_a = px / px.shift(int(MANUEL2_RET_A)) - 1.0
     ret_b = px / px.shift(int(MANUEL2_RET_B)) - 1.0
     std_w = r1.rolling(int(MANUEL2_STD_W), min_periods=int(MANUEL2_STD_W)).std(ddof=int(MANUEL2_STD_DDOF))

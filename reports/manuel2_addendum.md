@@ -12,7 +12,7 @@ This phase produces a **record**, not a product. Nothing is adopted. If CONFIRME
 > Score = gauss(ret_14d) × gauss(ret_28d) / gauss(std_63d), gauss(x) = Φ(z_cs(x)), z_cs = cross-sectional z-score per date across that day's universe. All inputs use data ≤ t.
 
 - Universe: each day, top-50 by MARKET CAP (cleaned panel, PIT, pegged excluded).
-- Inputs per name: ret_14d, ret_28d (simple returns), std_63d (std of daily simple returns, 63d window, pandas ddof=1, min_periods=63).
+- Inputs per name: ret_14d, ret_28d (simple returns), std_63d (std of daily simple returns, 63d window, pandas ddof=1, min_periods=63, `pct_change(fill_method=None)` so missing prints are NA not zero-vol).
 - Selection: top 5% by score (`k = max(1, ceil(0.05 · n_scored))` → 3 names on a full 50). Equal weight, no cap beyond EW.
 - Rebalance: DAILY (headline) and WEEKLY Mondays (secondary; first session also rebalances so the book is always invested). Always invested; remaining weights renormalized after death-in-position; costs 10 bps/side on traded notional.
 - Informational third variant: same formula on the house floored PIT top-100 DV universe, daily, btc-ex (one row).
