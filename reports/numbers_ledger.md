@@ -114,3 +114,10 @@ Mechanical, no post-hoc adjustment. Frozen products untouched.
 - **NFN PARKED** clauses a/b/c = False/False/False
 - Δtail-IC `-0.005180423115375546` Δoverlap `-0.0073516197151457935` dispersion `0.023081138810684305`
 - UNDERTRAINED count `68` warm-start `random_init`
+
+## Phase 7.c NFN v1 (record only; nothing adopted)
+
+- **NFN-v1 PARKED** clauses a/b/c = False/True/False
+- CRAFT-CONFIRMED `True` mean selected epoch `9.702380952380954` dispersion v0→v1 `0.023081138810684305` → `0.007736828596589862`
+- Δtail-IC `0.00850114041639001` Δoverlap `-0.001988138563148667`
+- Craft ledger: the neuro-fuzzy family was trained correctly and still does not exceed the frozen spread on daily price/volume features — training craft is excluded as an explanation; the daily ceiling is architectural-independent. Hourly features remain the designated retry substrate for this identical pipeline.
