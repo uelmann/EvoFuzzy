@@ -417,7 +417,7 @@ def run_long_book(
     btc_col = int(btc_id)
     if btc_col not in close.columns:
         raise RuntimeError("BTC missing from close")
-    btc = close[btc_col].astype(float).pct_change().reindex(rets.index).fillna(0.0)
+    btc = close[btc_col].astype(float).pct_change(fill_method=None).reindex(rets.index).fillna(0.0)
     z = pd.Series(0.0, index=rets.index)
     nn = pd.Series(n_names, index=list(daily.keys()), dtype=float).reindex(rets.index)
     packed = summarize_book(rets, btc, z, nn.fillna(0.0), to_list)
@@ -455,6 +455,9 @@ def run_long_book(
     packed["total"] = packed.get("book_total")
     packed["cagr"] = packed.get("book_cagr")
     packed["sharpe"] = packed.get("book_sharpe")
+    rel_eq = packed.get("rel_equity")
+    if isinstance(rel_eq, pd.Series) and len(rel_eq):
+        packed["rel_total"] = float(rel_eq.iloc[-1] - 1.0)
     return packed
 
 
@@ -463,7 +466,7 @@ def btc_bh_book(close: pd.DataFrame, btc_id: int, idx: pd.DatetimeIndex) -> dict
     close.index = _utc_idx(close.index)
     idx = _utc_idx(idx)
     px = close[int(btc_id)].astype(float).reindex(idx)
-    rets = px.pct_change().fillna(0.0)
+    rets = px.pct_change(fill_method=None).fillna(0.0)
     # first day 0; BH from first to last
     ones = pd.Series(1.0, index=idx)
     z = pd.Series(0.0, index=idx)
@@ -482,6 +485,7 @@ def btc_bh_book(close: pd.DataFrame, btc_id: int, idx: pd.DatetimeIndex) -> dict
     packed["sharpe"] = packed.get("book_sharpe")
     packed["avg_n_names"] = 1.0
     packed["ann_turnover"] = 0.0
+    packed["rel_total"] = 0.0
     return packed
 
 

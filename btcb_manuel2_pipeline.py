@@ -413,8 +413,20 @@ def run_manuel2() -> dict:
         + (f" ({verdict.get('partial_which')})" if verdict.get("partial_which") else "")
         + ". Nothing adopted."
     )
-    mapped = sum(1 for i in close.columns if id_to_spot.get(int(i)))
-    bn_share = mapped / max(1, len(close.columns))
+    mapped_days = 0
+    univ_days = 0
+    for d in dates:
+        for iid in mem_in.get(d, []):
+            univ_days += 1
+            if d in spot_wide.index and int(iid) in spot_wide.columns:
+                v = spot_wide.at[d, int(iid)]
+                try:
+                    v = float(v)
+                except (TypeError, ValueError):
+                    v = float("nan")
+                if np.isfinite(v) and v > 0:
+                    mapped_days += 1
+    bn_share = mapped_days / max(1, univ_days)
 
     extra = {
         "pred_sha256": pred_hash["sha256"],
