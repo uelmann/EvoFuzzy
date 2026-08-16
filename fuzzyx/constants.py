@@ -23,7 +23,10 @@ MAX_EPOCHS = 80
 PATIENCE = 12
 TURN_LAMBDA = 0.05
 BIAS_LAMBDA = 0.05
-OCC_LAMBDA = 8.0
+OCC_LAMBDA = 0.0  # v1b: do not push occupancy up
+ACTIVE_LAMBDA = 0.20  # pay-to-play: cost of |pos| > 0
+FLAT_INIT_BIAS = 1.5
+OCC_NUKE = False
 SHUFFLE_SEEDS = tuple(range(101, 111))
 MIN_TRAIN_DAYS = 730
 VAL_DAYS = 90
@@ -46,7 +49,7 @@ CS_CLIP = 5.0
 MF_INIT_CENTERS = (-1.0, 0.0, 1.0)
 MF_INIT_SIGMA = 0.85
 
-# Occupancy floors copied from WRKS_L_S_NNET_Nov_22_ (loss_L / loss_S / loss_z).
+# Occupancy floors copied from WRKS_L_S_NNET_Nov_22_ (diagnostics only in v1b).
 FEATURE_COLS = [
     "ret_7",
     "ret_14",

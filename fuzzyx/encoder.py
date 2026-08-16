@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from .constants import D_MODEL, N_HEADS
+from .constants import D_MODEL, FLAT_INIT_BIAS, N_HEADS
 from .membership import softmax
 
 
@@ -51,6 +51,7 @@ class DeepSetsEncoder:
         self.b_ff = np.zeros(d_model)
         self.W_out = rng.normal(0.0, d_model**-0.5, size=(d_model, 3))
         self.b_out = np.zeros(3)
+        self.b_out[2] = float(FLAT_INIT_BIAS)
 
     def encode(self, tokens: np.ndarray, market: np.ndarray, mask: np.ndarray | None = None) -> np.ndarray:
         h = np.tanh(np.asarray(tokens, dtype=np.float64) @ self.W_in + self.b_in)
@@ -99,6 +100,7 @@ class CrossSectionEncoder:
         self.b_ff2 = np.zeros(d_model)
         self.W_out = rng.normal(0.0, s2, size=(d_model, 3))
         self.b_out = np.zeros(3)
+        self.b_out[2] = float(FLAT_INIT_BIAS)
 
     def _attn(self, h: np.ndarray, mask: np.ndarray | None) -> np.ndarray:
         q = _split_heads(h @ self.W_q, self.n_heads)

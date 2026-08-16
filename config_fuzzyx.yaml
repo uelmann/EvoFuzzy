@@ -32,12 +32,18 @@ model:
 
 loss:
   core: trend_corr * (1 - maxdd) * (1 - ddur)
-  occ_long_min: 0.20
+  # v1b: occupancy floors are diagnostics only — do not force always-in-market
+  occ_nuke: false
+  occ_lambda: 0.0
+  active_lambda: 0.20      # pay-to-play on mean σ((|pos|−0.05)/0.05)
+  flat_init_bias: 1.5
+  occ_long_min: 0.20       # reported, not used in train
   occ_short_min: 0.30
   occ_traded_min: 0.25
   occ_penalty: 1.0e5
   turn_lambda: 0.05
   bias_lambda: 0.05
+  # w = p / max(Σ|p|, 1) — no lever-up of dust into a 100% book
 
 portfolio:
   gross_limit: 1.0

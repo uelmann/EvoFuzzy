@@ -46,9 +46,9 @@ def market_token(x: np.ndarray, mask: np.ndarray | None = None) -> np.ndarray:
 
 
 def soft_positions(logits: np.ndarray, temperature: float = POS_TEMPERATURE) -> np.ndarray:
-    """3-way logits → soft position in [−1, +1] = P(long) − P(short)."""
+    """Uncertain names → 0: (P_L − P_S) · (P_L + P_S) = P_L² − P_S²."""
     p = softmax(logits, axis=-1, temperature=temperature)
-    return p[..., 0] - p[..., 1]
+    return (p[..., 0] - p[..., 1]) * (p[..., 0] + p[..., 1])
 
 
 def hard_positions(logits: np.ndarray) -> np.ndarray:

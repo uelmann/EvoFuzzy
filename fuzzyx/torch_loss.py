@@ -1,17 +1,19 @@
-"""Differentiable weekly path loss (notebook core + occupancy hinge + costs)."""
+"""Differentiable weekly path loss (notebook core + pay-to-play + costs).
+
+v1b: occupancy floors / core-nuke are off. Default is flat; being long or
+short must pay for itself via λ_active. Book weights never lever dust up
+to unit gross: w = p / max(Σ|p|, 1).
+"""
 
 from __future__ import annotations
 
 import torch
 
 from .constants import (
+    ACTIVE_LAMBDA,
     BIAS_LAMBDA,
     GROSS_LIMIT,
     MAXDD_CAP,
-    OCC_LAMBDA,
-    OCC_LONG_MIN,
-    OCC_SHORT_MIN,
-    OCC_TRADED_MIN,
     SLIPPAGE_BPS,
     TAKER_FEE_BPS,
     TURN_LAMBDA,
@@ -22,8 +24,9 @@ def _weights(pos: torch.Tensor, mask: torch.Tensor | None, gross_limit: float = 
     p = pos
     if mask is not None:
         p = torch.where(mask, p, torch.zeros_like(p))
-    gross = p.abs().sum(dim=-1, keepdim=True).clamp(min=1e-8)
-    return p / gross * gross_limit
+    # v1b: do not renormalize tiny |pos| into a fully invested book.
+    gross = p.abs().sum(dim=-1, keepdim=True)
+    return p / gross.clamp(min=1.0) * gross_limit
 
 
 def portfolio_net(
@@ -50,7 +53,7 @@ def path_loss_torch(
     mask: torch.Tensor | None = None,
     turn_lambda: float = TURN_LAMBDA,
     bias_lambda: float = BIAS_LAMBDA,
-    occ_lambda: float = OCC_LAMBDA,
+    active_lambda: float = ACTIVE_LAMBDA,
 ) -> dict[str, torch.Tensor]:
     port, w = portfolio_net(pos, asset_ret, mask=mask)
     equity = torch.cumprod(1.0 + port.clamp(min=-0.95, max=5.0), dim=0)
@@ -72,43 +75,28 @@ def path_loss_torch(
         long_f = ((pos > 0.05).to(pos.dtype) * m).sum() / denom_n
         short_f = ((pos < -0.05).to(pos.dtype) * m).sum() / denom_n
         traded_f = ((pos.abs() > 0.05).to(pos.dtype) * m).sum() / denom_n
-        long_s = (torch.sigmoid((pos - 0.05) / 0.05) * m).sum() / denom_n
-        short_s = (torch.sigmoid((-pos - 0.05) / 0.05) * m).sum() / denom_n
-        traded_s = (torch.sigmoid((pos.abs() - 0.05) / 0.05) * m).sum() / denom_n
+        active = (torch.sigmoid((pos.abs() - 0.05) / 0.05) * m).sum() / denom_n
     else:
-        n = pos.numel()
         long_f = (pos > 0.05).float().mean()
         short_f = (pos < -0.05).float().mean()
         traded_f = (pos.abs() > 0.05).float().mean()
-        long_s = torch.sigmoid((pos - 0.05) / 0.05).mean()
-        short_s = torch.sigmoid((-pos - 0.05) / 0.05).mean()
-        traded_s = torch.sigmoid((pos.abs() - 0.05) / 0.05).mean()
-        n = max(n, 1)
+        active = torch.sigmoid((pos.abs() - 0.05) / 0.05).mean()
 
-    occ_gap = (
-        torch.relu(OCC_LONG_MIN - long_s)
-        + torch.relu(OCC_SHORT_MIN - short_s)
-        + torch.relu(OCC_TRADED_MIN - traded_s)
-    )
-    # Hard nuke matches the notebook when floors fail; hinge still trains occupancy.
-    core_used = torch.where(
-        (traded_f < OCC_TRADED_MIN) | (short_f < OCC_SHORT_MIN) | (long_f < OCC_LONG_MIN),
-        core / 1e5,
-        core,
-    )
     turn = (w[1:] - w[:-1]).abs().sum(dim=-1).mean() if w.shape[0] > 1 else w.new_zeros(())
     bias = w.mean().abs()
-    loss = -core_used + turn_lambda * turn + bias_lambda * bias + occ_lambda * occ_gap
+    # Pay-to-play: default is flat. Occupancy floors / nuke are gone (v1b).
+    loss = -core + turn_lambda * turn + bias_lambda * bias + active_lambda * active
     return {
         "loss": loss,
-        "core": core_used.detach(),
+        "core": core.detach(),
         "trend": trend.detach(),
         "maxdd": maxdd.detach(),
         "ddur": ddur.detach(),
         "long_frac": long_f.detach(),
         "short_frac": short_f.detach(),
         "traded_frac": traded_f.detach(),
+        "active": active.detach(),
         "turnover": turn.detach() if torch.is_tensor(turn) else turn,
         "bias": bias.detach(),
-        "occ_gap": occ_gap.detach(),
+        "mean_pnl": port.mean().detach(),
     }

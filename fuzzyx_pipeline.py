@@ -1,8 +1,8 @@
 """
-FuzzyX-v1 one shot — DeepSets, weekly, PIT top-30 volume, seed 42.
+FuzzyX-v1b one shot — pay-to-play loss, no occupancy floors.
 
-BACKTEST ONLY. Addendum frozen: reports/fuzzyx_addendum.md
-Does not replace COMBO / A0.
+BACKTEST ONLY. Addendum frozen: reports/fuzzyx_addendum_v1b.md
+Does not replace COMBO / A0. Does not overwrite reports/fuzzyx_v1_report.md.
 
     python fuzzyx_pipeline.py
     modal run fuzzyx_pipeline.py   # optional, uses /data/quant volume
@@ -203,6 +203,7 @@ def run_fuzzyx(root: Path | None = None) -> dict:
 
     fold_rows = []
     oos_parts = []
+    fold_states: dict[int, dict] = {}
     last_state = None
     n_params = 0
     for fold in folds:
@@ -233,6 +234,7 @@ def run_fuzzyx(root: Path | None = None) -> dict:
         fold_rows.append(rec)
         if res.status != "ok" or not res.model_state:
             continue
+        fold_states[int(fold.fold_id)] = res.model_state
         model = FuzzyXNet(seed=SEED)
         model.load_state_dict(res.model_state)
         va = slice_packed(packed, fold.val_start, fold.val_end)
@@ -255,10 +257,21 @@ def run_fuzzyx(root: Path | None = None) -> dict:
 
     gates = run_leakage_gates(panel, packed)
     bias_folds = []
-    if folds and last_state:
-        model = FuzzyXNet(seed=SEED)
-        model.load_state_dict(last_state)
+    if folds:
         for fold in (folds[0], folds[-1]):
+            st = fold_states.get(int(fold.fold_id))
+            if not st:
+                bias_folds.append(
+                    {
+                        "name": "label_shuffle_bias",
+                        "passed": False,
+                        "fold_id": fold.fold_id,
+                        "reason": "missing fold weights",
+                    }
+                )
+                continue
+            model = FuzzyXNet(seed=SEED)
+            model.load_state_dict(st)
             b = gate_shuffle_bias(model, packed, fold.val_start, fold.val_end)
             b["fold_id"] = fold.fold_id
             bias_folds.append(b)
@@ -287,7 +300,7 @@ def run_fuzzyx(root: Path | None = None) -> dict:
         rules = model.rule_sheet(FEATURE_COLS)
 
     write_report(
-        Path("reports/fuzzyx_v1_report.md"),
+        Path("reports/fuzzyx_v1b_report.md"),
         mode=mode,
         gates=gates,
         bias_folds=bias_folds,
@@ -298,6 +311,8 @@ def run_fuzzyx(root: Path | None = None) -> dict:
         rules=rules,
         n_params=n_params or FuzzyXNet(seed=SEED).n_params(),
         notes=notes,
+        title="FuzzyX-v1b report",
+        addendum="reports/fuzzyx_addendum_v1b.md",
     )
     summary = {
         "mode": mode,

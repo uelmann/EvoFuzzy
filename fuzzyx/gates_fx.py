@@ -53,7 +53,11 @@ def gate_shuffle_bias(
     fold_end,
     seeds: tuple[int, ...] = SHUFFLE_SEEDS,
 ) -> dict:
-    """Shuffle 7-day forward returns within date; core mean must be centered."""
+    """Shuffle 7-day forward returns within date; mean weekly net PnL must be centered.
+
+    Uses this fold's own weights (caller loads them). Statistic is mean_pnl,
+    not path-loss core (v1b). Positions are computed once; only labels shuffle.
+    """
     sl = slice_packed(packed, fold_start, fold_end)
     if sl.X.shape[0] < 4:
         return {"name": "label_shuffle_bias", "passed": False, "reason": "short fold"}
@@ -62,7 +66,7 @@ def gate_shuffle_bias(
     x = torch.from_numpy(sl.X).to(device=device, dtype=torch.float32)
     m = torch.from_numpy(sl.mask).to(device=device)
     pos = model(x, m)["soft_pos"]
-    cores = []
+    pnls = []
     for s in seeds:
         rng = np.random.default_rng(int(s))
         rh = sl.ret_h7.copy()
@@ -73,21 +77,22 @@ def gate_shuffle_bias(
             rh[t, idx] = rng.permutation(rh[t, idx])
         rt = torch.from_numpy(rh).to(device=device, dtype=torch.float32)
         stats = path_loss_torch(pos, rt, mask=m)
-        cores.append(float(stats["core"].cpu()))
-    arr = np.asarray(cores, dtype=float)
+        pnls.append(float(stats["mean_pnl"].cpu()))
+    arr = np.asarray(pnls, dtype=float)
     mean = float(np.mean(arr))
     sd = float(np.std(arr, ddof=1)) if arr.size > 1 else 0.0
     se = sd / max(np.sqrt(len(arr)), 1.0)
     passed = bool(abs(mean) <= 2.0 * se + 1e-12) if se > 0 else abs(mean) < 1e-6
     return {
         "name": "label_shuffle_bias",
+        "statistic": "mean_weekly_net_pnl",
         "passed": passed,
-        "mean_core": mean,
+        "mean_pnl": mean,
         "sd": sd,
         "se": float(se),
         "threshold": float(2.0 * se),
         "n": int(arr.size),
-        "cores": [float(c) for c in arr],
+        "pnls": [float(c) for c in arr],
     }
 
 

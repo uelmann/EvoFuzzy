@@ -4,6 +4,14 @@
 
 v1 failure mode this shot addresses: occupancy floors (`L≥0.20`, `S≥0.30`, traded `≥0.25`) plus the `core/1e5` nuke forced the policy to stay in the market (~99.6% ±1). Default is now **flat**. Being long or short must pay for itself.
 
+How default-flat is enforced (all of these, together):
+
+1. Drop the occupancy nuke and the occupancy-up hinge. The objective is no longer illegal unless the book is 20/30/25% long/short/traded.
+2. Add pay-to-play: `loss += λ_active · mean σ((|pos|−0.05)/0.05)` with `λ_active=0.20`. Every name that is not flat costs the objective; occupancy is no longer a floor to hit.
+3. Initialize the FLAT logit at `+1.5` so the untrained policy is mostly `0`.
+4. Soft position is `P_L² − P_S²`, so uncertain names collapse to 0 instead of a coin-flip long vs short.
+5. Book weights are `w = p / max(Σ|p|, 1)`. Tiny leftover positions stay tiny; they are not levered up to a 100% book.
+
 ---
 
 ## What changed vs v1 (frozen)
@@ -15,6 +23,7 @@ v1 failure mode this shot addresses: occupancy floors (`L≥0.20`, `S≥0.30`, t
 | pay-to-play | none | `λ_active=0.20` on mean `σ((\|pos\|−0.05)/0.05)` |
 | FLAT init | 0 | output bias FLAT `+1.5` |
 | soft position | `P(L)−P(S)` | `(P(L)−P(S)) · (P(L)+P(S))` so uncertain ≈ 0 |
+| book scale | `w = p / Σ\|p\|` (tiny pos → 100% book) | **`w = p / max(Σ\|p\|, 1)` — no lever-up of dust** |
 | shuffle-bias statistic | path-loss core | **mean weekly net PnL** (dollar-neutral null) |
 | shuffle model | last fold on both | **that fold’s own OOS weights** |
 

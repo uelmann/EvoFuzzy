@@ -10,6 +10,7 @@ from torch.nn import functional as F
 from .constants import (
     D_MODEL,
     FEATURE_COLS,
+    FLAT_INIT_BIAS,
     GATE_TEMPERATURE,
     MF_INIT_CENTERS,
     MF_INIT_SIGMA,
@@ -35,8 +36,9 @@ def market_token(x: torch.Tensor, mask: torch.Tensor | None) -> torch.Tensor:
 
 
 def soft_positions(logits: torch.Tensor, temperature: float = POS_TEMPERATURE) -> torch.Tensor:
+    """Uncertain names → 0: (P_L − P_S) · (P_L + P_S) = P_L² − P_S²."""
     p = F.softmax(logits / max(float(temperature), 1e-6), dim=-1)
-    return p[..., 0] - p[..., 1]
+    return (p[..., 0] - p[..., 1]) * (p[..., 0] + p[..., 1])
 
 
 def hard_positions(logits: torch.Tensor) -> torch.Tensor:
@@ -91,7 +93,9 @@ class FuzzyXNet(nn.Module):
         self.enc_W_ff = nn.Parameter(torch.randn(d_z, d_model, generator=g) * s2)
         self.enc_b_ff = nn.Parameter(torch.zeros(d_model))
         self.enc_W_out = nn.Parameter(torch.randn(d_model, 3, generator=g) * (d_model**-0.5))
-        self.enc_b_out = nn.Parameter(torch.zeros(3))
+        b_out = torch.zeros(3)
+        b_out[2] = float(FLAT_INIT_BIAS)
+        self.enc_b_out = nn.Parameter(b_out)
 
         self.gate_temperature = GATE_TEMPERATURE
         self.pos_temperature = POS_TEMPERATURE

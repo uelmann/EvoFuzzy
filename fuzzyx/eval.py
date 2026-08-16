@@ -33,8 +33,10 @@ def book_from_pred(pred: dict) -> dict:
     hl = pred["hard_loss"]
     sl = pred["soft_loss"]
     long_f, short_f, traded_f = occupancy(hard, mask)
+    port, _ = portfolio_returns(hard, pred["ret_h7"], mask=mask) if "ret_h7" in pred else (np.array([]), None)
     return {
         "net_sharpe_weekly": _sharpe_from_core_path(pred),
+        "mean_weekly_pnl": float(np.mean(port)) if port.size else float("nan"),
         "hard_loss": hl,
         "soft_loss": sl,
         "long_frac": long_f,

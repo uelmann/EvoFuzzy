@@ -1,4 +1,4 @@
-"""Write FuzzyX-v1 report. Mechanical verdict only."""
+"""Write FuzzyX report. Mechanical verdict only."""
 
 from __future__ import annotations
 
@@ -19,6 +19,8 @@ def write_report(
     rules: list[str],
     n_params: int,
     notes: list[str],
+    title: str = "FuzzyX-v1b report",
+    addendum: str = "reports/fuzzyx_addendum_v1b.md",
 ) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -26,10 +28,10 @@ def write_report(
     bias = "PASS" if verdict.get("bias_ok") else "FAIL"
     skill = "PASS" if verdict.get("skill_ok") else "FAIL"
     lines = [
-        "# FuzzyX-v1 report",
+        f"# {title}",
         "",
         "**BACKTEST ONLY.** One shot. DeepSets, weekly, PIT top-30 volume, seed 42. "
-        "Does not replace COMBO / A0. Addendum: `reports/fuzzyx_addendum.md`.",
+        f"Does not replace COMBO / A0. Addendum: `{addendum}`.",
         "",
         f"**Mode:** `{mode}`",
         f"**Verdict:** **{verdict.get('verdict')}**",
@@ -37,8 +39,9 @@ def write_report(
         "",
         "## Keep rule (verbatim)",
         "",
-        "> See `reports/fuzzyx_addendum.md`. VIABLE only if leakage, shuffle-bias, "
-        "full-OOS net Sharpe ≥ 0, and ≤ 0.10 Sharpe vs A0 Sleeve A when A0 preds exist.",
+        f"> See `{addendum}`. VIABLE only if leakage, shuffle-bias on mean weekly "
+        "net PnL (per-fold weights), full-OOS net Sharpe ≥ 0, and ≤ 0.10 Sharpe vs "
+        "A0 Sleeve A when A0 preds exist. LOCAL-RESTRICTED cannot be official VIABLE.",
         "",
         "## Gates",
         "",

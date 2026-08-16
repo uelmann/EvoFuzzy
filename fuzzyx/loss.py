@@ -1,12 +1,7 @@
 """Notebook-style path loss: trend × (1 − maxDD) × (1 − DD duration).
 
-Matches WRKS_L_S_NNET_Nov_22_ eval_objective_X / torch path:
-    loss = corr(cum, time) * (1 - maxdd) * (1 - max_ddur)
-    if occupancy floors fail: loss /= 1e5
-    return -loss
-
-Plus DiffQuant-style regularizers (turnover, long/short bias) so the
-discrete {+1,0,−1} policy does not collapse.
+v1b: occupancy floors are diagnostics only. The core/1e5 nuke is off
+(OCC_NUKE=False). Training pay-to-play lives in torch_loss, not here.
 """
 
 from __future__ import annotations
@@ -17,6 +12,7 @@ from .constants import (
     GROSS_LIMIT,
     MAXDD_CAP,
     OCC_LONG_MIN,
+    OCC_NUKE,
     OCC_PENALTY,
     OCC_SHORT_MIN,
     OCC_TRADED_MIN,
@@ -91,10 +87,9 @@ def portfolio_returns(
     if mask is not None:
         p = np.where(mask.astype(bool), p, 0.0)
         r = np.where(mask.astype(bool), r, 0.0)
+    # v1b: never lever dust up to unit gross. w = p / max(Σ|p|, 1).
     gross = np.sum(np.abs(p), axis=-1, keepdims=True)
-    w = np.zeros_like(p)
-    np.divide(p, gross, out=w, where=gross > 1e-8)
-    w *= gross_limit
+    w = p / np.maximum(gross, 1.0) * gross_limit
     gross_pnl = np.sum(w * r, axis=-1)
     if prev_positions is None:
         prev = np.zeros_like(w)
@@ -120,7 +115,9 @@ def path_loss(
     trend = trend_corr(equity)
     core = trend * (1.0 - maxdd) * (1.0 - ddur)
     long_f, short_f, traded_f = occupancy(positions, mask)
-    if traded_f < OCC_TRADED_MIN or short_f < OCC_SHORT_MIN or long_f < OCC_LONG_MIN:
+    if OCC_NUKE and (
+        traded_f < OCC_TRADED_MIN or short_f < OCC_SHORT_MIN or long_f < OCC_LONG_MIN
+    ):
         core = core / OCC_PENALTY
     turn = float(np.mean(np.sum(np.abs(np.diff(w, axis=0)), axis=-1))) if w.shape[0] > 1 else 0.0
     bias = float(np.abs(np.mean(w)))
@@ -137,4 +134,5 @@ def path_loss(
         "turnover": turn,
         "bias": bias,
         "ann_mean": float(np.mean(port) * 365.0),
+        "mean_pnl": float(np.mean(port)),
     }

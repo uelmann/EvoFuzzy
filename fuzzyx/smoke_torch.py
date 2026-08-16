@@ -38,7 +38,12 @@ def run() -> dict:
     m = torch.from_numpy(p.mask)
     r = torch.from_numpy(p.ret_h7).float()
     out = model(x, m)
+    # FLAT prior: init logits prefer FLAT over LONG/SHORT
+    logits = out["logits"]
+    assert float(logits[..., 2].mean().detach()) > float(logits[..., 0].mean().detach())
+    assert float(logits[..., 2].mean().detach()) > float(logits[..., 1].mean().detach())
     stats = path_loss_torch(out["soft_pos"], r, mask=m)
+    assert "mean_pnl" in stats and "active" in stats
     stats["loss"].backward()
     grad = float(sum(float(t.grad.abs().sum()) for t in model.parameters() if t.grad is not None))
     assert grad > 0.0
