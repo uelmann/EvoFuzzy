@@ -771,3 +771,126 @@ MANUEL2_PEG_NEEDLES = (
 )
 MANUEL2_PEG_USD_EXCEPT = frozenset({"SAND", "BAND", "BOND", "AMP"})
 
+# ---------------------------------------------------------------------------
+# PROJECT FORGE — Phase F0 (evolutionary STRATEGY miner, compounding fitness)
+# Frozen a priori. Backtest/analysis only. Nothing adopted. Zero GPU.
+# ---------------------------------------------------------------------------
+
+FORGE_NONCONTAMINATION = (
+    "The PI's hand-made formulas are EXCLUDED from this project: not as seeds, "
+    "not as operator biases, not as fitness shaping. The search space contains "
+    "generic primitives and operators only. If the miner independently evolves "
+    "similar structures, they are reported without censorship — that is evidence "
+    "the method works, not contamination."
+)
+
+FORGE_FITNESS = (
+    "fitness(S) = median over the perturbation set P of [ann. net log-wealth of "
+    "BOOK(S, p)] − λ_c · nodes(S)/25, computed ONLY on the MINE window. BOOK(S, p): "
+    "long-only, top-k by S (k per p), equal-weight, daily rebalance, 10 bps/side, "
+    "always invested, death convention. Perturbation set P (fixed): k ∈ {3, 5, 8} × "
+    "rebalance ∈ {daily, weekly} × the two universes = 12 books. λ_c = 0.02. A formula "
+    "whose 12-book spread (max−min ann log-wealth) exceeds 1.0 is discarded regardless "
+    "of median (knife-edge filter). No correlation metric appears anywhere in the fitness."
+)
+
+FORGE_CRITERION = (
+    "On the JUDGE window, per champion (headline book = k=5, daily, top-100 DV): "
+    "FORGE-ALIVE if ≥1 champion has (a) total return ≥ BTC B&H same-window; "
+    "(b) relative-line Sharpe > 0; (c) MaxDD ≤ 1.15 × BTC's. FORGE-STRONG if ≥2 "
+    "champions pass, or one passes with relative-line Sharpe ≥ 0.5. FORGE-DEAD "
+    "otherwise, and the ledger records that GP-mined formulaic strategies do not "
+    "survive nesting on this data. Champions' formulas, MINE/SELECT/JUDGE numbers, "
+    "and the full per-cycle honesty tables are printed regardless. Benchmarks on "
+    "JUDGE: BTC B&H, EW baskets (both universes), frozen-spread crude book. "
+    "Mechanical, no post-hoc adjustment; no re-mining, no second look at JUDGE."
+)
+
+FORGE_MINE_START = "2019-10-20"
+FORGE_MINE_END = "2022-12-31"
+FORGE_SELECT_START = "2023-01-01"
+FORGE_SELECT_END = "2024-12-31"
+FORGE_JUDGE_START = "2025-01-01"
+FORGE_JUDGE_END = PHASE3C_REF_END  # 2026-08-13
+
+FORGE_POP = 2000
+FORGE_GENS = 60
+FORGE_TOURNAMENT = 20
+FORGE_P_CROSSOVER = 0.70
+FORGE_P_SUBTREE = 0.25
+FORGE_P_POINT = 0.05
+FORGE_MAX_DEPTH = 8
+FORGE_MAX_NODES = 25
+FORGE_INIT_DEPTH = (2, 6)
+FORGE_EARLY_STOP_GENS = 10
+FORGE_ELITE = 1
+FORGE_LAMBDA_C = 0.02
+FORGE_KNIFE_SPREAD = 1.0
+FORGE_K_SET = (3, 5, 8)
+FORGE_REBAL_SET = ("daily", "weekly")
+FORGE_HEADLINE_K = 5
+FORGE_HEADLINE_REBAL = "daily"
+FORGE_HEADLINE_UNIV = "dv100"
+FORGE_SELECT_TOP = 50
+FORGE_N_CHAMPIONS = 5
+FORGE_DIVERSITY_CORR = 0.70
+FORGE_COST_BPS = 10.0
+FORGE_MAXDD_MULT = 1.15
+FORGE_REL_SHARPE_STRONG = 0.50
+FORGE_NULL_GENS = 30  # half budget
+FORGE_SEED = SEED  # 42
+FORGE_WEEKDAY = 0  # Monday
+FORGE_PDIV_EPS = 1e-8
+FORGE_STD_DDOF = 1
+FORGE_CS_DDOF = 0
+FORGE_TS_K = (5, 14, 28, 63)
+FORGE_RET_K = (1, 3, 7, 14, 21, 28, 63, 90)
+FORGE_STD_K = (14, 30, 63, 90)
+FORGE_HL_K = (28, 90)
+FORGE_MCAP_N = 50
+FORGE_BUDGET_SEC = 6 * 3600
+FORGE_HEARTBEAT_SEC = 60
+FORGE_WATCHDOG_SILENCE_SEC = 20 * 60
+FORGE_MAX_CONCURRENCY = 50
+FORGE_CUBE_START = "2018-01-01"
+
+FORGE_PRIMITIVES = (
+    "close",
+    "volume",
+    "mcap",
+    "ret_1",
+    "ret_3",
+    "ret_7",
+    "ret_14",
+    "ret_21",
+    "ret_28",
+    "ret_63",
+    "ret_90",
+    "std_14",
+    "std_30",
+    "std_63",
+    "std_90",
+    "dist_high_28",
+    "dist_high_90",
+    "dist_low_28",
+    "dist_low_90",
+    "dist_ath",
+    "amihud_14",
+    "turnover",
+    "age",
+    "mcap_rank",
+    "funding_z_7",
+    "funding_z_30",
+    "dOI_7",
+    "dOI_30",
+    "basis",
+    "taker_imb_7",
+    "pos_missing",
+)
+assert len(FORGE_PRIMITIVES) == 31, len(FORGE_PRIMITIVES)
+
+FORGE_UNARY_OPS = ("abs", "neg", "log1pabs", "rank_cs", "z_cs", "phi_cs")
+FORGE_BINARY_OPS = ("add", "sub", "mul", "pdiv", "min", "max")
+FORGE_TS_OPS = ("ts_mean", "ts_std", "ts_max", "ts_min", "ts_rank", "lag")
+
+
