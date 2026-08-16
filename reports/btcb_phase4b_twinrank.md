@@ -199,6 +199,8 @@ Tail-IC(top-half) by cycle:
 
 Ladder-1 construction: EW top decile, 10% cap, idle cash, 10 bps/side, h=14 full rebalance.
 
+Chart: `charts/btcb_phase4b_equity.png` (log equity + drawdown). Information only; nothing adopted.
+
 | book | total | CAGR | MaxDD | Sharpe | n |
 |------|-------|------|-------|--------|---|
 | frozen spread (baseline) | 133.8% | 13.4% | -74.0% | 0.509 | 176 |
@@ -226,6 +228,7 @@ TWIN-RANK vs frozen spread: tail-IC(top-half) 0.06373363864654095 → 0.07999626
 - Frozen spread is the 2.c cache (not retrained). TWIN-RANK uses one LambdaRank config per head.
 - Vol-matched null supersedes plain within-date shuffle for tail metrics going forward.
 - Crude 14d CAGR/MaxDD is an information check. **Nothing is adopted.**
+- Crude 14d equity (log + drawdown): `charts/btcb_phase4b_equity.png`. Information only; nothing adopted.
 - Elapsed s=`8427.0`. GPU=`False`.
 
 COMBO, SPREAD-LS BOOK-HYBRID, LONG-TIDE, and BTC-BEATER v1 untouched.
