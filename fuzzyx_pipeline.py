@@ -1,8 +1,8 @@
 """
-FuzzyX-v1e one shot — loss = −corr(wealth, t) · (1 + cumRet[-1]).
+FuzzyX-v1f one shot — dollar-neutral book, loss = −mean(net PnL).
 
-BACKTEST ONLY. Addendum frozen: reports/fuzzyx_addendum_v1e.md
-Does not replace COMBO / A0. Does not overwrite v1–v1d reports.
+BACKTEST ONLY. Addendum frozen: reports/fuzzyx_addendum_v1f.md
+Does not replace COMBO / A0. Does not overwrite v1–v1e reports.
 
     python3 fuzzyx_pipeline.py
 """
@@ -299,7 +299,7 @@ def run_fuzzyx(root: Path | None = None) -> dict:
         rules = model.rule_sheet(FEATURE_COLS)
 
     write_report(
-        Path("reports/fuzzyx_v1e_report.md"),
+        Path("reports/fuzzyx_v1f_report.md"),
         mode=mode,
         gates=gates,
         bias_folds=bias_folds,
@@ -310,8 +310,8 @@ def run_fuzzyx(root: Path | None = None) -> dict:
         rules=rules,
         n_params=n_params or FuzzyXNet(seed=SEED).n_params(),
         notes=notes,
-        title="FuzzyX-v1e report",
-        addendum="reports/fuzzyx_addendum_v1e.md",
+        title="FuzzyX-v1f report",
+        addendum="reports/fuzzyx_addendum_v1f.md",
     )
     summary = {
         "mode": mode,

@@ -1,7 +1,6 @@
 """Differentiable weekly path loss.
 
-v1e: loss = −corr(wealth, t) · (1 + cumRet[-1]), with wealth = cumprod(1+st_r)
-and cumRet[-1] = wealth[-1] − 1.
+v1f: dollar-neutral unit-gross book, loss = −mean(net weekly PnL).
 """
 
 from __future__ import annotations
@@ -11,6 +10,7 @@ import torch
 from .constants import (
     ACTIVE_LAMBDA,
     BIAS_LAMBDA,
+    DEMEAN_CS,
     GROSS_LIMIT,
     LEVER_UP,
     MAXDD_CAP,
@@ -23,7 +23,14 @@ from .constants import (
 def _weights(pos: torch.Tensor, mask: torch.Tensor | None, gross_limit: float = GROSS_LIMIT) -> torch.Tensor:
     p = pos
     if mask is not None:
+        m = mask.to(dtype=p.dtype)
         p = torch.where(mask, p, torch.zeros_like(p))
+        if DEMEAN_CS:
+            denom = m.sum(dim=-1, keepdim=True).clamp(min=1.0)
+            mu = (p * m).sum(dim=-1, keepdim=True) / denom
+            p = (p - mu) * m
+    elif DEMEAN_CS:
+        p = p - p.mean(dim=-1, keepdim=True)
     gross = p.abs().sum(dim=-1, keepdim=True)
     if LEVER_UP:
         return p / gross.clamp(min=1e-8) * gross_limit
@@ -49,7 +56,7 @@ def portfolio_net(
 
 
 def _pearson_vs_arange(x: torch.Tensor) -> torch.Tensor:
-    """np.corrcoef(x, np.arange(len(x)))[1, 0], differentiable. Constant x → 0."""
+    """Diagnostic only in v1f."""
     n = x.numel()
     t = torch.arange(n, device=x.device, dtype=x.dtype)
     vx = x - x.mean()
@@ -73,11 +80,10 @@ def path_loss_torch(
     maxdd = (-dd.min()).clamp(max=MAXDD_CAP)
     under = torch.sigmoid((-dd - 1e-4) / 0.02)
     ddur = under.mean()
-    # v1e: corr(wealth, t) * (1 + last cumret) = corr * equity[-1]
     corr_w = _pearson_vs_arange(equity)
     equity_end = equity[-1]
-    core = corr_w * equity_end
     trend_r = _pearson_vs_arange(port)
+    core = port.mean()
 
     if mask is not None:
         m = mask.to(dtype=pos.dtype)
@@ -94,6 +100,7 @@ def path_loss_torch(
 
     turn = (w[1:] - w[:-1]).abs().sum(dim=-1).mean() if w.shape[0] > 1 else w.new_zeros(())
     bias = w.mean().abs()
+    net_expo = w.sum(dim=-1).abs().mean()
     loss = -core + turn_lambda * turn + bias_lambda * bias + active_lambda * active
     return {
         "loss": loss,
@@ -111,5 +118,6 @@ def path_loss_torch(
         "active": active.detach(),
         "turnover": turn.detach() if torch.is_tensor(turn) else turn,
         "bias": bias.detach(),
+        "net_expo": net_expo.detach(),
         "mean_pnl": port.mean().detach(),
     }

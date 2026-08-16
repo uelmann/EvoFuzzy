@@ -31,7 +31,8 @@ model:
   complex_cfs: false    # notebook CFS phase is a later ablation, off
 
 loss:
-  core: corr(cumprod(1+st_r), t) * (1 + cumRet[-1])  # v1e; cumRet[-1] = wealth[-1]-1
+  core: -mean(net weekly PnL)   # v1f
+  demean_cs: true               # p ← p − masked mean, then unit-gross
   occ_nuke: false
   occ_lambda: 0.0
   active_lambda: 0.0

@@ -21,13 +21,14 @@ LR = 1e-3
 WEIGHT_DECAY = 1e-4
 MAX_EPOCHS = 80
 PATIENCE = 12
-TURN_LAMBDA = 0.0  # v1e: corr(wealth, t) * (1 + last cumret)
+TURN_LAMBDA = 0.0  # v1f: −mean(net PnL) only
 BIAS_LAMBDA = 0.0
 OCC_LAMBDA = 0.0
-ACTIVE_LAMBDA = 0.0  # v1c: no pay-to-play
+ACTIVE_LAMBDA = 0.0
 FLAT_INIT_BIAS = 0.0
 OCC_NUKE = False
-LEVER_UP = True  # v1c: w = p / Σ|p| so corr has a path
+LEVER_UP = True
+DEMEAN_CS = True  # v1f: w ← w − masked mean, then unit-gross
 SHUFFLE_SEEDS = tuple(range(101, 111))
 MIN_TRAIN_DAYS = 730
 VAL_DAYS = 90

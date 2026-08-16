@@ -39,16 +39,16 @@ def run() -> dict:
     r = torch.from_numpy(p.ret_h7).float()
     out = model(x, m)
     stats = path_loss_torch(out["soft_pos"], r, mask=m)
-    assert "mean_pnl" in stats and "core" in stats
-    # torch core = corr(wealth, t) * wealth[-1] must match numpy
+    assert "mean_pnl" in stats and "core" in stats and "net_expo" in stats
+    # dollar-neutral: |Σw| ≈ 0 on investable names
     with torch.no_grad():
-        port, _ = portfolio_net(out["soft_pos"].detach(), r, mask=m)
-        st = np.cumprod(1.0 + port.cpu().numpy())
-        np_c = float(np.corrcoef(st, np.arange(st.size))[1, 0]) if np.std(st) > 1e-12 else 0.0
-        np_core = np_c * float(st[-1]) if np.isfinite(np_c) else 0.0
+        _, w = portfolio_net(out["soft_pos"].detach(), r, mask=m)
+        expo = w.sum(dim=-1).abs().mean().item()
+        assert expo < 1e-5, expo
         torch_core = float(stats["core"].detach().cpu())
-        if np.isfinite(np_core):
-            assert abs(np_core - torch_core) < 1e-4, (np_core, torch_core)
+        port, _ = portfolio_net(out["soft_pos"].detach(), r, mask=m)
+        np_core = float(port.mean().cpu())
+        assert abs(np_core - torch_core) < 1e-5, (np_core, torch_core)
     stats["loss"].backward()
     grad = float(sum(float(t.grad.abs().sum()) for t in model.parameters() if t.grad is not None))
     assert grad > 0.0

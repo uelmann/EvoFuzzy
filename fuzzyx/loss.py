@@ -1,13 +1,12 @@
-"""v1e path loss: −corr(wealth, t) · (1 + cumRet[-1]).
-
-wealth = cumprod(1+st_r). Occupancy nuke off. DD terms are diagnostics.
-"""
+"""v1f path loss: −mean(net weekly PnL) on a dollar-neutral unit-gross book."""
 
 from __future__ import annotations
 
 import numpy as np
 
 from .constants import (
+    BIAS_LAMBDA,
+    DEMEAN_CS,
     GROSS_LIMIT,
     LEVER_UP,
     MAXDD_CAP,
@@ -19,7 +18,6 @@ from .constants import (
     SLIPPAGE_BPS,
     TAKER_FEE_BPS,
     TURN_LAMBDA,
-    BIAS_LAMBDA,
 )
 
 
@@ -81,16 +79,22 @@ def portfolio_returns(
     slip_bps: float = SLIPPAGE_BPS,
     gross_limit: float = GROSS_LIMIT,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Equal-gross among active names. positions/asset_ret: (T, N).
+    """Dollar-neutral unit-gross among investable names. positions/asset_ret: (T, N).
 
     Returns (net_port_ret (T,), weights (T, N)).
     """
     p = np.asarray(positions, dtype=np.float64)
     r = np.asarray(asset_ret, dtype=np.float64)
     if mask is not None:
-        p = np.where(mask.astype(bool), p, 0.0)
-        r = np.where(mask.astype(bool), r, 0.0)
-    # v1c: unit-gross if LEVER_UP else no dust lever-up.
+        m = mask.astype(bool)
+        p = np.where(m, p, 0.0)
+        r = np.where(m, r, 0.0)
+        if DEMEAN_CS:
+            denom = np.clip(m.sum(axis=-1, keepdims=True).astype(np.float64), 1.0, None)
+            mu = (p * m).sum(axis=-1, keepdims=True) / denom
+            p = np.where(m, p - mu, 0.0)
+    elif DEMEAN_CS:
+        p = p - p.mean(axis=-1, keepdims=True)
     gross = np.sum(np.abs(p), axis=-1, keepdims=True)
     if LEVER_UP:
         w = np.zeros_like(p)
@@ -116,13 +120,13 @@ def path_loss(
     turn_lambda: float = TURN_LAMBDA,
     bias_lambda: float = BIAS_LAMBDA,
 ) -> dict[str, float]:
-    """v1e: loss = −corr(wealth, t) · (1 + last cumret). Lower is better."""
+    """v1f: loss = −mean(net PnL). Lower is better."""
     port, w = portfolio_returns(positions, asset_ret, mask=mask)
     equity = np.cumprod(1.0 + port)
     maxdd, ddur, _ = max_dd_path(port)
     corr_w = trend_corr(equity)
     equity_end = float(equity[-1]) if equity.size else 1.0
-    core = corr_w * equity_end
+    core = float(np.mean(port)) if port.size else 0.0
     trend_r = trend_corr(port)
     long_f, short_f, traded_f = occupancy(positions, mask)
     if OCC_NUKE and (
@@ -147,6 +151,7 @@ def path_loss(
         "traded_frac": traded_f,
         "turnover": turn,
         "bias": bias,
+        "net_expo": float(np.mean(np.abs(np.sum(w, axis=-1)))) if w.size else 0.0,
         "ann_mean": float(np.mean(port) * 365.0),
         "mean_pnl": float(np.mean(port)),
     }
