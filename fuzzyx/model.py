@@ -12,6 +12,7 @@ import numpy as np
 
 from .constants import (
     D_MODEL,
+    ENCODER,
     FEATURE_COLS,
     N_FEATURES,
     N_HEADS,
@@ -20,7 +21,7 @@ from .constants import (
     POS_TEMPERATURE,
     SEED,
 )
-from .encoder import CrossSectionEncoder
+from .encoder import CrossSectionEncoder, DeepSetsEncoder
 from .gate import MarketGate
 from .membership import GaussianBank, softmax
 from .rules import RuleBank
@@ -79,17 +80,25 @@ class FuzzyX:
         n_rules: int = N_RULES,
         d_model: int = D_MODEL,
         n_heads: int = N_HEADS,
+        encoder: str = ENCODER,
         seed: int = SEED,
     ) -> None:
         self.n_features = int(n_features)
+        self.encoder_kind = str(encoder)
         self.mfs = GaussianBank(n_features=n_features, n_mfs=n_mfs)
         self.rules = RuleBank(n_features=n_features, n_mfs=n_mfs, n_rules=n_rules, seed=seed)
         n_market = n_features * 2
         self.gate = MarketGate(n_market=n_market, n_features=n_features, seed=seed + 1)
-        # token = raw features + flattened gated MFs + rule firings + rule scores
+        # token = raw A0 features + flattened gated MFs + rule firings + rule scores
         d_in = n_features + n_features * n_mfs + n_rules + 3
-        self.enc = CrossSectionEncoder(d_in=d_in, d_model=d_model, n_heads=n_heads, seed=seed + 2)
-        self.W_mkt = np.random.default_rng(seed + 3).normal(0.0, d_in**-0.5, size=(n_market, d_in))
+        if self.encoder_kind == "deepsets":
+            self.enc = DeepSetsEncoder(d_in=d_in, d_market=n_market, d_model=d_model, seed=seed + 2)
+            self.W_mkt = None
+        elif self.encoder_kind == "xsec":
+            self.enc = CrossSectionEncoder(d_in=d_in, d_model=d_model, n_heads=n_heads, seed=seed + 2)
+            self.W_mkt = np.random.default_rng(seed + 3).normal(0.0, d_in**-0.5, size=(n_market, d_in))
+        else:
+            raise ValueError(f"encoder must be 'deepsets' or 'xsec', got {encoder!r}")
 
     def forward(self, x: np.ndarray, mask: np.ndarray | None = None) -> FuzzyXForward:
         """x: (..., N, F) CS-z features. mask: (..., N) True = investable."""
@@ -102,7 +111,7 @@ class FuzzyX:
             [x, gated.reshape(*x.shape[:-1], -1), firings, rule_scores],
             axis=-1,
         )
-        mkt_tok = mkt @ self.W_mkt
+        mkt_tok = mkt if self.W_mkt is None else mkt @ self.W_mkt
         logits = self.enc.encode(tokens, mkt_tok, mask=mask)
         if mask is not None:
             logits = np.where(mask[..., None], logits, np.array([0.0, 0.0, 8.0]))
@@ -123,7 +132,7 @@ class FuzzyX:
             + self.rules.n_params()
             + self.gate.n_params()
             + self.enc.n_params()
-            + int(self.W_mkt.size)
+            + (0 if self.W_mkt is None else int(self.W_mkt.size))
         )
 
     def rule_sheet(self) -> list[str]:

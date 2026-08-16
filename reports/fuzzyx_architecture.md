@@ -25,7 +25,7 @@ Keep:
 
 Change:
 
-1. **Do not put LightGBM in the joint-reasoning seat.** Trees cannot see all 30 names in one forward pass, cannot backprop a path-DD loss, and cannot condition a feature gate on today's market token. Keep A0 as the baseline to beat, and optionally as a teacher. The joint reasoner is a *tiny* cross-section transformer.
+1. **Do not put LightGBM in the joint-reasoning seat.** Trees cannot see all 30 names in one forward pass, cannot backprop a path-DD loss, and cannot condition a feature gate on today's market token. Keep A0 as the baseline to beat, and optionally as a teacher. The joint reasoner is a *tiny* DeepSets / CS-residual head (1-layer transformer is the ablation, not the default).
 2. **Do not train a complex-valued net with a genetic algorithm over all weights.** That is what the notebook does (`Net` / `Net_X` + `pygad.torchga`). It does not scale to a 30-asset date batch and it is not SOTA. Adam on a differentiable graph; evolutionary search only if you later want to tune membership centers as a small outer loop (the original EvoFuzzy role).
 
 The Phase E GRU already failed the skill gate on this book (`reports/phaseE1_report.md`, `reports/phaseE1b_report.md`). Path signatures were killed. The complexity block was killed. So this design is *not* "another sequence model." Tokens are **assets on a decision date**, not a 60-bar history of one coin.
@@ -37,7 +37,7 @@ The Phase E GRU already failed the skill gate on this book (`reports/phaseE1_rep
 | piece you asked for | SOTA analogue | takeaway for us |
 |---|---|---|
 | Accendi/spegni input | **MASTER** market-guided gating (AAAI 2024, [arXiv:2312.15235](https://arxiv.org/abs/2312.15235)); TFT Variable Selection Networks (Lim et al. 2021) | Softmax over features, conditioned on a market vector. Temperature `< 1` sharpens toward on/off. |
-| Ragiona su tutti gli asset | **MASTER** inter-stock attention; Portfolio Transformer (Kisiel & Gorse 2022); SC-Transformer self-clustering (2026) | One token per name + one market token. 1 layer, `d=32`, 4 heads. SC-Transformer used **17k** params. |
+| Ragiona su tutti gli asset | **DeepSets + CS residual** (GKX 2020 FFN family); Set Transformer / MASTER inter-stock; ml-alpha CS-Transformer ~14k (2025) | Default = DeepSets. Attention is the ablation. No positional encoding: names are a set. |
 | Regole AND/OR | **KANFIS** (2026) — ANFIS without exponential rule blow-up; **ANDRE** attention AND/OR (2026); **NEURULES** soft predicates → crisp lists (2025); differentiable fuzzy neurons / t-norms | A bank of `R=16–32` sparse rules. Product t-norm for AND, probabilistic sum for OR. Linear in `F`, not `K^F`. |
 | Loss di portafoglio | Notebook path; **DiffQuant** differentiable simulator (Sharpe + turnover + DD + occupancy/bias); SIT trains **CVaR** end-to-end (2025); PT trains Sharpe + costs | Differentiable mark-to-market. Soft positions in train, `{+1,0,−1}` at eval. Hybrid regularizers or the policy collapses. |
 | Fuzzy + deep | IFDNN / FASA-PM / LSTM-TSK (2024–25) | Fuzzy is the *front-end and the rule layer*, not a complex-valued MLP. |
@@ -73,9 +73,10 @@ CMC daily panel
               │  AND = product t-norm
               │  LONG/SHORT/FLAT = probabilistic-OR of rule heads
               │  → firings A ∈ [0,1]^{N×24}, scores S ∈ R^{N×3}
-     L4  Cross-section encoder (1 layer, d=32, 4 heads)
+     L4  Cross-section head (default DeepSets / CS residual)
               │  token_n = [x_n ; flatten(M̃_n) ; A_n ; S_n]
-              │  + market token
+              │  c = masked mean over names; score_n = MLP([h_n, c, h_n−c, m])
+              │  ablation: 1-layer asset-token attention (no positional encoding)
               │  logits_n ∈ R^3
               │
      train:  pos = P(long) − P(short)     soft, ∈ [−1, +1]
@@ -91,7 +92,7 @@ CMC daily panel
          occupancy fail → core /= 1e5     (notebook)
 ```
 
-Param budget of the numpy skeleton (untrained, seed 42): **35,394**. Target band is **15–50k**. If a later torch port exceeds ~50k, cut rules or `d_model`, do not add layers.
+Param budget (untrained, seed 42): DeepSets default ~15–25k; xsec ablation ~35k. Band **5–50k**. If a later torch port exceeds ~50k, cut rules or `d_model`, do not add layers.
 
 ---
 
@@ -129,11 +130,50 @@ R07 LONG: mom_28_skip7 IS HIGH AND NOT yz_vol_30 IS HIGH AND dv_trend IS HIGH
 
 Sparsity is structural (IGNORE is biased at init). Add L1 on `1 − P(IGNORE)` only if the printed sheet is still dense after a first train.
 
-### L4 — why a transformer at all
+### L4 — joint head: DeepSets default, tiny attention optional
 
-Without L4 the model is a per-name fuzzy classifier. You asked for "riceve gli input per ogni asset insieme." The only cheap way to do that is attention over the 30 names. One layer is enough to express "this name is strong *relative to the other 29*." That is the cross-section.
+Without L4 the model is a per-name fuzzy classifier. "Ragiona su tutti gli asset" only requires that each name sees a summary of the other 29. That is a **set** problem (no order), not a language-model problem.
+
+**Default = DeepSets / CS residual** (GKX 2020 family): embed each name, pool the cross-section, score `[h_i, c, h_i − c, market]`. Sample-efficient on ~250 weekly dates. Permutation-equivariant.
+
+**Ablation = 1-layer asset-token attention** (MASTER inter-stock / Set Transformer, **no positional encoding**). Worth trying; hungrier. Not the v1 default.
 
 Do not add a temporal transformer on 60 bars. That is Phase E. It failed the skill gate.
+
+### Why not Kronos as the transformer
+
+Kronos is the wrong object for L4. It is a **per-asset temporal foundation model**, not a cross-section policy.
+
+What Kronos actually is (this repo, `phase_b/vendor/kronos_model`):
+
+1. Input = raw OHLCV **sequence of one coin** (long context, hundreds of bars).
+2. Tokenizer = Transformer encoder + **Binary Spherical Quantization** → discrete tokens.
+3. Backbone = autoregressive Transformer decoder predicting the next tokens.
+4. Output = a **forecast distribution** per name (`kr_mu`, `kr_sigma`, quantiles, `p_up`).
+5. Phase B then *froze* those scalars and stacked them on LightGBM.
+
+That is the opposite axis of FuzzyX:
+
+| | Kronos | FuzzyX L4 |
+|---|---|---|
+| Axis | time of one coin | 30 coins on one date |
+| Input | raw OHLCV path | frozen A0 33 CS-z features |
+| Job | next-token / return density | `{+1,0,−1}` book |
+| Coupling | none (names independent) | required (relative ranking) |
+| Size | foundation-model | 5–40k |
+| Status here | **KILL** as frozen features; FT was full-sample contaminated | not trained yet |
+
+Using a Kronos-like stack as the FuzzyX transformer would:
+
+- throw away the LightGBM inputs you just confirmed you want
+- redo Phase B (killed: post-cutoff top-20 ΔRankIC missed the keep rule) and Phase E (GRU sequence skill FAIL)
+- not "ragiona su tutti gli assets" — Kronos never attends across names
+- optimize a forecast NLL, not the notebook path loss
+- explode the param count on ~250 weekly dates
+
+The only Kronos *idea* worth stealing later is the **discrete codebook** (BSQ / VQ), and even that is a regime token, not a backbone. Same family as PRISM-VQ / VQ-PTE. Not v1. The system card already says the only remaining data-expansion after Kronos KILL is **intraday 1h → daily embeddings**, which is a *new input block*, not a replacement for L4.
+
+Do not reopen Kronos without a new pre-registration and a new data axis. Copying the architecture on daily A0 features is not a new axis.
 
 ### Head and discreteness
 
@@ -248,7 +288,8 @@ The smoke does **not** claim skill. It checks shapes, membership range, gate sim
 - Complex-valued CFS / `torch.complex128`
 - PyGAD / differential evolution over network weights
 - Temporal transformer / GRU / 60-bar windows
-- Kronos, microstructure, path signatures, context block (all previously killed or parked)
+- Kronos (or Kronos-like tokenizer + AR decoder) as the joint head
+- Kronos frozen features, microstructure, path signatures, context block (killed or parked)
 - Top-N sweeps, horizon sweeps, cost sweeps
 - Live trading, schedules, leverage
 - Replacing COMBO

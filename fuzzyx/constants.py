@@ -14,6 +14,8 @@ N_RULES = 24
 D_MODEL = 32
 N_HEADS = 4
 N_LAYERS = 1
+# deepsets = default (CS residual). xsec = 1-layer asset-token attention.
+ENCODER = "deepsets"
 DROPOUT = 0.2
 GROSS_LIMIT = 1.0
 TAKER_FEE_BPS = 5.0

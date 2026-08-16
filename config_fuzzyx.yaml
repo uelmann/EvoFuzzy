@@ -14,13 +14,15 @@ rebalance:
   hold: ffill
 
 features:
-  source: baseline.features.FEATURE_COLS
+  source: baseline.features.FEATURE_COLS   # identical A0 LightGBM inputs, no extras
+  n: 33
   zscore_clip: 5.0
   min_history_days: 100
 
 model:
   n_mfs: 3              # Low / Mid / High Gaussians
   n_rules: 24
+  encoder: deepsets     # default. xsec = 1-layer asset-token attention
   d_model: 32
   n_heads: 4
   n_layers: 1

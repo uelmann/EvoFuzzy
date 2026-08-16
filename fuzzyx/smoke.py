@@ -6,7 +6,7 @@ import time
 
 import numpy as np
 
-from .constants import FEATURE_COLS, N_FEATURES, REBALANCE_DAYS, SEED, UNIVERSE_N
+from .constants import ENCODER, FEATURE_COLS, N_FEATURES, REBALANCE_DAYS, SEED, UNIVERSE_N
 from .loss import path_loss
 from .model import FuzzyX
 from .universe import rebalance_dates
@@ -24,10 +24,10 @@ def _synthetic_panel(n_days: int = 84, n_assets: int = UNIVERSE_N, seed: int = S
     return x, asset_ret, mask
 
 
-def run() -> dict:
+def run(encoder: str = ENCODER) -> dict:
     t0 = time.time()
     x, asset_ret, mask = _synthetic_panel()
-    model = FuzzyX()
+    model = FuzzyX(encoder=encoder)
     out = model.forward(x, mask=mask)
     hard = out.hard_pos
     assert hard.shape == (x.shape[0], x.shape[1])
@@ -47,9 +47,10 @@ def run() -> dict:
     weekly_metrics = path_loss(weekly_pos, asset_ret, mask=mask)
     rules = model.rule_sheet()
     n_params = model.n_params()
-    if not (15_000 <= n_params <= 50_000):
-        raise AssertionError(f"param budget {n_params} outside 15–50k")
+    if not (5_000 <= n_params <= 50_000):
+        raise AssertionError(f"param budget {n_params} outside 5–50k")
     report = {
+        "encoder": encoder,
         "n_params": n_params,
         "n_features": N_FEATURES,
         "n_feature_names": len(FEATURE_COLS),
@@ -65,8 +66,13 @@ def run() -> dict:
 
 
 def main() -> None:
-    r = run()
-    print(f"FuzzyX smoke  params={r['n_params']}  features={r['n_features']}  elapsed={r['elapsed_s']}s")
+    r = run("deepsets")
+    rx = run("xsec")
+    print(
+        f"FuzzyX smoke  encoder={r['encoder']}  params={r['n_params']}  "
+        f"features={r['n_features']}  elapsed={r['elapsed_s']}s"
+    )
+    print(f"xsec ablation params={rx['n_params']}  elapsed={rx['elapsed_s']}s")
     print(f"readable rules={r['n_rules_readable']}  weekly rebalances={r['rebalance_n']}")
     sl = r["soft_loss"]
     print(

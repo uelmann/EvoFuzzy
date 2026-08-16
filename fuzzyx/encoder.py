@@ -1,7 +1,8 @@
-"""Tiny cross-section encoder: assets as tokens, one market token.
+"""Cross-section heads: DeepSets (default) and optional 1-layer attention.
 
-This is the MASTER inter-stock / Portfolio-Transformer piece, kept at
-1 layer / d=32 / 4 heads so the param count stays in the 15–25k band.
+Assets are a SET, not a sequence. DeepSets + CS residual is the
+sample-efficient default (~250 weekly dates). The transformer is the
+MASTER-style ablation: same API, no positional encoding.
 """
 
 from __future__ import annotations
@@ -22,6 +23,53 @@ def _merge_heads(x: np.ndarray) -> np.ndarray:
     # (..., H, N, Dh) → (..., N, H*Dh)
     *lead, h, n, dh = x.shape
     return x.transpose(*range(len(lead)), -2, -3, -1).reshape(*lead, n, h * dh)
+
+
+def _masked_mean(h: np.ndarray, mask: np.ndarray | None) -> np.ndarray:
+    if mask is None:
+        return h.mean(axis=-2)
+    m = mask.astype(np.float64)[..., None]
+    return (h * m).sum(axis=-2) / np.clip(m.sum(axis=-2), 1.0, None)
+
+
+class DeepSetsEncoder:
+    """Permutation-equivariant CS residual: score_i = MLP([h_i, c, h_i−c, m]).
+
+    c is the masked mean over names. This is the GKX-style / DeepSets
+    inductive bias: each name is scored relative to today's cross-section.
+    """
+
+    def __init__(self, d_in: int, d_market: int, d_model: int = D_MODEL, seed: int = 0) -> None:
+        rng = np.random.default_rng(seed)
+        self.d_model = int(d_model)
+        s = 1.0 / max(d_in, 1) ** 0.5
+        self.W_in = rng.normal(0.0, s, size=(d_in, d_model))
+        self.b_in = np.zeros(d_model)
+        d_z = 3 * d_model + int(d_market)
+        s2 = 1.0 / max(d_z, 1) ** 0.5
+        self.W_ff = rng.normal(0.0, s2, size=(d_z, d_model))
+        self.b_ff = np.zeros(d_model)
+        self.W_out = rng.normal(0.0, d_model**-0.5, size=(d_model, 3))
+        self.b_out = np.zeros(3)
+
+    def encode(self, tokens: np.ndarray, market: np.ndarray, mask: np.ndarray | None = None) -> np.ndarray:
+        h = np.tanh(np.asarray(tokens, dtype=np.float64) @ self.W_in + self.b_in)
+        c = _masked_mean(h, mask)
+        m = np.asarray(market, dtype=np.float64)
+        ones = np.ones(h.shape[:-1] + (1,), dtype=np.float64)
+        z = np.concatenate([h, c[..., None, :] * ones, h - c[..., None, :], m[..., None, :] * ones], axis=-1)
+        hid = np.tanh(z @ self.W_ff + self.b_ff)
+        return hid @ self.W_out + self.b_out
+
+    def n_params(self) -> int:
+        return int(
+            self.W_in.size
+            + self.b_in.size
+            + self.W_ff.size
+            + self.b_ff.size
+            + self.W_out.size
+            + self.b_out.size
+        )
 
 
 class CrossSectionEncoder:
