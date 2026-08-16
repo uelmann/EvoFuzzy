@@ -12,8 +12,6 @@ from nasdaq_ls.constants import (
     COST_BPS,
     EXEC_TOP_N,
     GROSS_LIMIT,
-    K_LONG,
-    K_SHORT,
     LAG,
     MIN_CS,
 )
@@ -34,7 +32,12 @@ def _utc_ts(x) -> pd.Timestamp:
     return t.normalize()
 
 
-def _pick_ls(day: pd.DataFrame, k_long: int, k_short: int) -> tuple[list[str], list[str]]:
+def _pick_ls(
+    day: pd.DataFrame,
+    k_long: int | None = None,
+    k_short: int | None = None,
+    top_pct: float | None = None,
+) -> tuple[list[str], list[str]]:
     if day.empty or "score" not in day.columns:
         return [], []
     g = day.copy()
@@ -43,8 +46,13 @@ def _pick_ls(day: pd.DataFrame, k_long: int, k_short: int) -> tuple[list[str], l
     if len(g) < MIN_CS:
         return [], []
     g = g.sort_values("_sc", ascending=False)
-    k_l = min(int(k_long), max(1, len(g) // 3))
-    k_s = min(int(k_short), max(1, len(g) // 3))
+    n = len(g)
+    if top_pct is not None:
+        k = max(1, int(np.ceil(float(top_pct) * n)))
+        k_long = k
+        k_short = k
+    k_l = min(int(k_long or 1), max(1, n // 3))
+    k_s = min(int(k_short or 1), max(1, n // 3))
     longs = g["symbol"].head(k_l).tolist()
     shorts = g["symbol"].tail(k_s).tolist()
     overlap = set(longs) & set(shorts)
@@ -74,8 +82,9 @@ def run_ls_topn(
     feat: pd.DataFrame,
     universe: pd.DataFrame,
     horizon: int,
-    k_long: int = K_LONG,
-    k_short: int = K_SHORT,
+    k_long: int | None = None,
+    k_short: int | None = None,
+    top_pct: float | None = None,
     book_start: str | None = None,
     variant: str = "nasdaq_ls",
 ) -> dict:
@@ -109,7 +118,11 @@ def run_ls_topn(
         day = by_date.get(dt, pd.DataFrame())
         k = i % h
         prev_ak = alphas[k].copy()
-        longs, shorts = _pick_ls(day, k_long, k_short) if not day.empty else ([], [])
+        longs, shorts = (
+            _pick_ls(day, k_long=k_long, k_short=k_short, top_pct=top_pct)
+            if not day.empty
+            else ([], [])
+        )
         alphas[k] = (
             _size_ls(day, longs, shorts, tg)
             if (longs or shorts)
@@ -180,6 +193,7 @@ def run_ls_topn(
         "horizon": h,
         "k_long": k_long,
         "k_short": k_short,
+        "top_pct": top_pct,
         "exec_top_n": EXEC_TOP_N,
         "daily_ret": daily_ret,
         "daily_gross_pnl": pd.Series(daily_gross, index=idx, dtype=float),

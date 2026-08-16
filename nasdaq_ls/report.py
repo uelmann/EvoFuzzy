@@ -47,9 +47,11 @@ def plot_equity(
     qqq: pd.Series | None,
     ew: pd.Series | None,
     out_path: Path,
+    treat_label: str = "NASDAQ-LS (top10 − worst10, PIT vol-30)",
+    title: str = "NASDAQ-LS vs QQQ (long 10 / short 10, top 30 by volume)",
 ) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    series = [(ls, "NASDAQ-LS (top10 − worst10, PIT vol-30)")]
+    series = [(ls, treat_label)]
     if isinstance(ew, pd.Series) and len(ew):
         series.append((ew, "EW PIT top-30 (costless, informational)"))
     if isinstance(qqq, pd.Series) and len(qqq):
@@ -62,7 +64,7 @@ def plot_equity(
         d, y = _eq_from_rets(rets)
         end = d.max() if end is None else max(end, d.max())
         axes[0].plot(d, y, label=lab, lw=1.4)
-    axes[0].set_title("NASDAQ-LS vs QQQ (long 10 / short 10, top 30 by volume)")
+    axes[0].set_title(title)
     axes[0].set_ylabel("Equity (rebased, log)")
     axes[0].set_yscale("log")
     axes[0].legend(fontsize=8)
@@ -115,7 +117,25 @@ def write_report(
     ric_2007: dict,
     ric_simple: dict,
     extra: dict,
+    factor_criterion: str | None = None,
+    heading: str | None = None,
+    mandate_line: str | None = None,
+    train_line: str | None = None,
+    y_horizon: int = 10,
+    book_2005_name: str = "NASDAQ-LS from 2005-01-01",
+    book_2007_name: str = "NASDAQ-LS from 2007-01-01 (FACTOR window)",
 ) -> str:
+    from nasdaq_ls.constants import FACTOR_CRITERION as _FC, HEADLINE_START as _HS
+
+    icrit = factor_criterion or extra.get("improve_criterion") or _FC
+    headline = extra.get("headline_start") or _HS
+    heading = heading or extra.get("heading") or "NASDAQ-LS — LightGBM long 10 / short 10 on Nasdaq-100 (scout)"
+    mandate_line = mandate_line or extra.get("mandate_line") or (
+        "PIT top 30 by 30d median dollar volume; long 10 / short 10 by score; overlapping h=10; inv-vol; 5 bps one-way; no borrow; no index overlay."
+    )
+    train_line = train_line or extra.get("train_line") or (
+        "500 trees, no early stop, Huber. Market residual = spliced ^IXIC/QQQ."
+    )
     by = book_2007.get("net_sharpe_by_year") or {}
     year_rows = " | ".join(str(y) for y in range(2007, 2027))
     year_vals = " | ".join(_fmt(by.get(y)) for y in range(2007, 2027))
@@ -132,31 +152,31 @@ def write_report(
             f"CAGR={_pct(cagr)}, MaxDD={_pct(maxdd)}, total={_pct(total)}."
         )
 
-    text = f"""# NASDAQ-LS — LightGBM long 10 / short 10 on Nasdaq-100 (scout)
+    text = f"""# {heading}
 
 **BACKTEST AND ANALYSIS ONLY.** A0-style Huber LightGBM on Yahoo Nasdaq-100 bars. COMBO, SPREAD-LS, and LONG-TIDE are **untouched**. Survivorship (today's index members) is accepted for this scout.
 
 **Universe source:** {extra.get('ticker_source')} n={extra.get('n_symbols')}
 **Price span:** {extra.get('min_date')} → {extra.get('max_date')}
-**Mandate:** PIT top 30 by 30d median dollar volume; long 10 / short 10 by score; overlapping h=10; inv-vol; 5 bps one-way; no borrow; no index overlay.
-**Train:** 500 trees, no early stop, Huber. Market residual = spliced ^IXIC/QQQ.
+**Mandate:** {mandate_line}
+**Train:** {train_line}
 
 ## Pre-registered factor statement
 
-> {FACTOR_CRITERION}
+> {icrit}
 
 Verdicts below are mechanical. No post-hoc adjustment.
 
 ## Mechanical verdict
 
-- **Scout: {factor.get('verdict')}** — RankIC from {HEADLINE_START}={_fmt(factor.get('ric'))} (pass={factor.get('pass_ric')}); LS net Sharpe from {HEADLINE_START}={_fmt(factor.get('sharpe'))} (pass={factor.get('pass_sharpe')}).
+- **Scout: {factor.get('verdict')}** — RankIC from {headline}={_fmt(factor.get('ric'))} (pass={factor.get('pass_ric')}); LS net Sharpe from {headline}={_fmt(factor.get('sharpe'))} (pass={factor.get('pass_sharpe')}).
 
 ## Headline books (252-day Sharpe)
 
 | book | full Sharpe | trail-18m | CAGR | MaxDD | total | avg #long | avg #short | avg |gross| | % flat | cost drag | forced | top-5 |name| PnL |
 |------|-------------|-----------|------|-------|-------|-----------|------------|-------------|--------|-----------|--------|------------------|
-{_book_row("NASDAQ-LS from 2005-01-01", book_2005)}
-{_book_row("NASDAQ-LS from 2007-01-01 (FACTOR window)", book_2007)}
+{_book_row(book_2005_name, book_2005)}
+{_book_row(book_2007_name, book_2007)}
 
 ### Sharpe by year (FACTOR window)
 
@@ -166,15 +186,15 @@ Verdicts below are mechanical. No post-hoc adjustment.
 
 ## RankIC on PIT top-30
 
-| window | RankIC vs residual y | ICIR | NW-t | n | RankIC vs simple 10d USDT-style return |
+| window | RankIC vs residual y | ICIR | NW-t | n | RankIC vs simple {y_horizon}d return |
 |--------|----------------------|------|------|---|----------------------------------------|
 | all OOS | {_fmt(ric_all.get('mean_ic'))} | {_fmt(ric_all.get('icir'))} | {_fmt(ric_all.get('nw_tstat'))} | {ric_all.get('n_days')} | {_fmt(ric_simple.get('mean_ic'))} |
-| from {HEADLINE_START} | {_fmt(ric_2007.get('mean_ic'))} | {_fmt(ric_2007.get('icir'))} | {_fmt(ric_2007.get('nw_tstat'))} | {ric_2007.get('n_days')} | — |
+| from {headline} | {_fmt(ric_2007.get('mean_ic'))} | {_fmt(ric_2007.get('icir'))} | {_fmt(ric_2007.get('nw_tstat'))} | {ric_2007.get('n_days')} | — |
 
 ### Costless benchmarks (not FACTOR inputs)
 
-- QQQ B&H from 2007: {_bench(qqq, HEADLINE_START)}
-- EW PIT top-30 from 2007: {_bench(ew, HEADLINE_START)}
+- QQQ B&H from 2007: {_bench(qqq, headline)}
+- EW PIT top-30 from 2007: {_bench(ew, headline)}
 
 ## Construction notes
 
