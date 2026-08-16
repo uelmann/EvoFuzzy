@@ -614,9 +614,12 @@ PHASE5_A10G_USD_PER_HOUR = 1.10  # Modal published on-demand A10G rate
 # matched A10G per-batch (~2.2s) — this model is not H100-bound — so Stage B
 # is 12×A10G fold-parallel (same $1.10/h, wall-clock via more GPUs). Architecture /
 # seeds / folds / criteria unchanged. Prior A10G + short H100 probes count toward $80.
+# 16 Aug leftover: do NOT bill 12 × orchestrator-wall. Envelope = completed
+# worker hours + this-wave n_jobs × wave elapsed. Cap still $80.
 PHASE5_GPU_TYPE = "A10G"
 PHASE5_GPU_USD_PER_HOUR = 1.10
-PHASE5_GPU_RESERVE_USD = 8.0  # in-flight folds across parallel A10G workers
+PHASE5_GPU_RESERVE_USD = 8.0  # 12-wide wave start check only; inflight uses 0
+PHASE5_GPU_LEFTOVER_RESERVE_USD = 2.0  # leftover wave (≤6 jobs) start check
 PHASE5_GPU_MAX_CONTAINERS = 12
 PHASE5_WATCHDOG_SEC = 20 * 60
 PHASE5_DELTA_TAIL_IC = 0.010

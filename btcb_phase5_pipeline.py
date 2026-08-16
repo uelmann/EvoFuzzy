@@ -2,10 +2,13 @@
 BTC-BEATER Phase 5 — CS-ATTN v0. Hourly panel (CPU) + cross-sectional attention (GPU).
 
 BACKTEST / ANALYSIS ONLY. New Modal app. Frozen products read-only.
-Usage: modal run btcb_phase5_pipeline.py
+Usage:
+  modal run --detach btcb_phase5_pipeline.py
+  modal run --detach btcb_phase5_pipeline.py --leftover-only
 
 Stage B: 12×A10G fold-parallel (H100 tried; per-batch matched A10G), then CPU judge.
 Architecture / seeds / folds / criteria frozen. Shared $80 cap including prior GPU sunk.
+Leftover envelope = completed worker hours + this-wave n_jobs × elapsed (not 12×wall).
 """
 
 from __future__ import annotations
@@ -460,10 +463,14 @@ def _a10g_sunk_usd(fallback: float = 0.0) -> float:
 
 
 class SharedGpuBudget:
-    """$80 cap = prior sunk + Σ (worker hours) × list rate.
+    """$80 cap = prior sunk + (completed worker hours + this-wave envelope) × rate.
 
-    Each parallel worker writes only its own `gpu_spend/worker_{id}.json` so
-    volume commits do not clobber peer files.
+    Envelope for the current map wave is `n_parallel × (now − wave_t0)`, not
+    `12 × orchestrator lifetime`. Completed hours are snapshotted from volume
+    worker files so leftover jobs do not re-bill already-finished GPUs as if
+    12 containers were still running.
+
+    Each parallel worker writes only its own `gpu_spend/worker_{id}.json`.
     """
 
     def __init__(
@@ -475,6 +482,7 @@ class SharedGpuBudget:
         reserve_usd: float,
         run_t0: float | None = None,
         n_parallel: int = 12,
+        completed_hours: float = 0.0,
     ):
         self.cap = float(cap_usd)
         self.rate = float(usd_per_hour)
@@ -483,6 +491,7 @@ class SharedGpuBudget:
         self.reserve = float(reserve_usd)
         self.run_t0 = float(run_t0) if run_t0 else None
         self.n_parallel = int(n_parallel)
+        self.completed_hours = float(completed_hours)
         self.t0 = time.time()
         self.aborted = False
         self.abort_reason = None
@@ -519,8 +528,10 @@ class SharedGpuBudget:
 
     def h100_hours_total(self, force: bool = False) -> float:
         if self.run_t0:
-            return self.n_parallel * max(0.0, (time.time() - self.run_t0) / 3600.0)
-        return self.my_hours()
+            inflight = self.n_parallel * max(0.0, (time.time() - self.run_t0) / 3600.0)
+        else:
+            inflight = self.my_hours()
+        return self.completed_hours + inflight
 
     def usd(self, force: bool = False) -> float:
         return self.a10g_sunk + self.h100_hours_total(force=force) * self.rate
@@ -533,6 +544,8 @@ class SharedGpuBudget:
             "gpu": "A10G",
             "usd_per_hour": self.rate,
             "a10g_sunk_usd": self.a10g_sunk,
+            "completed_hours": self.completed_hours,
+            "n_parallel": self.n_parallel,
             "peer_hours": None,
             "total_usd_est": self.usd(force=True),
             "aborted": self.aborted,
@@ -551,7 +564,9 @@ class SharedGpuBudget:
             self.aborted = True
             self.abort_reason = (
                 f"gpu spend {u:.2f}+reserve {r:.2f} >= cap {self.cap:.2f} "
-                f"(a10g_sunk {self.a10g_sunk:.2f} + envelope_h {self.h100_hours_total():.2f} × {self.rate:.2f})"
+                f"(a10g_sunk {self.a10g_sunk:.2f} + completed_h {self.completed_hours:.2f} "
+                f"+ wave {self.n_parallel}×elapsed × {self.rate:.2f}; "
+                f"envelope_h {self.h100_hours_total():.2f})"
             )
             print(f"[HB] BUDGET ABORT {self.abort_reason}", flush=True)
             self.persist()
@@ -624,6 +639,11 @@ def _train_one(seq_dir, fold, seed, budget, hb, pred_root, tag="real", shuffle=F
             pass
     if not budget.ok():
         return pd.DataFrame(), {"status": "aborted_budget", "fold_id": fold.fold_id, "seed": seed}
+
+    def _inflight_ok() -> bool:
+        # Finish the fold already on the GPU; reserve is a start-of-job gate only.
+        return budget.ok(reserve_usd=0.0)
+
     pred, meta = train_csattn_fold(
         seq_dir,
         fold,
@@ -631,7 +651,7 @@ def _train_one(seq_dir, fold, seed, budget, hb, pred_root, tag="real", shuffle=F
         shuffle_labels=bool(shuffle),
         shuffle_seed=shuf_seed,
         heartbeat=hb,
-        budget_ok=budget.ok,
+        budget_ok=_inflight_ok,
     )
     if pred is not None and not pred.empty:
         pred.to_parquet(dest, index=False)
@@ -667,11 +687,6 @@ def persist_a10g_sunk(usd: float, hours: float, note: str = "") -> dict:
     spend_dir.mkdir(parents=True, exist_ok=True)
     (root / "gpu_spend.json").write_text(json.dumps(rec, indent=2))
     (spend_dir / "a10g_sunk.json").write_text(json.dumps(rec, indent=2))
-    for p in spend_dir.glob("worker_*.json"):
-        try:
-            p.unlink()
-        except Exception:
-            pass
     _volume_commit()
     print(f"[HB] persisted A10G sunk ${usd:.2f} ({hours:.2f} h)", flush=True)
     return rec
@@ -728,6 +743,43 @@ def list_train_jobs() -> list[dict]:
 
 
 @app.function(
+    image=cpu_image,
+    timeout=120,
+    retries=0,
+    volumes={"/data/quant": quant_vol},
+    cpu=1,
+    memory=1024,
+)
+def gpu_spend_snapshot() -> dict:
+    """Completed GPU hours from worker files already on the volume."""
+    from btcb.constants import PHASE5_GPU_USD_PER_HOUR
+
+    quant_vol.reload()
+    hours = 0.0
+    n = 0
+    spend_dir = Path("/data/quant/btcb/phase5/gpu_spend")
+    if spend_dir.is_dir():
+        for p in spend_dir.glob("worker_*.json"):
+            try:
+                rec = json.loads(p.read_text())
+                hours += float(rec.get("hours") or 0.0)
+                n += 1
+            except Exception:
+                continue
+    sunk = _a10g_sunk_usd(0.0)
+    usd = float(sunk) + hours * float(PHASE5_GPU_USD_PER_HOUR)
+    out = {
+        "n_workers": n,
+        "worker_hours": hours,
+        "a10g_sunk_usd": sunk,
+        "usd": usd,
+        "rate": float(PHASE5_GPU_USD_PER_HOUR),
+    }
+    print(f"[HB] gpu snapshot {json.dumps(out)}", flush=True)
+    return out
+
+
+@app.function(
     image=gpu_image,
     timeout=600,
     retries=0,
@@ -757,6 +809,7 @@ def stage_b_smoke() -> dict:
 )
 def stage_b_train_job(item: dict) -> dict:
     from btcb.constants import (
+        PHASE5_GPU_LEFTOVER_RESERVE_USD,
         PHASE5_GPU_MAX_CONTAINERS,
         PHASE5_GPU_RESERVE_USD,
         PHASE5_GPU_TYPE,
@@ -772,6 +825,12 @@ def stage_b_train_job(item: dict) -> dict:
     shuf_seed = item.get("shuf_seed")
     run_t0 = float(item.get("run_t0") or time.time())
     sunk = float(item.get("a10g_sunk") or 0.0)
+    n_parallel = int(item.get("n_parallel") or PHASE5_GPU_MAX_CONTAINERS)
+    completed_hours = float(item.get("completed_hours") or 0.0)
+    default_reserve = (
+        float(PHASE5_GPU_LEFTOVER_RESERVE_USD) if n_parallel <= 6 else float(PHASE5_GPU_RESERVE_USD)
+    )
+    reserve = float(item.get("reserve_usd") if item.get("reserve_usd") is not None else default_reserve)
     wid = f"s{seed}_f{fold_id}_{tag}"[:80]
     hb = StageHeartbeat(f"B-{wid}")
     try:
@@ -786,9 +845,15 @@ def stage_b_train_job(item: dict) -> dict:
             PHASE5_GPU_USD_PER_HOUR,
             sunk,
             worker_id=wid,
-            reserve_usd=PHASE5_GPU_RESERVE_USD,
+            reserve_usd=reserve,
             run_t0=run_t0,
-            n_parallel=int(PHASE5_GPU_MAX_CONTAINERS),
+            n_parallel=n_parallel,
+            completed_hours=completed_hours,
+        )
+        print(
+            f"[HB] budget start job={wid} sunk={sunk:.2f} completed_h={completed_hours:.2f} "
+            f"n_par={n_parallel} reserve={reserve:.2f} usd={budget.usd():.2f}",
+            flush=True,
         )
         if not budget.ok():
             rec = {
@@ -1519,24 +1584,44 @@ def _pull_artifacts() -> None:
     cpu=2,
     memory=4096,
 )
-def stage_b_orchestrate(a10g_usd: float) -> dict:
+def stage_b_orchestrate(a10g_usd: float, leftover_only: bool = False) -> dict:
     """Runs inside Modal so a local client disconnect cannot kill Stage B."""
-    print("[orch] STAGE B smoke (one A10G)...", flush=True)
-    try:
-        smoke = stage_b_smoke.remote()
-        print(json.dumps(smoke, indent=2, default=str)[:1500], flush=True)
-    except Exception as e:
-        print(f"[orch] smoke raised {type(e).__name__}: {e}", flush=True)
-        smoke = {"error": str(e)}
+    from btcb.constants import PHASE5_GPU_LEFTOVER_RESERVE_USD, PHASE5_GPU_MAX_CONTAINERS, PHASE5_GPU_RESERVE_USD
 
-    run_t0 = time.time()
+    if leftover_only:
+        print("[orch] leftover-only: skip smoke (already passed)", flush=True)
+        smoke = {"skipped": True, "reason": "leftover_only"}
+    else:
+        print("[orch] STAGE B smoke (one A10G)...", flush=True)
+        try:
+            smoke = stage_b_smoke.remote()
+            print(json.dumps(smoke, indent=2, default=str)[:1500], flush=True)
+        except Exception as e:
+            print(f"[orch] smoke raised {type(e).__name__}: {e}", flush=True)
+            smoke = {"error": str(e)}
+
     job_recs: list[dict] = []
     for attempt in range(1, 4):
         jobs = list_train_jobs.remote()
+        snap = gpu_spend_snapshot.remote()
+        wave_t0 = time.time()
+        n_par = min(int(PHASE5_GPU_MAX_CONTAINERS), max(1, len(jobs)))
+        reserve = (
+            float(PHASE5_GPU_LEFTOVER_RESERVE_USD) if n_par <= 6 else float(PHASE5_GPU_RESERVE_USD)
+        )
+        completed_hours = float((snap or {}).get("worker_hours") or 0.0)
         for j in jobs:
-            j["run_t0"] = run_t0
+            j["run_t0"] = wave_t0
             j["a10g_sunk"] = float(a10g_usd)
-        print(f"[orch] attempt {attempt}/3 pending jobs={len(jobs)} run_t0={run_t0}", flush=True)
+            j["n_parallel"] = int(n_par)
+            j["completed_hours"] = completed_hours
+            j["reserve_usd"] = reserve
+        print(
+            f"[orch] attempt {attempt}/3 pending={len(jobs)} n_par={n_par} "
+            f"completed_h={completed_hours:.2f} snap_usd={(snap or {}).get('usd')} "
+            f"reserve={reserve:.2f} leftover_only={leftover_only}",
+            flush=True,
+        )
         if not jobs:
             break
         try:
@@ -1548,11 +1633,13 @@ def stage_b_orchestrate(a10g_usd: float) -> dict:
         n_ok = sum(1 for r in recs if r.get("complete"))
         n_abort = sum(1 for r in recs if r.get("aborted"))
         print(f"[orch] attempt {attempt} complete={n_ok}/{len(recs)} aborted={n_abort}", flush=True)
-        if n_abort and n_ok == 0:
-            break
         leftover = list_train_jobs.remote()
         print(f"[orch] leftover={len(leftover)}", flush=True)
         if not leftover:
+            break
+        if n_abort and n_ok == 0:
+            # True cap hit: another map would abort at start again.
+            print("[orch] all jobs aborted this attempt; stopping retries", flush=True)
             break
 
     print("[orch] STAGE B judge (CPU)...", flush=True)
@@ -1575,13 +1662,17 @@ def stage_b_orchestrate(a10g_usd: float) -> dict:
 
 
 @app.local_entrypoint()
-def main():
+def main(leftover_only: bool = False):
     print("[local] BTC-BEATER P5 CS-ATTN — Stage A CPU + 12×A10G fold-parallel + CPU judge", flush=True)
-    print("[local] STAGE A hourly panel (CPU)...", flush=True)
-    fa = stage_a_hourly.spawn()
-    print(f"[local] spawned A {getattr(fa, 'object_id', fa)}", flush=True)
-    a_sum = fa.get()
-    print(json.dumps(a_sum, indent=2, default=str)[:2000], flush=True)
+    if leftover_only:
+        print("[local] leftover-only: skip Stage A (seq cache already on volume)", flush=True)
+        a_sum = {"skipped": True, "reason": "leftover_only"}
+    else:
+        print("[local] STAGE A hourly panel (CPU)...", flush=True)
+        fa = stage_a_hourly.spawn()
+        print(f"[local] spawned A {getattr(fa, 'object_id', fa)}", flush=True)
+        a_sum = fa.get()
+        print(json.dumps(a_sum, indent=2, default=str)[:2000], flush=True)
 
     sunk_path = Path("artifacts/a10g_sunk.json")
     if sunk_path.exists():
@@ -1592,12 +1683,15 @@ def main():
     else:
         a10g_usd, a10g_hours = 17.50, 12.0
         note = "prior GPU sunk (A10G sequential + H100 probes + disconnected 12×A10G wave)"
-    print(f"[local] persist prior GPU sunk ${a10g_usd:.2f} ({a10g_hours:.2f} h)", flush=True)
-    persist_a10g_sunk.remote(a10g_usd, a10g_hours, note)
+    print(f"[local] prior GPU sunk ${a10g_usd:.2f} ({a10g_hours:.2f} h)", flush=True)
+    if leftover_only:
+        print("[local] leftover-only: do not rewrite a10g_sunk / worker ledger", flush=True)
+    else:
+        persist_a10g_sunk.remote(a10g_usd, a10g_hours, note)
 
     print("[local] spawning Stage B orchestrator inside Modal (--detach safe)...", flush=True)
-    h = stage_b_orchestrate.spawn(float(a10g_usd))
-    print(f"[local] spawned orchestrator {getattr(h, 'object_id', h)}", flush=True)
+    h = stage_b_orchestrate.spawn(float(a10g_usd), leftover_only)
+    print(f"[local] spawned orchestrator {getattr(h, 'object_id', h)} leftover_only={leftover_only}", flush=True)
     try:
         b_sum = h.get()
     except Exception as e:
