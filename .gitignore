@@ -1,3 +1,9 @@
 __pycache__/
 artifacts/
 *.pyc
+data/nasdaq/*.parquet
+data/nasdaq/preds/
+data/nasdaq21/*.parquet
+data/nasdaq21/preds/
+data/nasdaq_adapt1/*.parquet
+data/nasdaq_adapt1/preds/
