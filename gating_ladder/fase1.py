@@ -467,7 +467,7 @@ def main() -> int:
         },
         "portfolio_top20_h7_informational": slim_portfolio(book20),
         "anti_leak": gates,
-        "anti_leak_passed": True,
+        "anti_leak_passed": bool(suite_ok),
         "wall_time_sec": time.time() - t0,
         "trail_days": TRAIL_DAYS,
         "notes": [
@@ -502,7 +502,7 @@ def main() -> int:
         f"- tolerance mode={tol_mode} passed={tol_ok} |Δ| vs 0.0923={delta_ic:.4f}",
         f"- top-40 τ={headline_tau} lag0 1x net Sharpe={head_1x.get('net_sharpe')} trail={slim_portfolio(head_1x).get('net_sharpe_trail18m')}",
         f"- lag1 stress Sharpe={lag1.get('net_sharpe')}",
-        f"- anti-leak: all PASS ({len(gates)} tests)",
+        f"- anti-leak: {'all PASS' if suite_ok else 'FAIL'} ({len(gates)} tests)",
         "",
         "## Gates",
     ]
@@ -510,6 +510,8 @@ def main() -> int:
         lines.append(f"- `{g['name']}`: **{'PASS' if g.get('passed') else 'FAIL'}**")
     Path("reports/gating_fase1_report.md").write_text("\n".join(lines) + "\n")
     print("[fase1] DONE", flush=True)
+    if not suite_ok:
+        raise RuntimeError(f"FASE 1 RED: anti-leak FAIL {gates_fail}")
     if not tol_ok:
         raise RuntimeError("FASE 1 RED: RankIC reproduction outside ±0.003 on matching n_days")
     return 0
