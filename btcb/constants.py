@@ -610,12 +610,14 @@ PHASE5_ALIGN_BPS = 5.0
 PHASE5_HOURLY_START = "2019-01"
 PHASE5_GPU_USD_CAP = 80.0
 PHASE5_A10G_USD_PER_HOUR = 1.10  # Modal published on-demand A10G rate
-# Operator override 2026-08-16: A10G sequential ~45h remaining. Switch to H100
-# and 3-seed parallel. Architecture / seeds / folds unchanged. Track H100 at
-# Modal published on-demand list rate.
-PHASE5_GPU_TYPE = "H100"
-PHASE5_GPU_USD_PER_HOUR = 3.95
-PHASE5_GPU_RESERVE_USD = 8.0  # in-flight folds across parallel H100 workers
+# Operator override 2026-08-16: A10G sequential ~45h remaining. 4×H100
+# matched A10G per-batch (~2.2s) — this model is not H100-bound — so Stage B
+# is 12×A10G fold-parallel (same $1.10/h, wall-clock via more GPUs). Architecture /
+# seeds / folds / criteria unchanged. Prior A10G + short H100 probes count toward $80.
+PHASE5_GPU_TYPE = "A10G"
+PHASE5_GPU_USD_PER_HOUR = 1.10
+PHASE5_GPU_RESERVE_USD = 8.0  # in-flight folds across parallel A10G workers
+PHASE5_GPU_MAX_CONTAINERS = 12
 PHASE5_WATCHDOG_SEC = 20 * 60
 PHASE5_DELTA_TAIL_IC = 0.010
 PHASE5_DELTA_OVERLAP = 0.015
