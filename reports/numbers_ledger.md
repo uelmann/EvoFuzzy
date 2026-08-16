@@ -84,3 +84,11 @@ BELOW-CURVE gap split: tail-blindness vs translation. Analysis only. Nothing ado
 **PRIORITY = TAIL-INFORMATION.** Gap `104.4pp` = tail `166.8pp` + construction `-51.5pp` + unexplained `-10.9pp`. Best variant `V3` Δ `0.7pp`.
 
 Mechanical, no post-hoc adjustment. Frozen products untouched.
+
+## BTC-BEATER Phase 5 CS-ATTN v0
+
+Hourly panel + cross-sectional attention, tail-weighted twin heads. Analysis only. Nothing adopted.
+
+**CS-ATTN = PARKED.** failed clauses `['a', 'b', 'c']`. Δ tail-IC(top) `0.008131132754274586` Δ overlap `0.001758658008658015` seed disp `0.023363837410690508` null `CONTAMINATED`.
+
+Mechanical, no post-hoc adjustment. Frozen products untouched.
