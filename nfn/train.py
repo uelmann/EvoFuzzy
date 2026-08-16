@@ -59,7 +59,28 @@ def _mean_tail_ic(pack: PackedPanel, date_ids: np.ndarray, scores: np.ndarray) -
 
 def _sigmoid(x: np.ndarray) -> np.ndarray:
     x = np.clip(np.asarray(x, dtype=float), -30.0, 30.0)
-    return 1.0 / (1.0 + np.exp(-x))
+    out = 1.0 / (1.0 + np.exp(-x))
+    out = np.where(np.isfinite(np.asarray(x, dtype=float)), out, np.nan)
+    return out
+
+
+def _fit_ir(raw: np.ndarray, y: np.ndarray):
+    raw = np.asarray(raw, dtype=float)
+    y = np.asarray(y, dtype=float)
+    m = np.isfinite(raw) & np.isfinite(y)
+    if int(m.sum()) < 50:
+        return None
+    return fit_isotonic(raw[m], y[m])
+
+
+def _safe_calibrate(ir, raw: np.ndarray) -> np.ndarray:
+    raw = np.asarray(raw, dtype=float)
+    out = np.full(raw.shape, np.nan, dtype=float)
+    m = np.isfinite(raw)
+    if int(m.sum()) == 0:
+        return out
+    out[m] = apply_calibrator(ir, raw[m])
+    return out
 
 
 def _forward_numpy(model, pack: PackedPanel, date_ids: np.ndarray, device) -> tuple[np.ndarray, np.ndarray, dict]:
@@ -228,12 +249,12 @@ def train_one_fold(
     p_top_ho = _sigmoid(lt_ho)
     p_bot_ho = _sigmoid(lb_ho)
     # isotonic on inner-holdout; skipped for shuffled (house)
-    ir_top = None if shuffle_labels else fit_isotonic(p_top_ho[np.isfinite(p_top_ho)], y_top[np.isfinite(p_top_ho)])
-    ir_bot = None if shuffle_labels else fit_isotonic(p_bot_ho[np.isfinite(p_bot_ho)], y_bot[np.isfinite(p_bot_ho)])
+    ir_top = None if shuffle_labels else _fit_ir(p_top_ho, y_top)
+    ir_bot = None if shuffle_labels else _fit_ir(p_bot_ho, y_bot)
 
     lt_va, lb_va, film = _forward_numpy(model, pack, va_ids, device)
-    p_top = apply_calibrator(ir_top, _sigmoid(lt_va))
-    p_bot = apply_calibrator(ir_bot, _sigmoid(lb_va))
+    p_top = _safe_calibrate(ir_top, _sigmoid(lt_va))
+    p_bot = _safe_calibrate(ir_bot, _sigmoid(lb_va))
     rows = []
     for di in va_ids:
         a, b = int(pack.starts[di]), int(pack.ends[di])
