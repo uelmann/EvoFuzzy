@@ -25,7 +25,6 @@ from baseline.data import load_funding_panel, load_panel
 from baseline.evaluate import daily_rank_ic, summarize_ic
 from baseline.features import FEATURE_COLS
 from baseline.model import FoldSpec, _make_rank_ic_feval, make_folds
-from baseline.portfolio import run_tranche_portfolio
 from baseline.seedutil import seed_everything
 from gating_ladder.fase1 import _book
 from gating_ladder.metrics import TRAIL_DAYS, slim_portfolio, trail_mask
@@ -47,6 +46,7 @@ BASELINE_TRAIL = 1.0969670423963036
 BASELINE_TO = 24.519270899695773
 
 
+def _spearman(x, y) -> float:
     x = np.asarray(x, dtype=float)
     y = np.asarray(y, dtype=float)
     m = np.isfinite(x) & np.isfinite(y)
