@@ -893,4 +893,88 @@ FORGE_UNARY_OPS = ("abs", "neg", "log1pabs", "rank_cs", "z_cs", "phi_cs")
 FORGE_BINARY_OPS = ("add", "sub", "mul", "pdiv", "min", "max")
 FORGE_TS_OPS = ("ts_mean", "ts_std", "ts_max", "ts_min", "ts_rank", "lag")
 
+# ---------------------------------------------------------------------------
+# Phase 8 — MODEL-ZOO (CS-ATTN / TabPFN v2 / ridge-on-ranks)
+# Frozen a priori. Backtest/analysis only. Nothing adopted. Independent of 7.c/7.d.
+# GPU allowed ONLY for Arm B if TabPFN requires it (hard cap $20, logged).
+# ---------------------------------------------------------------------------
+
+PHASE8_CRITERION = (
+    "An arm is LIVE if Δtail-IC(top-half) ≥ +0.010 AND Δoverlap ≥ +0.015 vs the "
+    "frozen spread with the vol-matched null passing. An arm is a WHOLE-RANKING "
+    "LEAD if instead ΔRankIC ≥ +0.010 with the null passing (recorded for a fresh "
+    "production-book phase, not adopted here). LINEAR-CEILING (informational, from "
+    "Arm C): if Arm C's whole-list RankIC ≥ 0.90 × the frozen spread's, the ledger "
+    "records that nonlinearity contributes less than 10% of the daily signal and "
+    "future daily modeling effort is unjustified. If any arm's signal has "
+    "correlation < 0.6 with the frozen spread while reaching RankIC ≥ 0.10, it is "
+    "recorded as an ORTHOGONAL SIGNAL candidate for a fresh blending phase. "
+    "Nothing adopted here. Mechanical, no post-hoc adjustment."
+)
+
+PHASE8_FIREWALL = (
+    "The PI's hand-made formulas (including MANUEL-2) are quarantined from this "
+    "phase: not imported, not seeded, not used as features or targets."
+)
+
+PHASE8_TABPFN_CAVEAT = (
+    "TabPFN assumes i.i.d.-like structure from its synthetic prior; financial "
+    "non-stationarity violates it. This arm tests whether that matters in practice."
+)
+
+PHASE8_NULL_REGISTRATION = (
+    "VOL-MATCHED NULL on the single BEST zoo arm by whole-list RankIC: folds "
+    "{5,15,21,24} × 15 within-vol-quintile shuffles (first 15 of NULL_SHUFFLE_SEEDS), "
+    "Modal .map fan-out. Skill = real exceeds vol-matched null p95 on ≥3/4 folds "
+    "OR Stouffer z ≥ 3.0. Bias = 2·SE band around the fold's own null mean; "
+    "CONTAMINATED iff ≥2 fold violations. LIVE uses the tail-IC(top-half) gate; "
+    "WHOLE-RANKING LEAD uses the RankIC gate on the same shuffles. Only the best "
+    "arm is nulled; other arms cannot be LIVE or LEAD. CS-ATTN null cells are "
+    "cold-start, primary seed 42 only (not 3-init bag; null folds are "
+    "non-contiguous so warm-start does not apply). Ridge and TabPFN nulls rerun "
+    "the frozen procedure. RankIC null band is recorded for the chart."
+)
+
+PHASE8_DATE_SUBSAMPLE = (
+    "Primary comparison = full OOS for every arm that completes. If TabPFN cannot "
+    "finish full OOS inside the $20 GPU cap, ALL arms (and the frozen spread) are "
+    "judged on the pre-declared 1-in-3 OOS date subsample: sorted unique OOS "
+    "dates, keep i % 3 == 0 (0-indexed). Arms A/C still report full-OOS metrics "
+    "as informational. The 1-in-3 rule is frozen before results."
+)
+
+PHASE8_H = 14
+PHASE8_TAIL_IC_DELTA = 0.010
+PHASE8_OVERLAP_DELTA = 0.015
+PHASE8_RANKIC_DELTA = 0.010
+PHASE8_LINEAR_CEILING_RATIO = 0.90
+PHASE8_ORTH_CORR = 0.60
+PHASE8_ORTH_RANKIC = 0.10
+PHASE8_NULL_FOLD_IDS = (5, 15, 21, 24)
+PHASE8_NULL_REPLICATES = 15
+PHASE8_NULL_K_EXCEED = 3
+PHASE8_INNER_HOLDOUT_DATES = 120
+PHASE8_SEEDS = (42, 43, 44)
+PHASE8_ATTN_D_MODEL = 64
+PHASE8_ATTN_HEADS = 4
+PHASE8_ATTN_LAYERS = 2
+PHASE8_ATTN_FF = 128
+PHASE8_ATTN_LR = 1e-4
+PHASE8_ATTN_LR_MIN = 1e-5
+PHASE8_ATTN_WD = 1e-4
+PHASE8_ATTN_CLIP = 1.0
+PHASE8_ATTN_ES_FLOOR = 10
+PHASE8_ATTN_PATIENCE = 8
+PHASE8_ATTN_CAP = 40
+PHASE8_ATTN_SWA = 3
+PHASE8_ATTN_DATE_BATCH = 64
+PHASE8_RIDGE_ALPHAS = (1e-2, 1e-1, 1.0, 10.0, 100.0)
+PHASE8_TABPFN_CONTEXT_CAP = 10_000
+PHASE8_TABPFN_N_ESTIMATORS = 8
+PHASE8_GPU_USD_CAP = 20.0
+PHASE8_GPU_USD_PER_HOUR_A10G = 1.10
+PHASE8_DIAG_DATES = 10
+PHASE8_SUBSAMPLE_STRIDE = 3
+PHASE8_SUBSAMPLE_OFFSET = 0
+
 
