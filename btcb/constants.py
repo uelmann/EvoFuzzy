@@ -609,7 +609,13 @@ PHASE5_MIN_BARS_FRAC = 0.80
 PHASE5_ALIGN_BPS = 5.0
 PHASE5_HOURLY_START = "2019-01"
 PHASE5_GPU_USD_CAP = 80.0
-PHASE5_A10G_USD_PER_HOUR = 1.10  # Modal published on-demand A10G rate (frozen)
+PHASE5_A10G_USD_PER_HOUR = 1.10  # Modal published on-demand A10G rate
+# Operator override 2026-08-16: A10G sequential ~45h remaining. Switch to H100
+# and 3-seed parallel. Architecture / seeds / folds unchanged. Track H100 at
+# Modal published on-demand list rate.
+PHASE5_GPU_TYPE = "H100"
+PHASE5_GPU_USD_PER_HOUR = 3.95
+PHASE5_GPU_RESERVE_USD = 8.0  # in-flight folds across parallel H100 workers
 PHASE5_WATCHDOG_SEC = 20 * 60
 PHASE5_DELTA_TAIL_IC = 0.010
 PHASE5_DELTA_OVERLAP = 0.015

@@ -2,7 +2,10 @@
 BTC-BEATER Phase 5 — CS-ATTN v0. Hourly panel (CPU) + cross-sectional attention (GPU).
 
 BACKTEST / ANALYSIS ONLY. New Modal app. Frozen products read-only.
-Usage: modal run --detach btcb_phase5_pipeline.py
+Usage: modal run btcb_phase5_pipeline.py
+
+Stage B: 3×H100 (one seed each) + 1×H100 §B null in parallel, then CPU judge.
+Architecture / seeds / folds / criteria frozen. Shared $80 cap including A10G sunk.
 """
 
 from __future__ import annotations
@@ -410,121 +413,134 @@ def stage_a_hourly() -> dict:
     return summary
 
 
-class GpuBudget:
-    def __init__(self, cap_usd: float, usd_per_hour: float, prior_usd: float = 0.0):
+def _volume_commit() -> None:
+    for i in range(6):
+        try:
+            quant_vol.commit()
+            return
+        except Exception as e:
+            print(f"[HB] volume commit retry {i}: {e}", flush=True)
+            time.sleep(min(2 ** i, 16))
+            try:
+                quant_vol.reload()
+            except Exception:
+                pass
+    quant_vol.commit()
+
+
+def _a10g_sunk_usd(fallback: float = 0.0) -> float:
+    p = Path("/data/quant/btcb/phase5/gpu_spend.json")
+    if p.exists():
+        try:
+            d = json.loads(p.read_text())
+            if d.get("a10g_sunk_usd") is not None:
+                return float(d["a10g_sunk_usd"])
+            if str(d.get("gpu") or "").upper() == "A10G" and d.get("usd") is not None:
+                return float(d["usd"])
+        except Exception:
+            pass
+    alt = Path("/data/quant/btcb/phase5/gpu_spend/a10g_sunk.json")
+    if alt.exists():
+        try:
+            return float(json.loads(alt.read_text()).get("a10g_sunk_usd") or fallback)
+        except Exception:
+            pass
+    return float(fallback)
+
+
+class SharedGpuBudget:
+    """$80 cap = A10G sunk + Σ (H100 worker hours) × list rate.
+
+    Each parallel worker writes only its own `gpu_spend/worker_{id}.json` so
+    volume commits do not clobber peer files.
+    """
+
+    def __init__(self, cap_usd: float, usd_per_hour: float, a10g_sunk: float, worker_id: str, reserve_usd: float):
         self.cap = float(cap_usd)
         self.rate = float(usd_per_hour)
-        self.prior = float(prior_usd)
+        self.a10g_sunk = float(a10g_sunk)
+        self.worker_id = str(worker_id)
+        self.reserve = float(reserve_usd)
         self.t0 = time.time()
         self.aborted = False
         self.abort_reason = None
+        self._peer_hours = 0.0
+        self._peer_at = 0.0
+        self.dir = Path("/data/quant/btcb/phase5/gpu_spend")
+        self.dir.mkdir(parents=True, exist_ok=True)
 
-    def session_usd(self) -> float:
-        return (time.time() - self.t0) / 3600.0 * self.rate
+    def my_hours(self) -> float:
+        return (time.time() - self.t0) / 3600.0
 
-    def usd(self) -> float:
-        return self.prior + self.session_usd()
+    def _read_peer_hours(self, force: bool = False) -> float:
+        now = time.time()
+        if not force and (now - self._peer_at) < 20.0:
+            return self._peer_hours
+        try:
+            quant_vol.reload()
+        except Exception:
+            pass
+        total = 0.0
+        if self.dir.is_dir():
+            for p in self.dir.glob("worker_*.json"):
+                try:
+                    rec = json.loads(p.read_text())
+                    wid = str(rec.get("worker_id") or p.stem.replace("worker_", ""))
+                    if wid == self.worker_id:
+                        continue
+                    total += float(rec.get("hours") or 0.0)
+                except Exception:
+                    continue
+        self._peer_hours = total
+        self._peer_at = now
+        return total
 
-    def hours(self) -> float:
-        return self.usd() / self.rate if self.rate else 0.0
+    def h100_hours_total(self, force: bool = False) -> float:
+        return self._read_peer_hours(force=force) + self.my_hours()
 
-    def seconds(self) -> float:
-        return time.time() - self.t0
+    def usd(self, force: bool = False) -> float:
+        return self.a10g_sunk + self.h100_hours_total(force=force) * self.rate
 
-    def ok(self, reserve_usd: float = 1.50) -> bool:
+    def persist(self) -> dict:
+        rec = {
+            "worker_id": self.worker_id,
+            "hours": self.my_hours(),
+            "usd_own": self.my_hours() * self.rate,
+            "gpu": "H100",
+            "usd_per_hour": self.rate,
+            "a10g_sunk_usd": self.a10g_sunk,
+            "peer_hours": self._read_peer_hours(force=True),
+            "total_usd_est": self.usd(force=True),
+            "aborted": self.aborted,
+            "abort_reason": self.abort_reason,
+            "updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        }
+        (self.dir / f"worker_{self.worker_id}.json").write_text(json.dumps(rec, indent=2))
+        return rec
+
+    def ok(self, reserve_usd: float | None = None) -> bool:
         if self.aborted:
             return False
-        if self.usd() + float(reserve_usd) >= self.cap:
+        r = self.reserve if reserve_usd is None else float(reserve_usd)
+        u = self.usd(force=True)
+        if u + r >= self.cap:
             self.aborted = True
             self.abort_reason = (
-                f"gpu spend {self.usd():.2f}+reserve {reserve_usd:.2f} >= cap {self.cap:.2f} "
-                f"(prior {self.prior:.2f} + session {self.session_usd():.2f})"
+                f"gpu spend {u:.2f}+reserve {r:.2f} >= cap {self.cap:.2f} "
+                f"(a10g_sunk {self.a10g_sunk:.2f} + h100_h {self.h100_hours_total():.2f} × {self.rate:.2f})"
             )
             print(f"[HB] BUDGET ABORT {self.abort_reason}", flush=True)
+            self.persist()
+            _volume_commit()
             return False
         return True
 
 
-@app.function(
-    image=gpu_image,
-    timeout=60 * 60 * 24,
-    retries=0,
-    volumes={"/data/quant": quant_vol},
-    gpu="A10G",
-    memory=65536,
-)
-def stage_b_csattn() -> dict:
-    import numpy as np
+def _load_folds_idx():
     import pandas as pd
 
-    from baseline.data import load_panel
-    from btcb.binance_replay import build_id_symbol_map, close_wide_from_panel
-    from btcb.constants import (
-        CMC_PANEL_SHA256,
-        CSATTN_CONFIG,
-        DEATH_CONVENTION,
-        PHASE2C_PRED_N_FILES,
-        PHASE2C_PRED_SHA256,
-        PHASE3C_REF_END,
-        PHASE3C_REF_H,
-        PHASE3C_REF_START,
-        PHASE5_A10G_USD_PER_HOUR,
-        PHASE5_CRITERION,
-        PHASE5_GPU_USD_CAP,
-        PHASE5_H,
-        PHASE5_NULL_FOLDS,
-        PHASE5_NULL_GATE,
-        PHASE5_NULL_SHUFFLE_SEEDS,
-        PHASE5_SEEDS,
-    )
-    from btcb.csattn import merge_seed_ensemble, smoke_csattn, train_csattn_fold
-    from btcb.features import btc_id_from_panel
-    from btcb.hygiene import clean_panel
+    from btcb.constants import PHASE5_H
     from btcb.model import make_expanding_folds
-    from btcb.oracle_ladder import _as_utc, ffill_members, formation_dates
-    from btcb.phase5_eval import (
-        cell_stats,
-        crude_book,
-        fold_tail_ic_from_pred,
-        load_manuel_score,
-        mechanical_verdict,
-        null_verdict,
-        per_date_diagnostics,
-        scores_from_twin,
-        windowed_metrics,
-    )
-    from btcb.phase5_report import plot_overlap_cycles, plot_tail_ic_bars, update_ledger_phase5, write_phase5
-    from btcb.spread_ls import hash_pred_dir, load_twin_from_cache
-    from btcb.academic_factor import pit_members
-
-    t0 = time.time()
-    hb = StageHeartbeat("B-csattn")
-    spend_path = Path("/data/quant/btcb/phase5/gpu_spend.json")
-    prior_usd = 0.0
-    if spend_path.exists():
-        try:
-            prior_usd = float(json.loads(spend_path.read_text()).get("usd") or 0.0)
-        except Exception:
-            prior_usd = 0.0
-    pred_root_early = Path("/data/quant/btcb/phase5/preds")
-    n_existing = len(list(pred_root_early.glob("real/seed*/fold*.parquet"))) if pred_root_early.exists() else 0
-    if prior_usd <= 0 and n_existing > 0:
-        # Previous 24h GPU window wrote folds but no spend file (killed by platform timeout).
-        prior_usd = float(PHASE5_A10G_USD_PER_HOUR) * 24.0 * min(1.0, n_existing / 40.0)
-        print(f"[HB] inferred prior GPU USD={prior_usd:.2f} from {n_existing} fold parquets", flush=True)
-    budget = GpuBudget(PHASE5_GPU_USD_CAP, PHASE5_A10G_USD_PER_HOUR, prior_usd=prior_usd)
-    print(f"[HB] GPU budget prior=${budget.prior:.2f} cap=${budget.cap:.2f}", flush=True)
-    addendum = Path("/root/btcb_phase5_csattn_addendum.md").read_text()
-    for txt in (PHASE5_CRITERION, PHASE5_NULL_GATE, DEATH_CONVENTION):
-        if txt not in addendum:
-            raise RuntimeError("phase5 addendum missing freeze text")
-    print("[HB] BTC-BEATER P5 STAGE B CS-ATTN GPU A10G cap=$80", flush=True)
-    print(f"[HB] {PHASE5_CRITERION}", flush=True)
-    print(f"[HB] {PHASE5_NULL_GATE}", flush=True)
-    quant_vol.reload()
-
-    def commit():
-        quant_vol.commit()
 
     seq_dir = Path("/data/quant/btcb/phase5/seq")
     if not (seq_dir / "index.parquet").exists():
@@ -542,8 +558,13 @@ def stage_b_csattn() -> dict:
         print("[HB] WARN feat_s missing; folds from sequence dates", flush=True)
     folds = make_expanding_folds(fold_index, horizon=int(PHASE5_H))
     print(f"[HB] folds={len(folds)} seq_rows={len(idx)} dates={idx['date'].nunique()}", flush=True)
-    hb.ping(f"n_folds={len(folds)}")
+    return seq_dir, idx, folds
+
+
+def _smoke(hb: StageHeartbeat) -> dict:
     import torch
+
+    from btcb.csattn import smoke_csattn
 
     smoke_dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if smoke_dev.type == "cuda":
@@ -553,92 +574,388 @@ def stage_b_csattn() -> dict:
     hb.ping(f"smoke_csattn on {smoke_dev}")
     smoke = smoke_csattn(smoke_dev)
     hb.ping(f"smoke ok={smoke.get('ok')} cases={smoke.get('cases')}")
+    return smoke
 
+
+def _train_one(seq_dir, fold, seed, budget, hb, pred_root, tag="real", shuffle=False, shuf_seed=None):
+    import pandas as pd
+
+    from btcb.csattn import train_csattn_fold
+
+    dest = pred_root / tag / f"seed{seed}" / f"fold{fold.fold_id}.parquet"
+    mp = dest.with_suffix(".json")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if dest.exists() and dest.stat().st_size > 0:
+        pred = pd.read_parquet(dest)
+        meta = json.loads(mp.read_text()) if mp.exists() else {"status": "reuse"}
+        meta["status"] = meta.get("status") or "reuse"
+        hb.ping(f"reuse {tag} seed={seed} fold={fold.fold_id}")
+        return pred, meta
+    if mp.exists():
+        try:
+            meta = json.loads(mp.read_text())
+            if meta.get("status") in {"empty", "empty_val"}:
+                hb.ping(f"reuse-empty {tag} seed={seed} fold={fold.fold_id}")
+                return pd.DataFrame(), meta
+        except Exception:
+            pass
+    if not budget.ok():
+        return pd.DataFrame(), {"status": "aborted_budget", "fold_id": fold.fold_id, "seed": seed}
+    pred, meta = train_csattn_fold(
+        seq_dir,
+        fold,
+        seed=int(seed),
+        shuffle_labels=bool(shuffle),
+        shuffle_seed=shuf_seed,
+        heartbeat=hb,
+        budget_ok=budget.ok,
+    )
+    if pred is not None and not pred.empty:
+        pred.to_parquet(dest, index=False)
+    mp.write_text(json.dumps(meta, indent=2, default=str))
+    budget.persist()
+    _volume_commit()
+    return pred, meta
+
+
+@app.function(
+    image=cpu_image,
+    timeout=120,
+    retries=0,
+    volumes={"/data/quant": quant_vol},
+    cpu=1,
+    memory=1024,
+)
+def persist_a10g_sunk(usd: float, hours: float, note: str = "") -> dict:
+    quant_vol.reload()
+    rec = {
+        "a10g_sunk_usd": float(usd),
+        "a10g_hours": float(hours),
+        "a10g_usd_per_hour": 1.10,
+        "gpu": "A10G",
+        "usd": float(usd),
+        "note": note or "sunk A10G sequential before H100 parallel",
+        "updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+    root = Path("/data/quant/btcb/phase5")
+    root.mkdir(parents=True, exist_ok=True)
+    spend_dir = root / "gpu_spend"
+    spend_dir.mkdir(parents=True, exist_ok=True)
+    (root / "gpu_spend.json").write_text(json.dumps(rec, indent=2))
+    (spend_dir / "a10g_sunk.json").write_text(json.dumps(rec, indent=2))
+    _volume_commit()
+    print(f"[HB] persisted A10G sunk ${usd:.2f} ({hours:.2f} h)", flush=True)
+    return rec
+
+
+@app.function(
+    image=gpu_image,
+    timeout=60 * 60 * 24,
+    retries=0,
+    volumes={"/data/quant": quant_vol},
+    gpu="H100",
+    memory=65536,
+    max_containers=4,
+)
+def stage_b_train_seed(seed: int, a10g_sunk: float = 0.0) -> dict:
+    from btcb.constants import (
+        DEATH_CONVENTION,
+        PHASE5_CRITERION,
+        PHASE5_GPU_RESERVE_USD,
+        PHASE5_GPU_USD_CAP,
+        PHASE5_GPU_USD_PER_HOUR,
+        PHASE5_NULL_GATE,
+    )
+
+    t0 = time.time()
+    hb = StageHeartbeat(f"B-seed{seed}")
+    quant_vol.reload()
+    addendum = Path("/root/btcb_phase5_csattn_addendum.md").read_text()
+    for txt in (PHASE5_CRITERION, PHASE5_NULL_GATE, DEATH_CONVENTION):
+        if txt not in addendum:
+            raise RuntimeError("phase5 addendum missing freeze text")
+    sunk = _a10g_sunk_usd(a10g_sunk)
+    budget = SharedGpuBudget(
+        PHASE5_GPU_USD_CAP,
+        PHASE5_GPU_USD_PER_HOUR,
+        sunk,
+        worker_id=f"seed{int(seed)}",
+        reserve_usd=PHASE5_GPU_RESERVE_USD,
+    )
+    print(
+        f"[HB] BTC-BEATER P5 STAGE B seed={seed} GPU H100 cap=$80 a10g_sunk=${sunk:.2f}",
+        flush=True,
+    )
+    print(f"[HB] {PHASE5_CRITERION}", flush=True)
+    seq_dir, idx, folds = _load_folds_idx()
+    hb.ping(f"n_folds={len(folds)} seq_rows={len(idx)}")
+    smoke = _smoke(hb)
     pred_root = Path("/data/quant/btcb/phase5/preds")
     pred_root.mkdir(parents=True, exist_ok=True)
-    seed_preds: dict[int, list] = {int(s): [] for s in PHASE5_SEEDS}
-    seed_metas: dict[int, list] = {int(s): [] for s in PHASE5_SEEDS}
-    folds_done = []
-    seeds_done = []
-
-    def _train_one(seed, fold, shuffle=False, shuf_seed=None, tag="real"):
-        dest = pred_root / tag / f"seed{seed}" / f"fold{fold.fold_id}.parquet"
-        mp = dest.with_suffix(".json")
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        if dest.exists() and dest.stat().st_size > 0:
-            pred = pd.read_parquet(dest)
-            meta = json.loads(mp.read_text()) if mp.exists() else {"status": "reuse"}
-            hb.ping(f"reuse {tag} seed={seed} fold={fold.fold_id}")
-            return pred, meta
+    metas = []
+    n_written = 0
+    for i, fr in enumerate(folds):
         if not budget.ok():
-            return pd.DataFrame(), {"status": "aborted_budget", "fold_id": fold.fold_id, "seed": seed}
-        pred, meta = train_csattn_fold(
-            seq_dir,
-            fold,
-            seed=int(seed),
-            shuffle_labels=bool(shuffle),
-            shuffle_seed=shuf_seed,
-            heartbeat=hb,
-            budget_ok=budget.ok,
-        )
-        if pred is not None and not pred.empty:
-            pred.to_parquet(dest, index=False)
-        mp.write_text(json.dumps(meta, indent=2, default=str))
-        spend_path.write_text(
-            json.dumps(
-                {
-                    "usd": budget.usd(),
-                    "session_usd": budget.session_usd(),
-                    "prior": budget.prior,
-                    "aborted": budget.aborted,
-                },
-                indent=2,
-            )
-        )
-        commit()
-        return pred, meta
-
-    for seed in PHASE5_SEEDS:
-        if not budget.ok():
+            metas.append({"fold_id": int(fr.fold_id), "status": "aborted_budget", "seed": int(seed)})
             break
-        for fr in folds:
-            if not budget.ok():
-                break
-            pred, meta = _train_one(seed, fr, tag="real")
-            seed_metas[int(seed)].append(meta)
-            if pred is not None and not pred.empty:
-                seed_preds[int(seed)].append(pred)
-            folds_done.append({"seed": int(seed), "fold_id": int(fr.fold_id), "status": meta.get("status")})
-            hb.ping(
-                f"done seed={seed} fold={fr.fold_id} n={meta.get('n_pred')} "
-                f"usd={budget.usd():.2f} status={meta.get('status')}"
-            )
-        if all((m.get("status") in {"ok", "reuse", "empty", "empty_val"}) for m in seed_metas[int(seed)]):
-            seeds_done.append(int(seed))
+        pred, meta = _train_one(seq_dir, fr, int(seed), budget, hb, pred_root, tag="real")
+        metas.append(meta)
+        ok_st = meta.get("status") in {"ok", "reuse", "empty", "empty_val"}
+        if ok_st:
+            n_written += 1
+        n_left = len(folds) - (i + 1)
+        last_h = float(meta.get("elapsed") or 0.0) / 3600.0
+        hb.ping(
+            f"done seed={seed} fold={fr.fold_id} n={meta.get('n_pred')} "
+            f"usd={budget.usd():.2f} status={meta.get('status')} "
+            f"fold_h={last_h:.2f} remaining_folds={n_left} eta_this_seed_h={n_left * last_h:.1f}"
+        )
+    complete = (not budget.aborted) and all(
+        (m.get("status") in {"ok", "reuse", "empty", "empty_val"}) for m in metas
+    ) and len(metas) >= len(folds)
+    budget.persist()
+    _volume_commit()
+    rec = {
+        "seed": int(seed),
+        "status": "ok" if complete else ("aborted_budget" if budget.aborted else "incomplete"),
+        "complete": bool(complete),
+        "n_folds": len(folds),
+        "n_done": n_written,
+        "aborted": budget.aborted,
+        "abort_reason": budget.abort_reason,
+        "usd": budget.usd(force=True),
+        "hours": budget.my_hours(),
+        "a10g_sunk_usd": sunk,
+        "smoke_ok": bool((smoke or {}).get("ok")),
+        "elapsed_sec": time.time() - t0,
+        "metas": _jsonable(metas),
+        "gpu_used": True,
+        "gpu_type": "H100",
+    }
+    hb.close()
+    print(json.dumps({k: v for k, v in rec.items() if k != "metas"}, indent=2, default=str), flush=True)
+    return rec
 
-    # null: seed 42, folds 5 and 21, 10 shuffles
+
+@app.function(
+    image=gpu_image,
+    timeout=60 * 60 * 24,
+    retries=0,
+    volumes={"/data/quant": quant_vol},
+    gpu="H100",
+    memory=65536,
+    max_containers=4,
+)
+def stage_b_null(a10g_sunk: float = 0.0) -> dict:
+    from btcb.constants import (
+        DEATH_CONVENTION,
+        PHASE5_CRITERION,
+        PHASE5_GPU_RESERVE_USD,
+        PHASE5_GPU_USD_CAP,
+        PHASE5_GPU_USD_PER_HOUR,
+        PHASE5_NULL_FOLDS,
+        PHASE5_NULL_GATE,
+        PHASE5_NULL_SHUFFLE_SEEDS,
+    )
+    from btcb.phase5_eval import fold_tail_ic_from_pred
+
+    t0 = time.time()
+    hb = StageHeartbeat("B-null")
+    quant_vol.reload()
+    addendum = Path("/root/btcb_phase5_csattn_addendum.md").read_text()
+    for txt in (PHASE5_CRITERION, PHASE5_NULL_GATE, DEATH_CONVENTION):
+        if txt not in addendum:
+            raise RuntimeError("phase5 addendum missing freeze text")
+    sunk = _a10g_sunk_usd(a10g_sunk)
+    budget = SharedGpuBudget(
+        PHASE5_GPU_USD_CAP,
+        PHASE5_GPU_USD_PER_HOUR,
+        sunk,
+        worker_id="null",
+        reserve_usd=PHASE5_GPU_RESERVE_USD,
+    )
+    print(f"[HB] BTC-BEATER P5 STAGE B null GPU H100 cap=$80 a10g_sunk=${sunk:.2f}", flush=True)
+    print(f"[HB] {PHASE5_NULL_GATE}", flush=True)
+    seq_dir, idx, folds = _load_folds_idx()
+    hb.ping(f"n_folds={len(folds)}")
+    smoke = _smoke(hb)
+    pred_root = Path("/data/quant/btcb/phase5/preds")
+    pred_root.mkdir(parents=True, exist_ok=True)
+    fold_by_id = {int(f.fold_id): f for f in folds}
     null_ics = {int(f): [] for f in PHASE5_NULL_FOLDS}
     null_done = 0
-    fold_by_id = {int(f.fold_id): f for f in folds}
+    need = len(PHASE5_NULL_FOLDS) * len(PHASE5_NULL_SHUFFLE_SEEDS)
+    jobs = []
     for fid in PHASE5_NULL_FOLDS:
         fr = fold_by_id.get(int(fid))
         if fr is None:
             print(f"[HB] null fold {fid} missing from schedule", flush=True)
             continue
         for sh in PHASE5_NULL_SHUFFLE_SEEDS:
-            if not budget.ok():
-                break
-            pred, meta = _train_one(42, fr, shuffle=True, shuf_seed=int(sh), tag=f"null_sh{sh}")
-            ic = fold_tail_ic_from_pred(pred)
-            null_ics[int(fid)].append(ic)
-            null_done += 1
-            hb.ping(f"null fold={fid} shuf={sh} tailIC={ic} usd={budget.usd():.2f}")
+            jobs.append((fr, int(sh)))
+    for k, (fr, sh) in enumerate(jobs):
         if not budget.ok():
             break
+        pred, meta = _train_one(
+            seq_dir, fr, 42, budget, hb, pred_root, tag=f"null_sh{sh}", shuffle=True, shuf_seed=int(sh)
+        )
+        ic = fold_tail_ic_from_pred(pred)
+        null_ics[int(fr.fold_id)].append(ic)
+        if meta.get("status") in {"ok", "reuse", "empty", "empty_val"}:
+            null_done += 1
+        n_left = len(jobs) - (k + 1)
+        last_h = float(meta.get("elapsed") or 0.0) / 3600.0
+        hb.ping(
+            f"null fold={fr.fold_id} shuf={sh} tailIC={ic} usd={budget.usd():.2f} "
+            f"status={meta.get('status')} remaining={n_left} eta_h={n_left * last_h:.1f}"
+        )
+    complete = (not budget.aborted) and null_done >= need
+    out = {
+        "null_ics": {str(k): v for k, v in null_ics.items()},
+        "null_done": null_done,
+        "need": need,
+        "complete": bool(complete),
+        "status": "ok" if complete else ("aborted_budget" if budget.aborted else "incomplete"),
+        "aborted": budget.aborted,
+        "abort_reason": budget.abort_reason,
+        "usd": budget.usd(force=True),
+        "hours": budget.my_hours(),
+        "a10g_sunk_usd": sunk,
+        "smoke_ok": bool((smoke or {}).get("ok")),
+        "elapsed_sec": time.time() - t0,
+        "gpu_used": True,
+        "gpu_type": "H100",
+    }
+    Path("/data/quant/btcb/phase5/null_ics.json").write_text(json.dumps(out, indent=2, default=str))
+    budget.persist()
+    _volume_commit()
+    hb.close()
+    print(json.dumps({k: v for k, v in out.items() if k != "null_ics"}, indent=2, default=str), flush=True)
+    return out
 
-    # concatenate real preds
+
+def _aggregate_gpu(seed_recs: dict, null_rec: dict, a10g_sunk: float) -> dict:
+    from btcb.constants import (
+        PHASE5_A10G_USD_PER_HOUR,
+        PHASE5_GPU_USD_CAP,
+        PHASE5_GPU_USD_PER_HOUR,
+    )
+
+    spend_dir = Path("/data/quant/btcb/phase5/gpu_spend")
+    workers = []
+    h100_hours = 0.0
+    if spend_dir.is_dir():
+        for p in sorted(spend_dir.glob("worker_*.json")):
+            try:
+                rec = json.loads(p.read_text())
+                workers.append(rec)
+                h100_hours += float(rec.get("hours") or 0.0)
+            except Exception:
+                continue
+    if not workers:
+        for rec in list(seed_recs.values()) + ([null_rec] if null_rec else []):
+            h100_hours += float((rec or {}).get("hours") or 0.0)
+    h100_usd = h100_hours * float(PHASE5_GPU_USD_PER_HOUR)
+    total = float(a10g_sunk) + h100_usd
+    aborted = any(bool((r or {}).get("aborted")) for r in list(seed_recs.values()) + [null_rec])
+    reasons = [str((r or {}).get("abort_reason")) for r in list(seed_recs.values()) + [null_rec] if (r or {}).get("abort_reason")]
+    folds_done = []
+    for s, rec in sorted(seed_recs.items(), key=lambda kv: int(kv[0])):
+        for m in (rec or {}).get("metas") or []:
+            folds_done.append({"seed": int(s), "fold_id": m.get("fold_id"), "status": m.get("status")})
+    seeds_done = [int(s) for s, rec in seed_recs.items() if (rec or {}).get("complete")]
+    a10g_hours = float(a10g_sunk) / float(PHASE5_A10G_USD_PER_HOUR) if a10g_sunk else 0.0
+    return {
+        "gpu_used": True,
+        "gpu_type": "H100",
+        "parallelism": "3×H100 seeds + 1×H100 null",
+        "a10g_sunk_usd": float(a10g_sunk),
+        "a10g_hours": a10g_hours,
+        "a10g_usd_per_hour": PHASE5_A10G_USD_PER_HOUR,
+        "h100_hours": h100_hours,
+        "h100_usd": h100_usd,
+        "usd_per_hour": PHASE5_GPU_USD_PER_HOUR,
+        "gpu_hours": h100_hours + a10g_hours,
+        "gpu_seconds": (h100_hours + a10g_hours) * 3600.0,
+        "usd": total,
+        "cap_usd": PHASE5_GPU_USD_CAP,
+        "aborted": aborted,
+        "abort_reason": "; ".join(reasons) if reasons else None,
+        "folds_done": folds_done,
+        "seeds_done": seeds_done,
+        "null_done": int((null_rec or {}).get("null_done") or 0),
+        "workers": _jsonable(workers),
+        "seed_recs": {str(k): {kk: vv for kk, vv in (v or {}).items() if kk != "metas"} for k, v in seed_recs.items()},
+        "null_rec": {k: v for k, v in (null_rec or {}).items() if k != "null_ics"},
+    }
+
+
+@app.function(
+    image=cpu_image,
+    timeout=60 * 60 * 2,
+    retries=0,
+    volumes={"/data/quant": quant_vol},
+    cpu=8,
+    memory=32768,
+)
+def stage_b_judge(a10g_sunk: float = 0.0, seed_recs: dict | None = None, null_rec: dict | None = None) -> dict:
+    import numpy as np
+    import pandas as pd
+
+    from baseline.data import load_panel
+    from btcb.binance_replay import build_id_symbol_map, close_wide_from_panel
+    from btcb.constants import (
+        CMC_PANEL_SHA256,
+        CSATTN_CONFIG,
+        DEATH_CONVENTION,
+        PHASE2C_PRED_N_FILES,
+        PHASE2C_PRED_SHA256,
+        PHASE3C_REF_END,
+        PHASE3C_REF_H,
+        PHASE3C_REF_START,
+        PHASE5_CRITERION,
+        PHASE5_GPU_USD_CAP,
+        PHASE5_H,
+        PHASE5_NULL_FOLDS,
+        PHASE5_NULL_GATE,
+        PHASE5_NULL_SHUFFLE_SEEDS,
+        PHASE5_SEEDS,
+    )
+    from btcb.csattn import merge_seed_ensemble
+    from btcb.features import btc_id_from_panel
+    from btcb.hygiene import clean_panel
+    from btcb.oracle_ladder import _as_utc, ffill_members, formation_dates
+    from btcb.phase5_eval import (
+        cell_stats,
+        crude_book,
+        fold_tail_ic_from_pred,
+        load_manuel_score,
+        mechanical_verdict,
+        null_verdict,
+        per_date_diagnostics,
+        scores_from_twin,
+        windowed_metrics,
+    )
+    from btcb.phase5_report import plot_overlap_cycles, plot_tail_ic_bars, update_ledger_phase5, write_phase5
+    from btcb.spread_ls import hash_pred_dir, load_twin_from_cache
+    from btcb.academic_factor import pit_members
+
+    t0 = time.time()
+    hb = StageHeartbeat("B-judge")
+    quant_vol.reload()
+    seed_recs = {int(k): v for k, v in (seed_recs or {}).items()}
+    null_rec = null_rec or {}
+    sunk = _a10g_sunk_usd(a10g_sunk)
+    pred_root = Path("/data/quant/btcb/phase5/preds")
+
     concat = {}
-    for seed, parts in seed_preds.items():
+    for seed in PHASE5_SEEDS:
+        parts = []
+        d = pred_root / "real" / f"seed{int(seed)}"
+        if d.exists():
+            for p in sorted(d.glob("fold*.parquet"), key=lambda x: int(x.stem.replace("fold", "") or 0)):
+                if p.stat().st_size > 0:
+                    parts.append(pd.read_parquet(p))
         if parts:
             df = pd.concat(parts, ignore_index=True)
             df["date"] = pd.to_datetime(df["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
@@ -650,10 +967,27 @@ def stage_b_csattn() -> dict:
     ens = merge_seed_ensemble([concat[s] for s in PHASE5_SEEDS if not concat[s].empty])
     if not ens.empty:
         ens.to_parquet(pred_root / "oos_ensemble.parquet", index=False)
-    commit()
-    hb.ping("training artifacts written; starting judgment")
 
-    # ----- judgment (still on this container; GPU idle) -----
+    null_ics = {int(f): [] for f in PHASE5_NULL_FOLDS}
+    if (null_rec or {}).get("null_ics"):
+        for k, v in (null_rec.get("null_ics") or {}).items():
+            null_ics[int(k)] = list(v)
+    else:
+        nip = Path("/data/quant/btcb/phase5/null_ics.json")
+        if nip.exists():
+            blob = json.loads(nip.read_text())
+            for k, v in (blob.get("null_ics") or {}).items():
+                null_ics[int(k)] = list(v)
+        for fid in PHASE5_NULL_FOLDS:
+            if null_ics.get(int(fid)):
+                continue
+            for sh in PHASE5_NULL_SHUFFLE_SEEDS:
+                p = pred_root / f"null_sh{sh}" / "seed42" / f"fold{int(fid)}.parquet"
+                if p.exists() and p.stat().st_size > 0:
+                    null_ics[int(fid)].append(fold_tail_ic_from_pred(pd.read_parquet(p)))
+    null_done = int(sum(len(v) for v in null_ics.values()))
+    need_null = len(PHASE5_NULL_FOLDS) * len(PHASE5_NULL_SHUFFLE_SEEDS)
+
     cmc_path = Path("/data/quant/btcb/full/panel.parquet")
     cmc_sha = _file_sha256(cmc_path)
     if cmc_sha != CMC_PANEL_SHA256:
@@ -750,7 +1084,6 @@ def stage_b_csattn() -> dict:
     if manuel and isinstance(manuel.get("row"), dict) and "full" in manuel["row"]:
         grid["manuel"] = manuel["row"]
 
-    # real fold ICs for null (seed 42)
     real42 = concat.get(42, pd.DataFrame())
     cells = []
     for fid in PHASE5_NULL_FOLDS:
@@ -768,17 +1101,39 @@ def stage_b_csattn() -> dict:
         cells.append(st)
     null = null_verdict(cells)
 
+    n_folds = 0
+    for rec in seed_recs.values():
+        n_folds = max(n_folds, int((rec or {}).get("n_folds") or 0))
+    if n_folds <= 0:
+        try:
+            _, _, folds_sched = _load_folds_idx()
+            n_folds = len(folds_sched)
+        except Exception:
+            n_folds = 0
+    seeds_done = []
+    for seed in PHASE5_SEEDS:
+        d = pred_root / "real" / f"seed{int(seed)}"
+        n_ok = len([p for p in d.glob("fold*.parquet") if p.exists() and p.stat().st_size > 0]) if d.exists() else 0
+        rec = seed_recs.get(int(seed)) or {}
+        if rec.get("complete") or (n_folds and n_ok >= n_folds):
+            seeds_done.append(int(seed))
+
+    gpu = _aggregate_gpu(seed_recs, null_rec, sunk)
+    gpu["seeds_done"] = seeds_done
+    gpu["null_done"] = null_done
     verdict = mechanical_verdict(grid.get("gbm") or {}, seed_metrics, grid.get("ensemble") or {}, null)
-    if budget.aborted or len(seeds_done) < 3 or null_done < len(PHASE5_NULL_FOLDS) * len(PHASE5_NULL_SHUFFLE_SEEDS):
+    incomplete_budget = bool(gpu.get("aborted")) or len(seeds_done) < 3
+    incomplete_null = null_done < need_null
+    if incomplete_budget or incomplete_null:
         verdict = dict(verdict)
         verdict["live"] = False
         verdict["verdict"] = "PARKED"
         extra_fail = []
-        if budget.aborted or len(seeds_done) < 3:
+        if incomplete_budget:
             extra_fail.append("incomplete_budget")
             verdict["clause_a"] = False
             verdict["clause_b"] = False
-        if null_done < len(PHASE5_NULL_FOLDS) * len(PHASE5_NULL_SHUFFLE_SEEDS):
+        if incomplete_null:
             extra_fail.append("incomplete_null")
             verdict["clause_c"] = False
         failed = list(verdict.get("failed_clauses") or [])
@@ -798,28 +1153,12 @@ def stage_b_csattn() -> dict:
     if smp.exists():
         seq_meta = json.loads(smp.read_text())
 
-    gpu = {
-        "gpu_used": True,
-        "gpu_type": "A10G",
-        "gpu_seconds": budget.seconds(),
-        "gpu_hours": budget.hours(),
-        "usd": budget.usd(),
-        "usd_per_hour": PHASE5_A10G_USD_PER_HOUR,
-        "cap_usd": PHASE5_GPU_USD_CAP,
-        "prior_usd": budget.prior,
-        "session_usd": budget.session_usd(),
-        "aborted": budget.aborted,
-        "abort_reason": budget.abort_reason,
-        "folds_done": folds_done,
-        "seeds_done": seeds_done,
-        "null_done": null_done,
-    }
     extra = {
         "elapsed_sec": time.time() - t0,
         "seq_meta": seq_meta,
         "cmc_sha256": cmc_sha,
         "pred_hash": pred_hash,
-        "n_folds": len(folds),
+        "n_folds": n_folds,
         "manuel": manuel,
     }
     plain_bits = [
@@ -831,7 +1170,7 @@ def stage_b_csattn() -> dict:
         f"{_fmt_local(verdict.get('ensemble_overlap'))} (Δ {_fmt_local(verdict.get('delta_overlap'))})",
         f"seed dispersion {_fmt_local(verdict.get('seed_dispersion'))}",
         f"null {null.get('verdict')}",
-        f"GPU ${budget.usd():.2f} / ${PHASE5_GPU_USD_CAP:.0f}",
+        f"GPU ${gpu.get('usd', 0):.2f} / ${PHASE5_GPU_USD_CAP:.0f}",
     ]
     if verdict.get("record_ceiling"):
         plain_bits.append(verdict.get("ceiling_sentence"))
@@ -872,11 +1211,24 @@ def stage_b_csattn() -> dict:
         "gpu": _jsonable(gpu),
         "audit": _jsonable(audit),
         "extra": _jsonable(extra),
-        "seed_metas": {str(k): _jsonable(v) for k, v in seed_metas.items()},
+        "seed_recs": {str(k): _jsonable(v) for k, v in seed_recs.items()},
     }
     (rep_dir / "btcb_phase5_csattn.json").write_text(json.dumps(payload, indent=2, default=str))
-    commit()
-
+    Path("/data/quant/btcb/phase5/gpu_spend.json").write_text(
+        json.dumps(
+            {
+                "a10g_sunk_usd": sunk,
+                "h100_hours": gpu.get("h100_hours"),
+                "h100_usd": gpu.get("h100_usd"),
+                "usd": gpu.get("usd"),
+                "aborted": gpu.get("aborted"),
+                "verdict": verdict.get("verdict"),
+                "gpu": "H100",
+            },
+            indent=2,
+        )
+    )
+    _volume_commit()
     print(f"VERDICT: {verdict.get('verdict')} clauses_failed={verdict.get('failed_clauses')}", flush=True)
     print(
         f"BASELINE vs ENSEMBLE tail-IC(top) {verdict.get('baseline_tail_ic_top')} → "
@@ -886,7 +1238,7 @@ def stage_b_csattn() -> dict:
         flush=True,
     )
     print(f"SEED DISP {verdict.get('seed_dispersion')} per_seed={verdict.get('per_seed_tail_ic_top')}", flush=True)
-    print(f"NULL {null.get('verdict')} gpu_usd={budget.usd():.2f} aborted={budget.aborted}", flush=True)
+    print(f"NULL {null.get('verdict')} gpu_usd={gpu.get('usd')} aborted={gpu.get('aborted')}", flush=True)
     print("COMBO / SPREAD-LS / LONG-TIDE / 2.c cache untouched.", flush=True)
     hb.close()
     return {
@@ -896,45 +1248,16 @@ def stage_b_csattn() -> dict:
         "delta_overlap": verdict.get("delta_overlap"),
         "seed_dispersion": verdict.get("seed_dispersion"),
         "null_verdict": null.get("verdict"),
-        "gpu_usd": budget.usd(),
-        "aborted": budget.aborted,
+        "gpu_usd": gpu.get("usd"),
+        "aborted": gpu.get("aborted"),
         "elapsed_sec": time.time() - t0,
         "gpu_used": True,
+        "seeds_done": seeds_done,
+        "null_done": null_done,
     }
 
 
-@app.local_entrypoint()
-def main():
-    print("[local] BTC-BEATER P5 CS-ATTN — new Modal app, two stages, one shot", flush=True)
-    print("[local] STAGE A hourly panel (CPU)...", flush=True)
-    fa = stage_a_hourly.spawn()
-    print(f"[local] spawned A {getattr(fa, 'object_id', fa)}", flush=True)
-    a_sum = fa.get()
-    print(json.dumps(a_sum, indent=2, default=str)[:2000], flush=True)
-    print("[local] STAGE B CS-ATTN (A10G)...", flush=True)
-    b_sum = None
-    for attempt in range(1, 4):
-        print(f"[local] STAGE B attempt {attempt}/3 (fold parquets resume)", flush=True)
-        fb = stage_b_csattn.spawn()
-        print(f"[local] spawned B {getattr(fb, 'object_id', fb)}", flush=True)
-        try:
-            b_sum = fb.get()
-        except Exception as e:
-            print(f"[local] B attempt {attempt} raised {type(e).__name__}: {e}", flush=True)
-            b_sum = {
-                "verdict": "PARKED",
-                "failed_clauses": ["incomplete_budget"],
-                "error": f"{type(e).__name__}: {e}",
-                "aborted": True,
-            }
-        failed = b_sum.get("failed_clauses") or []
-        need_more = bool(b_sum.get("aborted")) or ("incomplete_budget" in failed) or ("incomplete_null" in failed)
-        if not need_more:
-            break
-        print("[local] B incomplete — another 24h GPU window (shared $80 cap)", flush=True)
-    if b_sum is None:
-        b_sum = {"verdict": "PARKED", "failed_clauses": ["incomplete_budget"]}
-    print("[local] syncing artifacts...", flush=True)
+def _pull_artifacts() -> None:
     import shutil
     import subprocess
 
@@ -970,6 +1293,94 @@ def main():
         for src in (art / "charts").glob("btcb_p5*"):
             (opt / "charts" / src.name).write_bytes(src.read_bytes())
             (opt / "screenshots" / src.name).write_bytes(src.read_bytes())
+
+
+@app.local_entrypoint()
+def main():
+    print("[local] BTC-BEATER P5 CS-ATTN — Stage A CPU + 3×H100 seeds + H100 null + CPU judge", flush=True)
+    print("[local] STAGE A hourly panel (CPU)...", flush=True)
+    fa = stage_a_hourly.spawn()
+    print(f"[local] spawned A {getattr(fa, 'object_id', fa)}", flush=True)
+    a_sum = fa.get()
+    print(json.dumps(a_sum, indent=2, default=str)[:2000], flush=True)
+
+    sunk_path = Path("artifacts/a10g_sunk.json")
+    if sunk_path.exists():
+        sunk_blob = json.loads(sunk_path.read_text())
+        a10g_usd = float(sunk_blob.get("usd") or sunk_blob.get("a10g_sunk_usd") or 0.0)
+        a10g_hours = float(sunk_blob.get("hours") or sunk_blob.get("a10g_hours") or 0.0)
+        note = str(sunk_blob.get("note") or "")
+    else:
+        a10g_usd, a10g_hours = 10.85, 9.86
+        note = "A10G sequential seed42 folds 0-22 (default if local sunk file missing)"
+    print(f"[local] persist A10G sunk ${a10g_usd:.2f} ({a10g_hours:.2f} h)", flush=True)
+    persist_a10g_sunk.remote(a10g_usd, a10g_hours, note)
+
+    seeds_left = [42, 43, 44]
+    null_left = True
+    seed_recs: dict = {}
+    null_rec: dict = {}
+    for attempt in range(1, 4):
+        if not seeds_left and not null_left:
+            break
+        print(
+            f"[local] STAGE B attempt {attempt}/3 H100 parallel seeds={seeds_left} null={null_left} "
+            f"(fold parquets resume, shared $80 cap)",
+            flush=True,
+        )
+        handles = {s: stage_b_train_seed.spawn(int(s), float(a10g_usd)) for s in seeds_left}
+        h_null = stage_b_null.spawn(float(a10g_usd)) if null_left else None
+        for s, h in handles.items():
+            print(f"[local] spawned seed {s} {getattr(h, 'object_id', h)}", flush=True)
+        if h_null is not None:
+            print(f"[local] spawned null {getattr(h_null, 'object_id', h_null)}", flush=True)
+        next_seeds = []
+        for s, h in handles.items():
+            try:
+                rec = h.get()
+            except Exception as e:
+                print(f"[local] seed {s} attempt {attempt} raised {type(e).__name__}: {e}", flush=True)
+                rec = {
+                    "seed": int(s),
+                    "status": "error",
+                    "complete": False,
+                    "error": f"{type(e).__name__}: {e}",
+                    "aborted": True,
+                }
+            seed_recs[int(s)] = rec
+            print(f"[local] seed {s} complete={rec.get('complete')} status={rec.get('status')} n_done={rec.get('n_done')}", flush=True)
+            if not rec.get("complete"):
+                next_seeds.append(int(s))
+        if h_null is not None:
+            try:
+                null_rec = h_null.get()
+            except Exception as e:
+                print(f"[local] null attempt {attempt} raised {type(e).__name__}: {e}", flush=True)
+                null_rec = {"status": "error", "complete": False, "error": f"{type(e).__name__}: {e}", "aborted": True}
+            print(f"[local] null complete={null_rec.get('complete')} done={null_rec.get('null_done')}/{null_rec.get('need')}", flush=True)
+            null_left = not bool(null_rec.get("complete"))
+        seeds_left = next_seeds
+        if seeds_left or null_left:
+            print("[local] B incomplete — another GPU window (shared $80 cap)", flush=True)
+
+    print("[local] STAGE B judge (CPU)...", flush=True)
+    try:
+        b_sum = stage_b_judge.remote(
+            float(a10g_usd),
+            {str(k): v for k, v in seed_recs.items()},
+            null_rec,
+        )
+    except Exception as e:
+        print(f"[local] judge raised {type(e).__name__}: {e}", flush=True)
+        b_sum = {
+            "verdict": "PARKED",
+            "failed_clauses": ["incomplete_budget"],
+            "error": f"{type(e).__name__}: {e}",
+            "aborted": True,
+            "gpu_usd": a10g_usd,
+        }
+    print("[local] syncing artifacts...", flush=True)
+    _pull_artifacts()
     print(json.dumps(b_sum, indent=2, default=str))
     print(
         f"FINAL {b_sum.get('verdict')} failed={b_sum.get('failed_clauses')} "

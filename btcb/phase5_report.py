@@ -73,7 +73,7 @@ def write_phase5(
         "",
         "**BACKTEST AND ANALYSIS ONLY.** No schedules, no live components, nothing adopted.",
         "Frozen GBM / 2.c cache / COMBO / SPREAD-LS / LONG-TIDE untouched (read-only).",
-        "One architecture config, zero search. GPU = one A10G for §B only.",
+        "One architecture config, zero search. GPU = H100 (3-seed parallel after A10G start; architecture unchanged).",
         "",
         "## Pre-registered criteria (verbatim, before results)",
         "",
@@ -224,10 +224,15 @@ def write_phase5(
         "",
         "## GPU spend log",
         "",
-        f"- gpu used = `{gpu.get('gpu_used')}` type=`{gpu.get('gpu_type')}`",
-        f"- wall seconds = `{gpu.get('gpu_seconds')}` hours=`{_fmt(gpu.get('gpu_hours'), 3)}`",
-        f"- USD (A10G `{gpu.get('usd_per_hour')}`/h) = `{_fmt(gpu.get('usd'), 2)}` "
-        f"cap=`{gpu.get('cap_usd')}` aborted=`{gpu.get('aborted')}` reason=`{gpu.get('abort_reason')}`",
+        f"- gpu used = `{gpu.get('gpu_used')}` type=`{gpu.get('gpu_type')}` "
+        f"parallel=`{gpu.get('parallelism', gpu.get('parallel'))}`",
+        f"- A10G sunk = `{_fmt(gpu.get('a10g_sunk_usd'), 2)}` "
+        f"({_fmt(gpu.get('a10g_hours'), 2)} h × `{gpu.get('a10g_usd_per_hour', 1.10)}`/h)",
+        f"- H100 hours = `{_fmt(gpu.get('h100_hours'), 3)}` × "
+        f"`{gpu.get('usd_per_hour')}`/h = `{_fmt(gpu.get('h100_usd'), 2)}`",
+        f"- wall seconds = `{gpu.get('gpu_seconds')}` total GPU-hours=`{_fmt(gpu.get('gpu_hours'), 3)}`",
+        f"- USD total = `{_fmt(gpu.get('usd'), 2)}` cap=`{gpu.get('cap_usd')}` "
+        f"aborted=`{gpu.get('aborted')}` reason=`{gpu.get('abort_reason')}`",
         f"- folds completed = `{gpu.get('folds_done')}` seeds done=`{gpu.get('seeds_done')}` "
         f"null jobs=`{gpu.get('null_done')}`",
         "",

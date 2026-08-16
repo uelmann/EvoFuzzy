@@ -3,7 +3,7 @@
 **Status:** FROZEN before results. Hourly panel + cross-sectional attention with tail-weighted twin heads.
 **Scope:** BACKTEST AND ANALYSIS ONLY. No schedules, no live components, no product changes.
 Master only. Frozen products and caches untouched (read-only). One architecture config, zero search.
-GPU allowed for §B ONLY: one A10G-class container, HARD BUDGET CAP $80.
+GPU allowed for §B ONLY. HARD BUDGET CAP $80. Original freeze named one A10G; on 2026-08-16 the operator switched to 3×H100 (one seed each) plus one H100 for the §B null after A10G sequential projected ~45 h remaining. Architecture, seeds, folds, and LIVE/PARKED criteria are unchanged.
 
 This is the last major card inside the quantitative-data perimeter. Three structural upgrades vs the frozen GBM, judged on tail metrics. Seed robustness is inside the criteria from day one (the GRU lesson: Phase E seed-42/43/44 RankIC spread was large enough that a 3-seed ensemble without a dispersion clause is not confirmatory).
 
@@ -39,7 +39,7 @@ Plus crude-14d book CAGR/MaxDD per signal (information, no adoption).
 
 ## Budget / hygiene
 
-- GPU: one A10G, tracked at $1.10/h published on-demand. Abort gracefully with a partial report if projected remaining spend would exceed $80.
+- GPU (operator override 2026-08-16): three NVIDIA H100 in parallel — one seed `{42,43,44}` per GPU — then/with one H100 for the §B null. List price `PHASE5_GPU_USD_PER_HOUR = 3.95`. Prior A10G hours are sunk cost counted toward the same **USD 80** cap. Each worker reloads peer spend from the volume before every fold and aborts with `incomplete_budget` if combined A10G sunk + Σ H100 hours × 3.95 would exceed $80. Stage A (CPU download) does not count toward the cap. Architecture / seeds / folds / criteria unchanged; only wall-clock hardware is upgraded.
 - Watchdog: kill any stage silent > 20 minutes.
 - Frozen 2.c pred cache, CMC panel, PIT floors, COMBO, SPREAD-LS, LONG-TIDE: read-only.
 - Writes only under `/data/quant/hourly/`, `/data/quant/raw/hourly_spot/`, `/data/quant/raw/hourly_um/`, `/data/quant/btcb/phase5/`, and `reports/charts` names prefixed `btcb_hourly*` / `btcb_phase5*` / `btcb_p5*`.
