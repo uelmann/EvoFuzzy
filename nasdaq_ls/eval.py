@@ -117,6 +117,22 @@ def factor_verdict(ric_mean: float, sharpe_headline: float) -> dict:
     }
 
 
+def ml_claim_verdict(factor: dict, gbm_sharpe: float, ctrl_sharpe: float) -> dict:
+    beat = bool(
+        np.isfinite(gbm_sharpe)
+        and np.isfinite(ctrl_sharpe)
+        and float(gbm_sharpe) > float(ctrl_sharpe)
+    )
+    yes = bool(factor.get("factor") and beat)
+    return {
+        "verdict": "ML CLAIM" if yes else "NO ML CLAIM",
+        "ml_claim": yes,
+        "beat_12_1_sharpe": beat,
+        "gbm_sharpe": float(gbm_sharpe) if np.isfinite(gbm_sharpe) else float("nan"),
+        "ctrl_sharpe": float(ctrl_sharpe) if np.isfinite(ctrl_sharpe) else float("nan"),
+    }
+
+
 def qqq_bh(market: pd.Series) -> pd.Series:
     s = pd.to_numeric(market, errors="coerce").sort_index()
     s.index = pd.DatetimeIndex(pd.to_datetime(s.index, utc=True)).normalize()

@@ -49,9 +49,12 @@ def plot_equity(
     out_path: Path,
     treat_label: str = "NASDAQ-LS (top10 − worst10, PIT vol-30)",
     title: str = "NASDAQ-LS vs QQQ (long 10 / short 10, top 30 by volume)",
+    extra_series: list[tuple[pd.Series, str]] | None = None,
 ) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     series = [(ls, treat_label)]
+    if extra_series:
+        series.extend(extra_series)
     if isinstance(ew, pd.Series) and len(ew):
         series.append((ew, "EW PIT top-30 (costless, informational)"))
     if isinstance(qqq, pd.Series) and len(qqq):

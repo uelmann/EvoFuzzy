@@ -62,3 +62,39 @@ def add_labels(
             s.append(pd.Series(simple[sym].reindex(g["date"]).values, index=g.index))
         out[f"y_simple_h{h}"] = pd.concat(s).sort_index()
     return out
+
+
+def add_simple_labels(
+    feat: pd.DataFrame,
+    panel: pd.DataFrame,
+    horizons: list[int],
+    winsorize_pct: tuple[float, float] = (1.0, 99.0),
+) -> pd.DataFrame:
+    """Winsorized simple h-session forward return as y_h{h} (no market residual)."""
+    from nasdaq_ls.prices import close_wide
+
+    close = close_wide(panel)
+    out = feat.copy()
+    out["date"] = pd.to_datetime(out["date"], utc=True).dt.normalize()
+    out = out.sort_values(["symbol", "date"])
+
+    def _win(s: pd.Series) -> pd.Series:
+        if s.notna().sum() < 5:
+            return s
+        lo_p, hi_p = winsorize_pct
+        lo = np.nanpercentile(s.values, lo_p)
+        hi = np.nanpercentile(s.values, hi_p)
+        return s.clip(lo, hi)
+
+    for h in horizons:
+        simple = close.shift(-h) / close - 1.0
+        s = []
+        for sym, g in out.groupby("symbol", sort=False):
+            if sym not in simple.columns:
+                s.append(pd.Series(np.nan, index=g.index))
+                continue
+            s.append(pd.Series(simple[sym].reindex(g["date"]).values, index=g.index))
+        raw = pd.concat(s).sort_index()
+        out[f"y_simple_h{h}"] = raw
+        out[f"y_h{h}"] = out.groupby("date", sort=False)[f"y_simple_h{h}"].transform(_win)
+    return out

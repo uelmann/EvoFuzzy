@@ -7,7 +7,7 @@ from collections import defaultdict
 import numpy as np
 import pandas as pd
 
-from baseline.portfolio import _attach_aux, _inv_vol
+from baseline.portfolio import _attach_aux
 from nasdaq_ls.constants import (
     COST_BPS,
     EXEC_TOP_N,
@@ -37,6 +37,7 @@ def _pick_ls(
     k_long: int | None = None,
     k_short: int | None = None,
     top_pct: float | None = None,
+    long_only: bool = False,
 ) -> tuple[list[str], list[str]]:
     if day.empty or "score" not in day.columns:
         return [], []
@@ -50,10 +51,12 @@ def _pick_ls(
     if top_pct is not None:
         k = max(1, int(np.ceil(float(top_pct) * n)))
         k_long = k
-        k_short = k
-    k_l = min(int(k_long or 1), max(1, n // 3))
-    k_s = min(int(k_short or 1), max(1, n // 3))
+        k_short = 0 if long_only else k
+    k_l = min(int(k_long or 1), max(1, n // 3) if not long_only else n)
     longs = g["symbol"].head(k_l).tolist()
+    if long_only:
+        return longs, []
+    k_s = min(int(k_short or 1), max(1, n // 3))
     shorts = g["symbol"].tail(k_s).tolist()
     overlap = set(longs) & set(shorts)
     if overlap:
@@ -61,18 +64,38 @@ def _pick_ls(
     return longs, shorts
 
 
-def _size_ls(day: pd.DataFrame, longs: list[str], shorts: list[str], gross: float) -> pd.Series:
+def _vol_of(day: pd.DataFrame, sym: str) -> float:
+    row = day[day["symbol"] == sym]
+    if row.empty:
+        return 0.02
+    for col in ("yz_vol_63_raw", "yz_vol_30_raw", "yz_vol_63", "yz_vol_30"):
+        if col in row.columns:
+            v = float(row[col].iloc[0])
+            if np.isfinite(v) and v > 0:
+                return v
+    return 0.02
+
+
+def _size_ls(
+    day: pd.DataFrame,
+    longs: list[str],
+    shorts: list[str],
+    gross: float,
+    long_only: bool = False,
+) -> pd.Series:
     w: dict[str, float] = {}
+    long_share = 1.0 if long_only or not shorts else 0.5
+    short_share = 0.0 if long_only or not shorts else 0.5
     if longs:
-        iv = {s: _inv_vol(day, s) for s in longs}
+        iv = {s: 1.0 / _vol_of(day, s) for s in longs}
         ssum = sum(iv.values()) or 1.0
         for s, v in iv.items():
-            w[s] = 0.5 * float(gross) * v / ssum
-    if shorts:
-        iv = {s: _inv_vol(day, s) for s in shorts}
+            w[s] = long_share * float(gross) * v / ssum
+    if shorts and short_share > 0:
+        iv = {s: 1.0 / _vol_of(day, s) for s in shorts}
         ssum = sum(iv.values()) or 1.0
         for s, v in iv.items():
-            w[s] = -0.5 * float(gross) * v / ssum
+            w[s] = -short_share * float(gross) * v / ssum
     return pd.Series(w, dtype=float)
 
 
@@ -87,9 +110,16 @@ def run_ls_topn(
     top_pct: float | None = None,
     book_start: str | None = None,
     variant: str = "nasdaq_ls",
+    long_only: bool = False,
 ) -> dict:
     h = int(horizon)
     df = _attach_aux(preds, feat, universe)
+    extra_vol = [c for c in ("yz_vol_63_raw", "yz_vol_63") if c in feat.columns]
+    if extra_vol:
+        aux = feat[["date", "symbol", *extra_vol]].drop_duplicates(["date", "symbol"], keep="last")
+        aux["date"] = pd.to_datetime(aux["date"], utc=True).dt.normalize()
+        df["date"] = pd.to_datetime(df["date"], utc=True).dt.normalize()
+        df = df.merge(aux, on=["date", "symbol"], how="left", suffixes=("", "_adapt"))
     df["date"] = pd.to_datetime(df["date"], utc=True).dt.normalize()
     if book_start:
         cut = pd.Timestamp(book_start, tz="UTC").normalize()
@@ -117,28 +147,30 @@ def run_ls_topn(
         dt = _utc_ts(dt)
         day = by_date.get(dt, pd.DataFrame())
         k = i % h
-        prev_ak = alphas[k].copy()
         longs, shorts = (
-            _pick_ls(day, k_long=k_long, k_short=k_short, top_pct=top_pct)
+            _pick_ls(day, k_long=k_long, k_short=k_short, top_pct=top_pct, long_only=long_only)
             if not day.empty
             else ([], [])
         )
         alphas[k] = (
-            _size_ls(day, longs, shorts, tg)
+            _size_ls(day, longs, shorts, tg, long_only=long_only)
             if (longs or shorts)
             else pd.Series(dtype=float)
         )
 
-        alpha = pd.Series(dtype=float)
+        weights: dict[str, float] = {}
         univ = set(day["symbol"]) if not day.empty else set()
         for tk in range(h):
             ak = alphas[tk]
             if ak.empty:
                 continue
             if univ:
-                ak = ak[[s for s in ak.index if s in univ]]
+                keep = [s for s in ak.index if s in univ]
+                ak = ak.reindex(keep).dropna()
                 alphas[tk] = ak
-            alpha = alpha.add(ak, fill_value=0.0)
+            for s, wi in ak.items():
+                weights[s] = weights.get(s, 0.0) + float(wi)
+        alpha = pd.Series(weights, dtype=float)
 
         if i < LAG:
             applied = pd.Series(dtype=float)
@@ -194,6 +226,7 @@ def run_ls_topn(
         "k_long": k_long,
         "k_short": k_short,
         "top_pct": top_pct,
+        "long_only": bool(long_only),
         "exec_top_n": EXEC_TOP_N,
         "daily_ret": daily_ret,
         "daily_gross_pnl": pd.Series(daily_gross, index=idx, dtype=float),
@@ -209,3 +242,4 @@ def run_ls_topn(
         "n_days": int(len(daily_ret)),
     }
     return packed
+
