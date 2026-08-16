@@ -91,3 +91,13 @@ RANK head + positioning block + price-additions. Backtest/analysis only. Nothing
 **BARREN.** **POSITIONING NOT LIVE.** **PRICE-ADDITIONS NOT LIVE.** Best A=`spread_rank`. Baseline tail-IC(top-half) `0.06373363864654095` overlap `0.09440625421215797`; best tail-IC `0.0932165029873638` overlap `0.1026649721756879` (`spread_rank`). Perp coverage from 2021 `0.8521374775618512`.
 
 Mechanical, no post-hoc adjustment. Frozen products untouched.
+
+## BTC-BEATER Phase 4.b TWIN-RANK
+
+TWIN-RANK + vol-matched null + DIR reweighting. Backtest/analysis only. Nothing adopted. Binance-priced.
+
+**TWIN-RANK BARREN.** **DIR NOT LIVE.** Retro RANK beyond vol=`NO` (`PARKED`). Baseline tail-IC(top-half) `0.06373363864654095` overlap `0.09440625421215797`; TWIN-RANK tail-IC `0.07999626838827102` overlap `0.08429226118267769`; DIR tail-IC `0.049496602414671555` overlap `0.09513026399399226`.
+
+**PRICE-VOLUME TAIL CEILING — within this data perimeter, tail improvements beyond the frozen spread are not demonstrable under vol-matched nulls; the fork (capital phase | Phase-5 hourly attention | perimeter expansion) passes to the PI.**
+
+Mechanical, no post-hoc adjustment. Frozen products untouched.
