@@ -118,3 +118,13 @@ Evolutionary strategy miner, compounding 12-book fitness, nested MINE/SELECT/JUD
 - C1 `min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(amihud_14, mul(funding_z_7, pdiv(ts_mean_28(ts_std_14(turnover)), dist_high_28))))` total=-0.5490805600086217 vs BTC=-0.330774582304703 relSharpe=-0.14796674842554697 MaxDD=-0.7245028817923658 pass=False
 
 Mechanical, no post-hoc adjustment. Frozen products untouched.
+
+## BTC-BEATER Phase 7.d NFN VARIANT A
+
+Magnitude labels + ranking loss, single head. Backtest only. Nothing adopted.
+
+**VARIANT-A PARKED.** Failed clauses=`['a', 'b', 'c']`. MAGNITUDE-GAIN=yes (VA `-0.00654018162402879` vs frozen `-0.008535444088926342`).
+
+Δtail-IC `0.02016304429426176` Δoverlap `0.009137574695601391` dispersion `0.01794008041072563`. UNDERTRAINED `84`.
+
+Mechanical, no post-hoc adjustment. Frozen products untouched.
