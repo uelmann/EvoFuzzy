@@ -356,7 +356,7 @@ def train_all_folds(
             seed=cfg["seed"],
             model_cfg=cfg["model"],
             inner_holdout_days=cfg["cv"]["inner_holdout_days"],
-            log_eval_curve=(fold.fold_id in {0, max(0, len(folds) // 2), len(folds) - 1}),
+            log_eval_curve=False,
         )
         if meta["elapsed"] > warn_s:
             print(f"[WARN] fold {fold.fold_id} took {meta['elapsed']:.0f}s > {warn_s}s", flush=True)

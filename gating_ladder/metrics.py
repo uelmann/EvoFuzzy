@@ -66,7 +66,8 @@ def trail_mask(index: pd.DatetimeIndex, trail_days: int = TRAIL_DAYS) -> np.ndar
         return np.array([], dtype=bool)
     end = idx.max()
     start = end - pd.Timedelta(days=int(trail_days))
-    return (idx >= start).to_numpy()
+    mask = idx >= start
+    return np.asarray(mask, dtype=bool)
 
 
 def ic_bundle(pred: pd.DataFrame, ycol: str, horizon: int, universe: pd.DataFrame | None, label: str) -> dict:
