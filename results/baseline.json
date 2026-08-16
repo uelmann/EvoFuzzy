@@ -262,7 +262,9 @@
         "2022-01-20",
         "2022-01-21",
         "..."
-      ]
+      ],
+      "icir_annualized": true,
+      "icir_formula": "mean(daily RankIC) / std(daily RankIC, ddof=1) * sqrt(252)"
     },
     "top40": {
       "n_days": 1620,
@@ -289,7 +291,9 @@
         "2022-01-20",
         "2022-01-21",
         "..."
-      ]
+      ],
+      "icir_annualized": true,
+      "icir_formula": "mean(daily RankIC) / std(daily RankIC, ddof=1) * sqrt(252)"
     },
     "top20_by_fold": [
       {
@@ -1314,7 +1318,20 @@
   "notes": [
     "h=10 not trained: ladder headline is h=7.",
     "LightGBM objective unchanged (Huber); costs in reported criterion only.",
-    "test_gate_identity_leakage N/A on A0."
+    "test_gate_identity_leakage N/A on A0.",
+    "ICIR is annualized: mean(daily RankIC)/std * sqrt(252). ICIR 5.90 is not a daily ratio."
   ],
-  "aggregate_vs_folds": "ok"
+  "aggregate_vs_folds": "ok",
+  "icir_convention": {
+    "annualized": true,
+    "icir_annualized": true,
+    "icir_not_daily": true,
+    "formula": "mean(daily RankIC) / std(daily RankIC, ddof=1) * sqrt(252)",
+    "source": "baseline.evaluate.summarize_ic",
+    "headline_universe": "top40",
+    "headline_icir": 5.900913063228454,
+    "n_names_pit_mean": 38.43632567849687,
+    "daily_cs_spearman_se_approx": "1/sqrt(N); N=40 => ~0.16",
+    "note": "ICIR 5.90 on top-40 is ANNUALIZED (this formula). With N\u224840 the SE of a daily CS Spearman is ~1/sqrt(40)\u22480.16; a non-annualized (daily) ICIR of 5.9 would require mean/std\u22485.9, which is impossible given that noise floor. Daily mean/std equals ICIR/sqrt(252) \u2248 5.90/15.875 \u2248 0.37."
+  }
 }
