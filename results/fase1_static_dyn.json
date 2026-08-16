@@ -1,0 +1,781 @@
+{
+  "written_at_utc": "2026-08-16T16:38:21.049772+00:00",
+  "no_stage_a": true,
+  "pre_reg_untouched": true,
+  "mu_definition": "per fold, mean of the fold model's score on that fold's TRAIN window [train_start, train_end] (purged). Names with zero train rows excluded.",
+  "val_score_max_abs_diff_vs_stored": 0.0,
+  "n_oos_top40_rows": 56331,
+  "n_keep_rows": 53470,
+  "n_excluded_rows": 2861,
+  "n_excluded_fold_symbol": 105,
+  "excluded_fold_symbol_count_by_fold": {
+    "0": 1,
+    "1": 2,
+    "2": 1,
+    "3": 2,
+    "4": 1,
+    "5": 8,
+    "6": 5,
+    "7": 2,
+    "8": 10,
+    "9": 9,
+    "10": 6,
+    "11": 5,
+    "12": 5,
+    "13": 7,
+    "14": 6,
+    "15": 7,
+    "16": 13,
+    "17": 15
+  },
+  "excluded_fold_symbol": [
+    {
+      "fold_id": 0,
+      "symbol": "PEOPLEUSDT",
+      "n_oos_rows": 21
+    },
+    {
+      "fold_id": 1,
+      "symbol": "APEUSDT",
+      "n_oos_rows": 33
+    },
+    {
+      "fold_id": 1,
+      "symbol": "GMTUSDT",
+      "n_oos_rows": 33
+    },
+    {
+      "fold_id": 2,
+      "symbol": "OPUSDT",
+      "n_oos_rows": 47
+    },
+    {
+      "fold_id": 3,
+      "symbol": "1000LUNCUSDT",
+      "n_oos_rows": 19
+    },
+    {
+      "fold_id": 3,
+      "symbol": "LDOUSDT",
+      "n_oos_rows": 1
+    },
+    {
+      "fold_id": 4,
+      "symbol": "APTUSDT",
+      "n_oos_rows": 87
+    },
+    {
+      "fold_id": 5,
+      "symbol": "AGIXUSDT",
+      "n_oos_rows": 17
+    },
+    {
+      "fold_id": 5,
+      "symbol": "ARBUSDT",
+      "n_oos_rows": 22
+    },
+    {
+      "fold_id": 5,
+      "symbol": "CFXUSDT",
+      "n_oos_rows": 53
+    },
+    {
+      "fold_id": 5,
+      "symbol": "COCOSUSDT",
+      "n_oos_rows": 2
+    },
+    {
+      "fold_id": 5,
+      "symbol": "HIGHUSDT",
+      "n_oos_rows": 8
+    },
+    {
+      "fold_id": 5,
+      "symbol": "IDUSDT",
+      "n_oos_rows": 1
+    },
+    {
+      "fold_id": 5,
+      "symbol": "RNDRUSDT",
+      "n_oos_rows": 68
+    },
+    {
+      "fold_id": 5,
+      "symbol": "STXUSDT",
+      "n_oos_rows": 22
+    },
+    {
+      "fold_id": 6,
+      "symbol": "1000PEPEUSDT",
+      "n_oos_rows": 69
+    },
+    {
+      "fold_id": 6,
+      "symbol": "AMBUSDT",
+      "n_oos_rows": 1
+    },
+    {
+      "fold_id": 6,
+      "symbol": "LEVERUSDT",
+      "n_oos_rows": 16
+    },
+    {
+      "fold_id": 6,
+      "symbol": "PERPUSDT",
+      "n_oos_rows": 18
+    },
+    {
+      "fold_id": 6,
+      "symbol": "SUIUSDT",
+      "n_oos_rows": 71
+    },
+    {
+      "fold_id": 7,
+      "symbol": "SEIUSDT",
+      "n_oos_rows": 39
+    },
+    {
+      "fold_id": 7,
+      "symbol": "WLDUSDT",
+      "n_oos_rows": 77
+    },
+    {
+      "fold_id": 8,
+      "symbol": "1000BONKUSDT",
+      "n_oos_rows": 26
+    },
+    {
+      "fold_id": 8,
+      "symbol": "BIGTIMEUSDT",
+      "n_oos_rows": 3
+    },
+    {
+      "fold_id": 8,
+      "symbol": "CKBUSDT",
+      "n_oos_rows": 11
+    },
+    {
+      "fold_id": 8,
+      "symbol": "MEMEUSDT",
+      "n_oos_rows": 12
+    },
+    {
+      "fold_id": 8,
+      "symbol": "ORDIUSDT",
+      "n_oos_rows": 63
+    },
+    {
+      "fold_id": 8,
+      "symbol": "PENDLEUSDT",
+      "n_oos_rows": 5
+    },
+    {
+      "fold_id": 8,
+      "symbol": "POLYXUSDT",
+      "n_oos_rows": 4
+    },
+    {
+      "fold_id": 8,
+      "symbol": "PYTHUSDT",
+      "n_oos_rows": 9
+    },
+    {
+      "fold_id": 8,
+      "symbol": "TIAUSDT",
+      "n_oos_rows": 52
+    },
+    {
+      "fold_id": 8,
+      "symbol": "UMAUSDT",
+      "n_oos_rows": 20
+    },
+    {
+      "fold_id": 9,
+      "symbol": "AEVOUSDT",
+      "n_oos_rows": 5
+    },
+    {
+      "fold_id": 9,
+      "symbol": "BOMEUSDT",
+      "n_oos_rows": 23
+    },
+    {
+      "fold_id": 9,
+      "symbol": "ENAUSDT",
+      "n_oos_rows": 6
+    },
+    {
+      "fold_id": 9,
+      "symbol": "ETHFIUSDT",
+      "n_oos_rows": 16
+    },
+    {
+      "fold_id": 9,
+      "symbol": "ONDOUSDT",
+      "n_oos_rows": 79
+    },
+    {
+      "fold_id": 9,
+      "symbol": "ONGUSDT",
+      "n_oos_rows": 20
+    },
+    {
+      "fold_id": 9,
+      "symbol": "POLYXUSDT",
+      "n_oos_rows": 16
+    },
+    {
+      "fold_id": 9,
+      "symbol": "TONUSDT",
+      "n_oos_rows": 22
+    },
+    {
+      "fold_id": 9,
+      "symbol": "WIFUSDT",
+      "n_oos_rows": 81
+    },
+    {
+      "fold_id": 10,
+      "symbol": "ENAUSDT",
+      "n_oos_rows": 90
+    },
+    {
+      "fold_id": 10,
+      "symbol": "IOUSDT",
+      "n_oos_rows": 13
+    },
+    {
+      "fold_id": 10,
+      "symbol": "NOTUSDT",
+      "n_oos_rows": 52
+    },
+    {
+      "fold_id": 10,
+      "symbol": "SAGAUSDT",
+      "n_oos_rows": 28
+    },
+    {
+      "fold_id": 10,
+      "symbol": "TAOUSDT",
+      "n_oos_rows": 2
+    },
+    {
+      "fold_id": 10,
+      "symbol": "ZROUSDT",
+      "n_oos_rows": 17
+    },
+    {
+      "fold_id": 11,
+      "symbol": "1MBABYDOGEUSDT",
+      "n_oos_rows": 3
+    },
+    {
+      "fold_id": 11,
+      "symbol": "NEIROUSDT",
+      "n_oos_rows": 19
+    },
+    {
+      "fold_id": 11,
+      "symbol": "POPCATUSDT",
+      "n_oos_rows": 16
+    },
+    {
+      "fold_id": 11,
+      "symbol": "UXLINKUSDT",
+      "n_oos_rows": 5
+    },
+    {
+      "fold_id": 11,
+      "symbol": "ZROUSDT",
+      "n_oos_rows": 2
+    },
+    {
+      "fold_id": 12,
+      "symbol": "ACTUSDT",
+      "n_oos_rows": 11
+    },
+    {
+      "fold_id": 12,
+      "symbol": "FARTCOINUSDT",
+      "n_oos_rows": 14
+    },
+    {
+      "fold_id": 12,
+      "symbol": "GOATUSDT",
+      "n_oos_rows": 10
+    },
+    {
+      "fold_id": 12,
+      "symbol": "PNUTUSDT",
+      "n_oos_rows": 53
+    },
+    {
+      "fold_id": 12,
+      "symbol": "UXLINKUSDT",
+      "n_oos_rows": 23
+    },
+    {
+      "fold_id": 13,
+      "symbol": "ALCHUSDT",
+      "n_oos_rows": 23
+    },
+    {
+      "fold_id": 13,
+      "symbol": "FARTCOINUSDT",
+      "n_oos_rows": 90
+    },
+    {
+      "fold_id": 13,
+      "symbol": "KAITOUSDT",
+      "n_oos_rows": 30
+    },
+    {
+      "fold_id": 13,
+      "symbol": "LAYERUSDT",
+      "n_oos_rows": 16
+    },
+    {
+      "fold_id": 13,
+      "symbol": "ORCAUSDT",
+      "n_oos_rows": 4
+    },
+    {
+      "fold_id": 13,
+      "symbol": "PENGUUSDT",
+      "n_oos_rows": 25
+    },
+    {
+      "fold_id": 13,
+      "symbol": "TRUMPUSDT",
+      "n_oos_rows": 75
+    },
+    {
+      "fold_id": 14,
+      "symbol": "BANANAS31USDT",
+      "n_oos_rows": 13
+    },
+    {
+      "fold_id": 14,
+      "symbol": "FUNUSDT",
+      "n_oos_rows": 18
+    },
+    {
+      "fold_id": 14,
+      "symbol": "HYPEUSDT",
+      "n_oos_rows": 33
+    },
+    {
+      "fold_id": 14,
+      "symbol": "IPUSDT",
+      "n_oos_rows": 4
+    },
+    {
+      "fold_id": 14,
+      "symbol": "MYXUSDT",
+      "n_oos_rows": 14
+    },
+    {
+      "fold_id": 14,
+      "symbol": "PUMPUSDT",
+      "n_oos_rows": 67
+    },
+    {
+      "fold_id": 15,
+      "symbol": "ASTERUSDT",
+      "n_oos_rows": 11
+    },
+    {
+      "fold_id": 15,
+      "symbol": "LIGHTUSDT",
+      "n_oos_rows": 3
+    },
+    {
+      "fold_id": 15,
+      "symbol": "MYXUSDT",
+      "n_oos_rows": 22
+    },
+    {
+      "fold_id": 15,
+      "symbol": "PIPPINUSDT",
+      "n_oos_rows": 22
+    },
+    {
+      "fold_id": 15,
+      "symbol": "RESOLVUSDT",
+      "n_oos_rows": 1
+    },
+    {
+      "fold_id": 15,
+      "symbol": "WLFIUSDT",
+      "n_oos_rows": 28
+    },
+    {
+      "fold_id": 15,
+      "symbol": "XPLUSDT",
+      "n_oos_rows": 39
+    },
+    {
+      "fold_id": 16,
+      "symbol": "ASTERUSDT",
+      "n_oos_rows": 90
+    },
+    {
+      "fold_id": 16,
+      "symbol": "ENSOUSDT",
+      "n_oos_rows": 37
+    },
+    {
+      "fold_id": 16,
+      "symbol": "KITEUSDT",
+      "n_oos_rows": 28
+    },
+    {
+      "fold_id": 16,
+      "symbol": "LIGHTUSDT",
+      "n_oos_rows": 21
+    },
+    {
+      "fold_id": 16,
+      "symbol": "LYNUSDT",
+      "n_oos_rows": 1
+    },
+    {
+      "fold_id": 16,
+      "symbol": "POWERUSDT",
+      "n_oos_rows": 20
+    },
+    {
+      "fold_id": 16,
+      "symbol": "RIVERUSDT",
+      "n_oos_rows": 73
+    },
+    {
+      "fold_id": 16,
+      "symbol": "SAHARAUSDT",
+      "n_oos_rows": 5
+    },
+    {
+      "fold_id": 16,
+      "symbol": "SENTUSDT",
+      "n_oos_rows": 1
+    },
+    {
+      "fold_id": 16,
+      "symbol": "SIRENUSDT",
+      "n_oos_rows": 33
+    },
+    {
+      "fold_id": 16,
+      "symbol": "VVVUSDT",
+      "n_oos_rows": 16
+    },
+    {
+      "fold_id": 16,
+      "symbol": "XAUUSDT",
+      "n_oos_rows": 18
+    },
+    {
+      "fold_id": 16,
+      "symbol": "\u5e01\u5b89\u4eba\u751fUSDT",
+      "n_oos_rows": 23
+    },
+    {
+      "fold_id": 17,
+      "symbol": "ARIAUSDT",
+      "n_oos_rows": 28
+    },
+    {
+      "fold_id": 17,
+      "symbol": "BSBUSDT",
+      "n_oos_rows": 1
+    },
+    {
+      "fold_id": 17,
+      "symbol": "CRCLUSDT",
+      "n_oos_rows": 48
+    },
+    {
+      "fold_id": 17,
+      "symbol": "ESPORTSUSDT",
+      "n_oos_rows": 10
+    },
+    {
+      "fold_id": 17,
+      "symbol": "EWYUSDT",
+      "n_oos_rows": 10
+    },
+    {
+      "fold_id": 17,
+      "symbol": "INTCUSDT",
+      "n_oos_rows": 40
+    },
+    {
+      "fold_id": 17,
+      "symbol": "LABUSDT",
+      "n_oos_rows": 54
+    },
+    {
+      "fold_id": 17,
+      "symbol": "MSTRUSDT",
+      "n_oos_rows": 5
+    },
+    {
+      "fold_id": 17,
+      "symbol": "NVDAUSDT",
+      "n_oos_rows": 3
+    },
+    {
+      "fold_id": 17,
+      "symbol": "PLAYUSDT",
+      "n_oos_rows": 23
+    },
+    {
+      "fold_id": 17,
+      "symbol": "RAVEUSDT",
+      "n_oos_rows": 32
+    },
+    {
+      "fold_id": 17,
+      "symbol": "SKYAIUSDT",
+      "n_oos_rows": 32
+    },
+    {
+      "fold_id": 17,
+      "symbol": "TSLAUSDT",
+      "n_oos_rows": 6
+    },
+    {
+      "fold_id": 17,
+      "symbol": "UBUSDT",
+      "n_oos_rows": 28
+    },
+    {
+      "fold_id": 17,
+      "symbol": "XAGUSDT",
+      "n_oos_rows": 81
+    }
+  ],
+  "ic": {
+    "score_on_keep": {
+      "n_days": 1620,
+      "mean_ic": 0.07417269407264021,
+      "std_ic": 0.22085119326998245,
+      "icir": 5.331440587182557,
+      "nw_tstat": 7.075815850764835,
+      "trail18m_mean_ic": 0.08168706441590116,
+      "trail18m_nw_t": 3.967476854918243
+    },
+    "mu": {
+      "n_days": 1620,
+      "mean_ic": 0.11510678736962862,
+      "std_ic": 0.28141373360200983,
+      "icir": 6.493157168221153,
+      "nw_tstat": 7.5278684116493,
+      "trail18m_mean_ic": 0.17255308270440567,
+      "trail18m_nw_t": 5.434341559026499
+    },
+    "f": {
+      "n_days": 1620,
+      "mean_ic": 0.016597229718582858,
+      "std_ic": 0.2072220961807541,
+      "icir": 1.271451542011546,
+      "nw_tstat": 1.7060699190668611,
+      "trail18m_mean_ic": -0.014720983820686873,
+      "trail18m_nw_t": -0.8412031533056389
+    }
+  },
+  "books": {
+    "baseline_tau70_1x": {
+      "net_sharpe": 1.8220094307388697,
+      "net_sharpe_trail18m": 1.0969670423963036,
+      "ann_turnover": 24.519270899695773
+    },
+    "mu_only": {
+      "net_sharpe": 0.5621905799935236,
+      "net_sharpe_trail18m": 1.3455249188039706,
+      "ann_turnover": 8.219028417102006,
+      "n_days": 1619,
+      "n_days_trail18m": 549,
+      "max_drawdown": -0.4441433151126406,
+      "n_flat_days": 175
+    },
+    "f_only": {
+      "net_sharpe": 0.7024316761329559,
+      "net_sharpe_trail18m": -0.6459116991295545,
+      "ann_turnover": 21.267405800490618,
+      "n_days": 1619,
+      "n_days_trail18m": 549,
+      "max_drawdown": -0.37323803221581886,
+      "n_flat_days": 768
+    }
+  },
+  "mu_feature_spearman": {
+    "yz_vol_30_raw": {
+      "kind": "raw",
+      "pooled": -0.11860309453817827,
+      "mean_fold": -0.2976375087122801,
+      "n_folds": 18,
+      "n_pairs_pooled": 4332
+    },
+    "amihud_14": {
+      "kind": "cs_z_as_stored",
+      "pooled": -0.1327152724729727,
+      "mean_fold": -0.02549725453755375,
+      "n_folds": 18,
+      "n_pairs_pooled": 4332
+    },
+    "dollar_volume": {
+      "kind": "raw",
+      "pooled": -0.019779970595244084,
+      "mean_fold": -0.12807965636943197,
+      "n_folds": 18,
+      "n_pairs_pooled": 4332
+    },
+    "beta_btc_60_raw": {
+      "kind": "raw",
+      "pooled": -0.2526882863104837,
+      "mean_fold": -0.27439416953520024,
+      "n_folds": 18,
+      "n_pairs_pooled": 4332
+    },
+    "idio_vol_60": {
+      "kind": "cs_z_as_stored",
+      "pooled": -0.32564521820858777,
+      "mean_fold": -0.49339565129201024,
+      "n_folds": 18,
+      "n_pairs_pooled": 4332
+    }
+  },
+  "alt_y_ic_k": {
+    "y_h7": {
+      "0": {
+        "n_days": 1620,
+        "mean_ic": 0.08032113973646492,
+        "std_ic": 0.21607818161722367,
+        "icir": 5.900913063228454,
+        "nw_tstat": 7.800801814307777
+      },
+      "10": {
+        "n_days": 1610,
+        "mean_ic": 0.058511608345255456,
+        "std_ic": 0.19587044757528424,
+        "icir": 4.7421292923463465,
+        "nw_tstat": 6.744415717089078
+      },
+      "60": {
+        "n_days": 1560,
+        "mean_ic": 0.058285728035037704,
+        "std_ic": 0.2196487126784964,
+        "icir": 4.212441024157725,
+        "nw_tstat": 5.524360597776232
+      }
+    },
+    "y_raw": {
+      "0": {
+        "n_days": 1620,
+        "mean_ic": 0.07648976910325823,
+        "std_ic": 0.22662739652163322,
+        "icir": 5.357858140562154,
+        "nw_tstat": 7.015089828663706
+      },
+      "10": {
+        "n_days": 1610,
+        "mean_ic": 0.050155811559694334,
+        "std_ic": 0.19962474451029297,
+        "icir": 3.9884776163526445,
+        "nw_tstat": 5.63254230449119
+      },
+      "60": {
+        "n_days": 1560,
+        "mean_ic": 0.053880070747405154,
+        "std_ic": 0.21374601097011742,
+        "icir": 4.0015699148686235,
+        "nw_tstat": 5.339175255575477
+      }
+    },
+    "y_dm": {
+      "0": {
+        "n_days": 1620,
+        "mean_ic": 0.07648976910325823,
+        "std_ic": 0.22662739652163322,
+        "icir": 5.357858140562154,
+        "nw_tstat": 7.015089828663706
+      },
+      "10": {
+        "n_days": 1610,
+        "mean_ic": 0.04971355275450566,
+        "std_ic": 0.20469650944261886,
+        "icir": 3.8553573112525257,
+        "nw_tstat": 5.338233268116196
+      },
+      "60": {
+        "n_days": 1560,
+        "mean_ic": 0.05978541896102999,
+        "std_ic": 0.22242455133350836,
+        "icir": 4.26690353156697,
+        "nw_tstat": 5.640069015403999
+      }
+    },
+    "y_volrank": {
+      "0": {
+        "n_days": 1620,
+        "mean_ic": 0.03919769081917167,
+        "std_ic": 0.17964992070447175,
+        "icir": 3.463647792401608,
+        "nw_tstat": 4.844783372724984
+      },
+      "10": {
+        "n_days": 1610,
+        "mean_ic": 0.03089525810558543,
+        "std_ic": 0.17520204401614878,
+        "icir": 2.7993224655871245,
+        "nw_tstat": 4.050915892175018
+      },
+      "60": {
+        "n_days": 1560,
+        "mean_ic": 0.03200952793677132,
+        "std_ic": 0.2020510917119998,
+        "icir": 2.5148862039108204,
+        "nw_tstat": 3.5253649873540773
+      }
+    }
+  },
+  "dip_ic_k": {
+    "12": {
+      "n_days": 1608,
+      "mean_ic": 0.050609670459555514,
+      "std_ic": 0.19697897897144728,
+      "icir": 4.078626135745942,
+      "nw_tstat": 5.83042824161017
+    },
+    "15": {
+      "n_days": 1605,
+      "mean_ic": 0.04169674731585082,
+      "std_ic": 0.19906704501511943,
+      "icir": 3.3250875011379915,
+      "nw_tstat": 4.628837286051247
+    },
+    "20": {
+      "n_days": 1600,
+      "mean_ic": 0.04829338063884069,
+      "std_ic": 0.2069150837632004,
+      "icir": 3.70506411085565,
+      "nw_tstat": 5.005414712586584
+    },
+    "25": {
+      "n_days": 1595,
+      "mean_ic": 0.04722098358808484,
+      "std_ic": 0.21784921763860202,
+      "icir": 3.440957390405528,
+      "nw_tstat": 4.564355741245827
+    },
+    "30": {
+      "n_days": 1590,
+      "mean_ic": 0.04486996927987599,
+      "std_ic": 0.21877456638574153,
+      "icir": 3.2558111853004768,
+      "nw_tstat": 4.278832159009861
+    }
+  },
+  "elapsed_sec": 187.67228865623474
+}
