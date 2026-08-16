@@ -196,11 +196,23 @@ def _mean_spread(frames: list, col: str = "spread"):
 )
 def nfn_null_job(payload: dict) -> dict:
     os.environ["CUDA_VISIBLE_DEVICES"] = ""
+    import json
     import pandas as pd
 
     from nfn.data import load_pack
     from nfn.nulls import run_null_cell
 
+    cache = Path(payload.get("null_cache_dir") or "/data/quant/btcb/phase7/null")
+    cache.mkdir(parents=True, exist_ok=True)
+    outp = cache / f"fold{payload['fold']['fold_id']}_seed{payload['shuffle_seed']}.json"
+    if outp.exists():
+        try:
+            rec = json.loads(outp.read_text())
+            if rec.get("status") == "ok":
+                print(f"[HB] null CACHE HIT fold={payload['fold']['fold_id']} shuffle={payload['shuffle_seed']}", flush=True)
+                return rec
+        except Exception:
+            pass
     pack = load_pack(payload["pack_path"])
     fold = _fold_from_dict(payload["fold"])
     labeled = pd.read_parquet(payload["labeled_path"])
@@ -219,6 +231,11 @@ def nfn_null_job(payload: dict) -> dict:
         close,
         int(payload["btc_id"]),
     )
+    outp.write_text(json.dumps(rec, default=str))
+    try:
+        quant_vol.commit()
+    except Exception:
+        pass
     return rec
 
 
@@ -415,7 +432,16 @@ def run_btcb_p7_nfn() -> dict:
     last_meta_42 = None
     for seed in SEEDS:
         print(f"[HB] train seed={seed} n_folds={len(folds_all)}", flush=True)
-        raw, metas = train_walkforward(pack, folds_all, seed=int(seed), warm_blob=warm_blob, device="cpu")
+        raw, metas = train_walkforward(
+            pack,
+            folds_all,
+            seed=int(seed),
+            warm_blob=warm_blob,
+            device="cpu",
+            cache_dir=work / "preds",
+            cache_ver="p7v1",
+            commit_fn=quant_vol.commit,
+        )
         for m in metas:
             row = dict(m)
             row["seed"] = int(seed)
@@ -470,6 +496,7 @@ def run_btcb_p7_nfn() -> dict:
                     "btc_id": int(btc_id),
                     "fold": _fold_to_dict(fold),
                     "shuffle_seed": int(ss),
+                    "null_cache_dir": str(work / "null"),
                 }
             )
     print(f"[HB] vol-matched null map n={len(payloads)} concurrency={NULL_MAP_CONCURRENCY}", flush=True)
@@ -606,8 +633,9 @@ def run_btcb_p7_nfn() -> dict:
 
 @app.local_entrypoint()
 def main():
-    print("[local] Phase 7 NFN...", flush=True)
+    print("[local] Phase 7 NFN (detach-safe)...", flush=True)
     fc = run_btcb_p7_nfn.spawn()
+    print(f"[local] spawned", flush=True)
     summary = fc.get()
     import shutil
     import subprocess

@@ -326,10 +326,43 @@ def train_walkforward(
     seed: int,
     warm_blob: dict | None = None,
     device: str = "cpu",
+    cache_dir=None,
+    cache_ver: str = "p7v1",
+    commit_fn=None,
 ) -> tuple[pd.DataFrame, list[dict]]:
+    import json
+    from pathlib import Path
+
     parts, metas = [], []
+    cache_dir = Path(cache_dir) if cache_dir is not None else None
+    if cache_dir is not None:
+        cache_dir.mkdir(parents=True, exist_ok=True)
     for fold in folds:
-        pred, meta = train_one_fold(pack, fold, seed=seed, warm_blob=warm_blob, device=device)
+        pred, meta = None, None
+        if cache_dir is not None:
+            pq = cache_dir / f"preds_seed{int(seed)}_fold{fold.fold_id}.parquet"
+            js = cache_dir / f"meta_seed{int(seed)}_fold{fold.fold_id}.json"
+            if pq.exists() and js.exists():
+                try:
+                    meta = json.loads(js.read_text())
+                    if meta.get("cache_ver") == cache_ver and meta.get("status") == "ok":
+                        pred = pd.read_parquet(pq)
+                        meta["cache_hit"] = True
+                        print(f"[nfn] fold={fold.fold_id} seed={seed} CACHE HIT rows={len(pred)}", flush=True)
+                    else:
+                        pred, meta = None, None
+                except Exception as exc:
+                    print(f"[nfn] fold={fold.fold_id} cache unreadable: {exc}", flush=True)
+                    pred, meta = None, None
+        if meta is None:
+            pred, meta = train_one_fold(pack, fold, seed=seed, warm_blob=warm_blob, device=device)
+            meta["cache_ver"] = cache_ver
+            meta["cache_hit"] = False
+            if cache_dir is not None and pred is not None and not pred.empty:
+                pred.to_parquet(cache_dir / f"preds_seed{int(seed)}_fold{fold.fold_id}.parquet", index=False)
+                (cache_dir / f"meta_seed{int(seed)}_fold{fold.fold_id}.json").write_text(json.dumps(meta, default=str))
+                if commit_fn is not None:
+                    commit_fn()
         metas.append(meta)
         if pred is not None and not pred.empty:
             parts.append(pred)
