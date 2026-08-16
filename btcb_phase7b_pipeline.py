@@ -3,7 +3,7 @@ BTC-BEATER Phase 7.b — FUZZY-STACK.
 
 BACKTEST / ANALYSIS ONLY. CPU only. Zero GPU. One shot.
 Frozen products untouched. Master only.
-Usage: modal run btcb_phase7b_pipeline.py
+Usage: modal run --detach --timestamps btcb_phase7b_pipeline.py
 """
 
 from __future__ import annotations
@@ -545,9 +545,55 @@ def run_btcb_p7b() -> dict:
         metas_bot = sorted(metas_bot, key=lambda m: int(m.get("fold_id") or 0))
         return top, bot, metas_top, metas_bot
 
+    def _frames_from_pred_files(top_files, bot_files):
+        top = pd.concat([pd.read_parquet(p) for p in top_files], ignore_index=True) if top_files else pd.DataFrame()
+        bot = pd.concat([pd.read_parquet(p) for p in bot_files], ignore_index=True) if bot_files else pd.DataFrame()
+        if not top.empty:
+            top["date"] = pd.to_datetime(top["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
+            top["id"] = top["id"].astype(int)
+        if not bot.empty:
+            bot["date"] = pd.to_datetime(bot["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
+            bot["id"] = bot["id"].astype(int)
+        return top, bot
+
+    def _reuse_arm(tag_top, tag_bot):
+        """Reuse a complete arm written before a client-disconnect kill. Not a scientific redo."""
+        n_need = len(folds_all)
+        top_files = sorted(PRED_DIR.glob(f"preds_{tag_top}_h{PHASE7B_H}_fold*.parquet"))
+        bot_files = sorted(PRED_DIR.glob(f"preds_{tag_bot}_h{PHASE7B_H}_fold*.parquet"))
+        if len(top_files) != n_need or len(bot_files) != n_need:
+            return None
+        metas_top, metas_bot = [], []
+        for files, bucket in ((top_files, metas_top), (bot_files, metas_bot)):
+            for p in files:
+                mp = PRED_DIR / f"meta_{p.stem}.json"
+                if not mp.exists():
+                    return None
+                meta = json.loads(mp.read_text())
+                if int(meta.get("best_iteration") or 0) <= 5:
+                    return None
+                if str(meta.get("status") or "ok") != "ok":
+                    return None
+                bucket.append(meta)
+                hygiene_all.extend(hygiene_rows([meta], meta.get("tag") or tag_top))
+        print(
+            f"[HB] reuse cached {tag_top}/{tag_bot} folds={n_need} "
+            f"(infra retry, not a second shot)",
+            flush=True,
+        )
+        top, bot = _frames_from_pred_files(top_files, bot_files)
+        metas_top = sorted(metas_top, key=lambda m: int(m.get("fold_id") or 0))
+        metas_bot = sorted(metas_bot, key=lambda m: int(m.get("fold_id") or 0))
+        twin_raw = merge_twin_preds(top, bot, PHASE7B_H) if (not top.empty and not bot.empty) else pd.DataFrame()
+        twin_c = collapse_spread(twin_raw)
+        return {"top": top, "bot": bot, "twin_raw": twin_raw, "twin": twin_c, "metas_top": metas_top, "metas_bot": metas_bot}
+
     def _run_arm(tag_top, tag_bot, feature_cols, extras, provenance):
         assert_no_context(list(feature_cols))
         assert_firewall(feature_cols, provenance, orig_cols)
+        reused = _reuse_arm(tag_top, tag_bot)
+        if reused is not None:
+            return reused
         jobs = _jobs(tag_top, tag_bot, feature_cols, extras)
         print(f"[HB] map-train {tag_top}/{tag_bot} jobs={len(jobs)} n_feat={len(feature_cols)}", flush=True)
         try:
@@ -559,20 +605,22 @@ def run_btcb_p7b() -> dict:
         twin_c = collapse_spread(twin_raw)
         return {"top": top, "bot": bot, "twin_raw": twin_raw, "twin": twin_c, "metas_top": mt, "metas_bot": mb}
 
-    # Discard pred artifacts from aborted shots (hygiene best_iteration bug).
-    # Workers return parquet bytes; the orchestrator writes after .map, but a
-    # kill mid-persist can leave a partial preds/ tree that later globs mix in.
+    quant_vol.reload()
+    # Drop only the hist-argmax=1 artifacts from the broken two-phase trainer.
+    # Keep complete arms so a client-disconnect retry does not retrain stage 1.
     wiped = 0
-    for p in list(PRED_DIR.glob("preds_*")) + list(PRED_DIR.glob("meta_preds_*")):
-        p.unlink(missing_ok=True)
+    for meta_p in list(PRED_DIR.glob("meta_preds_*.json")):
+        try:
+            meta = json.loads(meta_p.read_text())
+        except Exception:
+            meta = {}
+        if int(meta.get("best_iteration") or 0) > 5:
+            continue
+        stem = meta_p.name[len("meta_") : -len(".json")] if meta_p.name.startswith("meta_") else meta_p.stem
+        (PRED_DIR / f"{stem}.parquet").unlink(missing_ok=True)
+        meta_p.unlink(missing_ok=True)
         wiped += 1
-    null_dir = WORK / "null"
-    if null_dir.exists():
-        for p in null_dir.glob("*"):
-            if p.is_file():
-                p.unlink()
-                wiped += 1
-    print(f"[HB] wiped {wiped} aborted-shot pred/null artifacts in {WORK}", flush=True)
+    print(f"[HB] wiped {wiped} broken-shot pred artifacts in {PRED_DIR}", flush=True)
     quant_vol.commit()
 
     # ----- Arm A stage 1 -----
@@ -909,8 +957,9 @@ def run_btcb_p7b() -> dict:
 
 @app.local_entrypoint()
 def main():
-    print("[local] Phase 7.b FUZZY-STACK...", flush=True)
+    print("[local] Phase 7.b FUZZY-STACK (detach-safe spawn)...", flush=True)
     fc = run_btcb_p7b.spawn()
+    print("[local] spawned run_btcb_p7b; waiting (modal run --detach keeps the app if this client drops)", flush=True)
     summary = fc.get()
     import shutil
     import subprocess
