@@ -1,0 +1,305 @@
+{
+  "frozen_sha256": "e6b7407c8243ea49df3801ccaacedecd194315f45790e549a68c3368078b3faa",
+  "gpu_used": false,
+  "scheduled_jobs_created": false,
+  "improve": {
+    "improves": false,
+    "verdict": "NO LIFT",
+    "pass_ric": false,
+    "pass_gap": false,
+    "pass_sharpe": true,
+    "pass_null": false,
+    "ric_a0": 0.062466736030295,
+    "ric_retstd": 0.025072970822740893,
+    "gap_a0": 0.008096967922864759,
+    "gap_retstd": 0.007798014082312283,
+    "sharpe_a0": 0.26303299628093224,
+    "sharpe_retstd": 0.35073736398261296,
+    "null_verdict": "PARKED-NO-SKILL"
+  },
+  "verdict": {
+    "viable": false,
+    "verdict": "NOT VIABLE",
+    "pass_full": false,
+    "pass_trail": true,
+    "pass_total": true,
+    "pass_gross": true,
+    "pass_null": false,
+    "sharpe_full": 0.35073736398261296,
+    "sharpe_trail18m": 0.23343395201240544,
+    "total_return": 0.09344964305969472,
+    "avg_gross": 0.9578100314493496,
+    "null_verdict": "PARKED-NO-SKILL",
+    "need_full": 0.5,
+    "need_trail": 0.0,
+    "need_gross": 0.15
+  },
+  "null": {
+    "bias_pass": true,
+    "skill_pass": false,
+    "n_violate": 0,
+    "n_folds": 2,
+    "verdict": "PARKED-NO-SKILL",
+    "passed": false,
+    "cells": [
+      {
+        "fold_id": 0,
+        "n": 10,
+        "mean": 0.00039259680299166854,
+        "sd": 0.02467014708436413,
+        "p95": 0.034248664422259545,
+        "se": 0.0078013854997952764,
+        "bias_lim": 0.015602770999590553,
+        "bias_ok": true,
+        "real": 0.05327534517790399,
+        "exceeds_p95": true
+      },
+      {
+        "fold_id": 1,
+        "n": 10,
+        "mean": -0.004651591985824106,
+        "sd": 0.01843747458550372,
+        "p95": 0.017240481332190496,
+        "se": 0.005830441399166066,
+        "bias_lim": 0.011660882798332132,
+        "bias_ok": true,
+        "real": 0.013030490164191237,
+        "exceeds_p95": false
+      }
+    ]
+  },
+  "seed_gate": {
+    "name": "seed_determinism",
+    "passed": true,
+    "max_score_diff": 0.0
+  },
+  "ric_a0_ratio": {
+    "n_days": 1620,
+    "mean_ic": 0.062466736030295,
+    "std_ic": 0.1918104554402784,
+    "icir": 5.169836494180179,
+    "nw_tstat": 6.185032285375515
+  },
+  "ric_retstd_ratio": {
+    "n_days": 1620,
+    "mean_ic": 0.025072970822740893,
+    "std_ic": 0.22622352229140594,
+    "icir": 1.7594150622701459,
+    "nw_tstat": 1.900339108949231
+  },
+  "ric_a0_simple": {
+    "n_days": 1620,
+    "mean_ic": 0.07454539975827533,
+    "std_ic": 0.22829779024660957,
+    "icir": 5.183455930902599,
+    "nw_tstat": 5.7366307987614045
+  },
+  "ric_retstd_simple": {
+    "n_days": 1620,
+    "mean_ic": 0.017298668421126328,
+    "std_ic": 0.2320733559916629,
+    "icir": 1.183280375964679,
+    "nw_tstat": 1.2558983673350623
+  },
+  "gap_a0": {
+    "n_days": 1620,
+    "mean_gap": 0.008096967922864759,
+    "pct_gap_pos": 0.5049382716049383,
+    "nw_t": 1.7994523147954973
+  },
+  "gap_retstd": {
+    "n_days": 1620,
+    "mean_gap": 0.007798014082312283,
+    "pct_gap_pos": 0.512962962962963,
+    "nw_t": 1.3772732784596737
+  },
+  "a0_book": {
+    "tau_pct": 0.0,
+    "tau": 0.0,
+    "variant": "a0_lo10",
+    "horizon": 10,
+    "lag": 0,
+    "funding_on": true,
+    "net_sharpe": 0.26303299628093224,
+    "gross_sharpe": 0.2870238358469358,
+    "net_cagr": -0.0563399002241991,
+    "max_drawdown": -0.69815004718937,
+    "total_return": -0.22680038742955122,
+    "avg_n_positions": 10.948116121062384,
+    "avg_n_long": 10.948116121062384,
+    "avg_n_short": 0.0,
+    "n_flat_days": 0,
+    "n_days": 1619,
+    "pct_flat_days": 0.0,
+    "ann_turnover": 25.933556052695653,
+    "gross_total_pnl": 0.8769456540474994,
+    "hedge_total_pnl": 0.0,
+    "cost_drag": 0.1505316397180834,
+    "funding_total_pnl": 0.0768188837040545,
+    "net_total_pnl": 0.8032328980334702,
+    "identity_gap": -3.3306690738754696e-16,
+    "gross_ann_return": 0.1977054748161441,
+    "hedge_ann_return": 0.0,
+    "cost_ann_drag": 0.033937028101976796,
+    "funding_ann_return": 0.017318648889425504,
+    "net_ann_return": 0.1810870956035927,
+    "avg_holding_days": NaN,
+    "n_closed_trades": 0,
+    "trade_pnl_p10": NaN,
+    "trade_pnl_p50": NaN,
+    "trade_pnl_p90": NaN,
+    "turnover_entry_exit_ann": 25.933556052695653,
+    "turnover_resize_ann": 0.0,
+    "turnover_hedge_ann": 0.0,
+    "avg_gross_deployed": 0.9328511503918763,
+    "n_forced_exits": 10,
+    "forced_exit_pnl": 0.0,
+    "max_abs_btc_weight": 0.523046146244592,
+    "btc_weight_identically_zero": false,
+    "pct_days_btc_held": 0.5719579987646696,
+    "long_only": true,
+    "apply_beta_hedge": false,
+    "top_pct": 0.1,
+    "net_sharpe_full": 0.26303299628093224,
+    "net_sharpe_trail18m": -0.4449909095974381,
+    "net_sharpe_by_year": {
+      "2022": -0.597578215993936,
+      "2023": 1.9986108715919604,
+      "2024": 0.6108345624287108,
+      "2025": -0.29454089000481626,
+      "2026": -0.5694689384088519
+    },
+    "mean_ann": 0.1810870956035927,
+    "nw_t_vs_cash": 0.6008614503429448,
+    "nw_t_vs_cash_trail18m": -0.6943937879366197,
+    "top5_names": [
+      {
+        "symbol": "XRPUSDT",
+        "pnl": 0.5573126956184655
+      },
+      {
+        "symbol": "FTMUSDT",
+        "pnl": -0.20616268137988422
+      },
+      {
+        "symbol": "SOLUSDT",
+        "pnl": 0.1571979295734725
+      },
+      {
+        "symbol": "ADAUSDT",
+        "pnl": 0.1385600389843678
+      },
+      {
+        "symbol": "DOGEUSDT",
+        "pnl": 0.130720082082696
+      }
+    ]
+  },
+  "retstd_book": {
+    "tau_pct": 0.0,
+    "tau": 0.0,
+    "variant": "retstd_lo",
+    "horizon": 10,
+    "lag": 0,
+    "funding_on": true,
+    "net_sharpe": 0.35073736398261296,
+    "gross_sharpe": 0.2978403209240956,
+    "net_cagr": 0.02034514294254497,
+    "max_drawdown": -0.6625197834183231,
+    "total_return": 0.09344964305969472,
+    "avg_n_positions": 9.112415071031501,
+    "avg_n_long": 9.112415071031501,
+    "avg_n_short": 0.0,
+    "n_flat_days": 0,
+    "n_days": 1619,
+    "pct_flat_days": 0.0,
+    "ann_turnover": 22.442979736674243,
+    "gross_total_pnl": 0.8408972283389446,
+    "hedge_total_pnl": 0.0,
+    "cost_drag": 0.11981006559722314,
+    "funding_total_pnl": 0.2694035819633922,
+    "net_total_pnl": 0.9904907447051137,
+    "identity_gap": 0.0,
+    "gross_ann_return": 0.18957843628394985,
+    "hedge_ann_return": 0.0,
+    "cost_ann_drag": 0.027010916579979272,
+    "funding_ann_return": 0.0607364468293009,
+    "net_ann_return": 0.22330396653327148,
+    "avg_holding_days": NaN,
+    "n_closed_trades": 0,
+    "trade_pnl_p10": NaN,
+    "trade_pnl_p50": NaN,
+    "trade_pnl_p90": NaN,
+    "turnover_entry_exit_ann": 22.442979736674243,
+    "turnover_resize_ann": 0.0,
+    "turnover_hedge_ann": 0.0,
+    "avg_gross_deployed": 0.9578100314493496,
+    "n_forced_exits": 0,
+    "forced_exit_pnl": 0.0,
+    "max_abs_btc_weight": 0.6046594962951367,
+    "btc_weight_identically_zero": false,
+    "pct_days_btc_held": 0.6670784434836319,
+    "long_only": true,
+    "apply_beta_hedge": false,
+    "top_pct": 0.1,
+    "net_sharpe_full": 0.35073736398261296,
+    "net_sharpe_trail18m": 0.23343395201240544,
+    "net_sharpe_by_year": {
+      "2022": -0.7641101135419925,
+      "2023": 1.9813208895232433,
+      "2024": 0.16484323082045987,
+      "2025": 0.22836790883678001,
+      "2026": 0.3878628400829565
+    },
+    "mean_ann": 0.22330396653327148,
+    "nw_t_vs_cash": 0.8452304948072119,
+    "nw_t_vs_cash_trail18m": 0.3496061502303338,
+    "top5_names": [
+      {
+        "symbol": "BNBUSDT",
+        "pnl": 0.302251310796808
+      },
+      {
+        "symbol": "XRPUSDT",
+        "pnl": 0.2913185232184979
+      },
+      {
+        "symbol": "RUNEUSDT",
+        "pnl": 0.2591474341213734
+      },
+      {
+        "symbol": "KNCUSDT",
+        "pnl": -0.18010432407411348
+      },
+      {
+        "symbol": "ZECUSDT",
+        "pnl": 0.1794362773933583
+      }
+    ]
+  },
+  "used_fixed": false,
+  "n_folds": 18,
+  "mean_label_rate": 0.10118355911428072,
+  "elapsed_sec": 351.71797585487366,
+  "retstd_iters": [
+    30,
+    286,
+    493,
+    85,
+    110,
+    11,
+    54,
+    41,
+    1,
+    69,
+    34,
+    17,
+    1,
+    4,
+    2,
+    63,
+    73,
+    2
+  ],
+  "frozen_feat_sha256": "f01dca8b8647b60f520721bd574bc23aa252aa602f63e52c7f34b25ce7263fb6"
+}
