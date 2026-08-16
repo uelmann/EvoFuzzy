@@ -771,3 +771,56 @@ MANUEL2_PEG_NEEDLES = (
 )
 MANUEL2_PEG_USD_EXCEPT = frozenset({"SAND", "BAND", "BOND", "AMP"})
 
+# ---------------------------------------------------------------------------
+# Phase 7.b — FUZZY-STACK: product library + learned-rule LightGBM composition
+# (frozen a priori; backtest/analysis only; nothing adopted)
+# ---------------------------------------------------------------------------
+
+PHASE7B_FIREWALL = (
+    "The PI's hand formula stays quarantined. Rule features come ONLY from "
+    "RULE-FORGE/NFN outputs (assert provenance)."
+)
+
+PHASE7B_CRITERION = (
+    "An arm EXTRACTS if Δtail-IC(top-half) ≥ +0.010 AND Δoverlap ≥ +0.015 vs the "
+    "frozen spread with the vol-matched null passing. COMPOSITION-WINS if additionally "
+    "the arm beats its rule source's own standalone signal on tail-IC(top) (the stack "
+    "must add over both parents). Whole-list note: if an arm fails tail thresholds but "
+    "improves whole-list RankIC by ≥ +0.010 with null passing, it is recorded as a "
+    "WHOLE-RANKING LEAD for a fresh production-book phase (the 4.c precedent), not "
+    "adopted here. If all arms fail everything, the ledger gains: 'fuzzy-GBM composition "
+    "on daily 33-features does not exceed the frozen spread; the daily composition "
+    "question is closed.' Mechanical, no post-hoc adjustment."
+)
+
+PHASE7B_CLOSED = (
+    "fuzzy-GBM composition on daily 33-features does not exceed the frozen spread; "
+    "the daily composition question is closed."
+)
+
+PHASE7B_H = 14
+PHASE7B_KEEP_K = 150
+PHASE7B_ES_FLOOR = 200
+PHASE7B_ES_PATIENCE = 100
+PHASE7B_ES_CAP = 3000
+PHASE7B_LOG_EVERY = 50
+PHASE7B_UNDERTRAINED_LT = 250
+PHASE7B_TAIL_IC_DELTA = 0.010
+PHASE7B_OVERLAP_DELTA = 0.015
+PHASE7B_RANKIC_DELTA = 0.010
+PHASE7B_RULEFORGE_MAX = 8
+PHASE7B_NFN_N = 24
+PHASE7B_RULEFORGE_MIN_VERDICT = "VIABLE"
+PHASE7B_NFN_VERDICT = "LIVE"
+PHASE7B_HAND_FORMULA_NEEDLES = (
+    "manuel2",
+    "hand_formula",
+    "hand-formula",
+    "pi_formula",
+    "gauss(ret",
+    "gauss_ret14",
+    "std_63",
+    "ret_28",
+    "std63",
+)
+

@@ -337,6 +337,129 @@ def apply_calibrator(ir: IsotonicRegression | None, raw: np.ndarray) -> np.ndarr
     return np.clip(np.asarray(out, dtype=float), 0.0, 1.0)
 
 
+def _early_stop_exception(best_iteration: int, best_score):
+    for path in ("lightgbm.callback", "lightgbm.basic", "lightgbm.engine"):
+        try:
+            mod = __import__(path, fromlist=["EarlyStopException"])
+            cls = getattr(mod, "EarlyStopException", None) or getattr(mod, "_EarlyStopException", None)
+            if cls is not None:
+                return cls(best_iteration, best_score)
+        except Exception:
+            continue
+    class _FallbackEarlyStop(Exception):
+        def __init__(self, bi, bs):
+            super().__init__("early stop")
+            self.best_iteration = bi
+            self.best_score = bs
+
+    return _FallbackEarlyStop(best_iteration, best_score)
+
+
+def subsample_eval_curves(evals_result: dict, every: int = 50) -> dict:
+    """Keep train/holdout curves at every `every` iterations (1-based)."""
+    every = max(1, int(every))
+    ho = (evals_result or {}).get("inner_ho") or {}
+    tr = (evals_result or {}).get("train") or {}
+    ho_key = next(iter(ho), None)
+    tr_key = next(iter(tr), None)
+    ho_hist = list(ho.get(ho_key) or []) if ho_key else []
+    tr_hist = list(tr.get(tr_key) or []) if tr_key else []
+    n = max(len(ho_hist), len(tr_hist))
+    iters, train_v, ho_v = [], [], []
+    for i in range(n):
+        it = i + 1
+        if it % every != 0 and it != n:
+            continue
+        iters.append(it)
+        train_v.append(float(tr_hist[i]) if i < len(tr_hist) and np.isfinite(tr_hist[i]) else None)
+        ho_v.append(float(ho_hist[i]) if i < len(ho_hist) and np.isfinite(ho_hist[i]) else None)
+    return {
+        "every": every,
+        "metric_holdout": ho_key,
+        "metric_train": tr_key,
+        "iter": iters,
+        "train": train_v,
+        "holdout": ho_v,
+    }
+
+
+def make_hygiene_callbacks(
+    *,
+    patience: int,
+    floor: int,
+    log_every: int,
+    fold_id: int,
+    evals_result: dict,
+    train_x=None,
+    train_y=None,
+) -> tuple[list, dict]:
+    """ES may fire only after `floor` boosting rounds. Logs train/holdout every `log_every`."""
+    state = {
+        "best": None,
+        "best_iter": 0,
+        "wait": 0,
+        "higher_better": None,
+        "curves": {"iter": [], "train": [], "holdout": []},
+    }
+
+    def _cb(env):
+        it = int(env.iteration) + 1
+        recs = list(env.evaluation_result_list or [])
+        holdout = None
+        is_higher = True
+        for rec in recs:
+            name, _metric, val, hb = rec[0], rec[1], rec[2], rec[3]
+            if name == "inner_ho":
+                holdout = float(val)
+                is_higher = bool(hb)
+        if holdout is None and recs:
+            holdout = float(recs[0][2])
+            is_higher = bool(recs[0][3])
+        if state["higher_better"] is None:
+            state["higher_better"] = is_higher
+        if holdout is not None and np.isfinite(holdout):
+            best = state["best"]
+            improved = best is None or (is_higher and holdout > best) or ((not is_higher) and holdout < best)
+            if improved:
+                state["best"] = holdout
+                state["best_iter"] = it
+                state["wait"] = 0
+            else:
+                state["wait"] += 1
+        train_auc = None
+        if log_every and (it == 1 or it % int(log_every) == 0) and train_x is not None and train_y is not None:
+            try:
+                pred_tr = env.model.predict(train_x)
+                train_auc = _auc(np.asarray(train_y, dtype=float), np.asarray(pred_tr, dtype=float))
+            except Exception:
+                train_auc = None
+            print(
+                f"[HB-hygiene] fold={fold_id} iter={it} best_iter={state['best_iter']} "
+                f"train={train_auc} holdout={holdout} wait={state['wait']}",
+                flush=True,
+            )
+            state["curves"]["iter"].append(it)
+            state["curves"]["train"].append(float(train_auc) if train_auc is not None and np.isfinite(train_auc) else None)
+            state["curves"]["holdout"].append(float(holdout) if holdout is not None and np.isfinite(holdout) else None)
+        elif log_every and (it == 1 or it % int(log_every) == 0):
+            print(
+                f"[HB-hygiene] fold={fold_id} iter={it} best_iter={state['best_iter']} "
+                f"train={train_auc} holdout={holdout} wait={state['wait']}",
+                flush=True,
+            )
+        if it >= int(floor) and state["wait"] >= int(patience):
+            state["should_stop"] = True
+
+    _cb.order = 10
+    _cb.before_iteration = False
+    callbacks = [
+        lgb.record_evaluation(evals_result),
+        _cb,
+        lgb.log_evaluation(period=0),
+    ]
+    return callbacks, state
+
+
 def fit_predict_fold(
     df: pd.DataFrame,
     fold: FoldSpec,
@@ -351,6 +474,7 @@ def fit_predict_fold(
     weight_col: str | None = None,
     shuffle_mode: str = "plain",
     vol_col: str = "yz_vol_30",
+    hygiene: dict | None = None,
 ) -> tuple[pd.DataFrame, dict]:
     seed_everything(seed + fold.fold_id + (0 if shuffle_seed is None else int(shuffle_seed)))
     ycol = ycol or f"y_h{fold.horizon}"
@@ -414,29 +538,89 @@ def fit_predict_fold(
         "bagging_seed": seed + fold.fold_id,
         "deterministic": True,
         "force_row_wise": True,
-        "num_threads": 8,
+        "num_threads": int(cfg.get("num_threads", 8)),
     }
     n_estimators = int(cfg.get("n_estimators", 3000))
     patience = int(cfg.get("early_stopping_rounds", 100))
     evals_result: dict = {}
-    callbacks = [
-        lgb.record_evaluation(evals_result),
-        lgb.early_stopping(stopping_rounds=patience, first_metric_only=True, verbose=False),
-        lgb.log_evaluation(period=0),
-    ]
+    hyg = dict(hygiene) if hygiene else None
+    hyg_state: dict = {}
     feval = None
     if str(early_stop) == "per_date_auc":
         feval = _make_per_date_auc_feval(inner_ho["date"].to_numpy())
-    booster = lgb.train(
-        params,
-        dtrain,
-        num_boost_round=n_estimators,
-        valid_sets=[dvalid],
-        valid_names=["inner_ho"],
-        feval=feval,
-        callbacks=callbacks,
-    )
-    best_iteration = int(booster.best_iteration or 0) or n_estimators
+    valid_sets = [dvalid]
+    valid_names = ["inner_ho"]
+    if hyg:
+        n_estimators = int(hyg.get("cap", n_estimators))
+        patience = int(hyg.get("patience", patience))
+        floor = int(hyg.get("es_floor", 200))
+        log_every = int(hyg.get("log_every", 50))
+        callbacks, hyg_state = make_hygiene_callbacks(
+            patience=patience,
+            floor=floor,
+            log_every=log_every,
+            fold_id=int(fold.fold_id),
+            evals_result=evals_result,
+            train_x=inner_tr[feats],
+            train_y=inner_tr[ycol].to_numpy(),
+        )
+        valid_sets = [dvalid]
+        valid_names = ["inner_ho"]
+        booster = lgb.train(
+            params,
+            dtrain,
+            num_boost_round=int(floor),
+            valid_sets=valid_sets,
+            valid_names=valid_names,
+            feval=feval,
+            callbacks=callbacks,
+            keep_training_booster=True,
+        )
+        remaining = max(0, int(n_estimators) - int(floor))
+        if remaining:
+            es_callbacks = [
+                lgb.record_evaluation(evals_result),
+                callbacks[1],
+                lgb.early_stopping(stopping_rounds=patience, first_metric_only=True, verbose=False),
+                lgb.log_evaluation(period=0),
+            ]
+            booster = lgb.train(
+                params,
+                dtrain,
+                num_boost_round=remaining,
+                init_model=booster,
+                valid_sets=valid_sets,
+                valid_names=valid_names,
+                feval=feval,
+                callbacks=es_callbacks,
+            )
+        ho = (evals_result.get("inner_ho") or {})
+        ho_key = next(iter(ho), None)
+        hist = list(ho.get(ho_key) or []) if ho_key else []
+        if hist:
+            arr = np.asarray(hist, dtype=float)
+            if hyg_state.get("higher_better", True):
+                best_iteration = int(np.nanargmax(arr)) + 1
+            else:
+                best_iteration = int(np.nanargmin(arr)) + 1
+        else:
+            best_iteration = int(hyg_state.get("best_iter") or 0) or int(floor)
+    else:
+        callbacks = [
+            lgb.record_evaluation(evals_result),
+            lgb.early_stopping(stopping_rounds=patience, first_metric_only=True, verbose=False),
+            lgb.log_evaluation(period=0),
+        ]
+        booster = lgb.train(
+            params,
+            dtrain,
+            num_boost_round=n_estimators,
+            valid_sets=valid_sets,
+            valid_names=valid_names,
+            feval=feval,
+            callbacks=callbacks,
+        )
+        best_iteration = int(booster.best_iteration or 0) or n_estimators
 
     raw_ho = booster.predict(inner_ho[feats], num_iteration=best_iteration)
     ir = None if shuffle_labels else fit_isotonic(raw_ho, inner_ho[ycol].to_numpy())
@@ -495,6 +679,25 @@ def fit_predict_fold(
         "reliability": reliability,
         "horizon": fold.horizon,
     }
+    if hyg:
+        under_lt = int(hyg.get("undertrained_lt", 250))
+        under = bool(best_iteration < under_lt)
+        meta["hygiene"] = {
+            "es_floor": int(hyg.get("es_floor", 200)),
+            "patience": int(hyg.get("patience", 100)),
+            "cap": int(hyg.get("cap", n_estimators)),
+            "log_every": int(hyg.get("log_every", 50)),
+            "undertrained_lt": under_lt,
+            "undertrained": under,
+        }
+        meta["undertrained"] = under
+        curves = hyg_state.get("curves") or subsample_eval_curves(evals_result, every=int(hyg.get("log_every", 50)))
+        meta["eval_curves"] = curves
+        print(
+            f"[HB-hygiene] fold={fold.fold_id} best_iteration={best_iteration} "
+            f"UNDERTRAINED={under} (lt={under_lt})",
+            flush=True,
+        )
     return pred_df, meta
 
 
@@ -529,6 +732,8 @@ def train_all_folds(
     tag: str | None = None,
     commit_fn=None,
     weight_col: str | None = None,
+    hygiene: dict | None = None,
+    lgbm_params: dict | None = None,
 ) -> tuple[pd.DataFrame, list[dict], list[FoldSpec]]:
     folds = make_expanding_folds(pd.DatetimeIndex(df["date"].unique()), horizon=horizon)
     print(f"[HB] h={horizon} folds={len(folds)} early_stop={early_stop} ycol={ycol or f'y_h{horizon}'} tag={tag}", flush=True)
@@ -544,14 +749,23 @@ def train_all_folds(
         if out_dir is not None:
             stem = f"preds_{tag}_h{horizon}_fold{fold.fold_id}" if tag else f"preds_h{horizon}_fold{fold.fold_id}"
             dest = Path(out_dir) / f"{stem}.parquet"
-            if dest.exists():
+            meta_dest = Path(out_dir) / f"meta_{stem}.json"
+            if dest.exists() and meta_dest.exists():
                 pred_df = pd.read_parquet(dest)
+                meta = json.loads(meta_dest.read_text())
                 all_preds.append(pred_df)
-                metas.append({"fold_id": fold.fold_id, "status": "cached", "horizon": horizon})
+                metas.append(meta)
                 print(f"[HB] fold {fold.fold_id} cached {dest.name}", flush=True)
                 continue
         pred_df, meta = fit_predict_fold(
-            df, fold, feature_cols=feature_cols, early_stop=early_stop, ycol=ycol, weight_col=weight_col
+            df,
+            fold,
+            feature_cols=feature_cols,
+            early_stop=early_stop,
+            ycol=ycol,
+            weight_col=weight_col,
+            hygiene=hygiene,
+            lgbm_params=lgbm_params,
         )
         metas.append(meta)
         if not pred_df.empty:
@@ -559,6 +773,7 @@ def train_all_folds(
             if out_dir is not None:
                 stem = f"preds_{tag}_h{horizon}_fold{fold.fold_id}" if tag else f"preds_h{horizon}_fold{fold.fold_id}"
                 pred_df.to_parquet(Path(out_dir) / f"{stem}.parquet", index=False)
+                (Path(out_dir) / f"meta_{stem}.json").write_text(json.dumps(meta, indent=2, default=str))
                 if commit_fn is not None:
                     commit_fn()
         print(
