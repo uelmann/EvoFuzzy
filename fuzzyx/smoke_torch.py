@@ -40,10 +40,10 @@ def run() -> dict:
     out = model(x, m)
     stats = path_loss_torch(out["soft_pos"], r, mask=m)
     assert "mean_pnl" in stats and "core" in stats
-    # torch pearson(st_r, arange) must match numpy corrcoef
+    # torch pearson(cumprod(1+st_r), arange) must match numpy corrcoef
     with torch.no_grad():
         port, _ = portfolio_net(out["soft_pos"].detach(), r, mask=m)
-        st = port.cpu().numpy()
+        st = np.cumprod(1.0 + port.cpu().numpy())
         np_c = float(np.corrcoef(st, np.arange(st.size))[1, 0]) if np.std(st) > 1e-12 else 0.0
         torch_c = float(stats["core"].detach().cpu())
         if np.isfinite(np_c):

@@ -1,7 +1,7 @@
 """Differentiable weekly path loss.
 
-v1c: loss = −corr(st_r, arange(T)). st_r is net weekly portfolio return.
-No DD multipliers, no occupancy nuke, no pay-to-play.
+v1d: loss = −corr(cumprod(1+st_r), arange(T)). Wealth path, not period returns.
+corr(1+st_r, t) ≡ corr(st_r, t) and is not used.
 """
 
 from __future__ import annotations
@@ -73,9 +73,9 @@ def path_loss_torch(
     maxdd = (-dd.min()).clamp(max=MAXDD_CAP)
     under = torch.sigmoid((-dd - 1e-4) / 0.02)
     ddur = under.mean()
-    # v1c train core: corr(st_r, arange). Equity trend kept as diagnostic only.
-    core = _pearson_vs_arange(port)
-    trend_eq = _pearson_vs_arange(equity)
+    # v1d train core: corr(cumprod(1+st_r), arange). Period-return corr is diagnostic.
+    core = _pearson_vs_arange(equity)
+    trend_r = _pearson_vs_arange(port)
 
     if mask is not None:
         m = mask.to(dtype=pos.dtype)
@@ -97,7 +97,8 @@ def path_loss_torch(
         "loss": loss,
         "core": core.detach(),
         "trend": core.detach(),
-        "trend_equity": trend_eq.detach(),
+        "trend_equity": core.detach(),
+        "trend_returns": trend_r.detach(),
         "maxdd": maxdd.detach(),
         "ddur": ddur.detach(),
         "long_frac": long_f.detach(),

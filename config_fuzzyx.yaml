@@ -31,7 +31,7 @@ model:
   complex_cfs: false    # notebook CFS phase is a later ablation, off
 
 loss:
-  core: corr(st_r, arange(T))   # v1c: notebook line, period returns not equity
+  core: corr(cumprod(1+st_r), arange(T))  # v1d: wealth path; corr(1+r,t)≡corr(r,t)
   occ_nuke: false
   occ_lambda: 0.0
   active_lambda: 0.0

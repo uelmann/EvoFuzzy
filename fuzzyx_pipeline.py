@@ -1,8 +1,8 @@
 """
-FuzzyX-v1c one shot — loss = −corr(st_r, arange(T)).
+FuzzyX-v1d one shot — loss = −corr(cumprod(1+st_r), arange(T)).
 
-BACKTEST ONLY. Addendum frozen: reports/fuzzyx_addendum_v1c.md
-Does not replace COMBO / A0. Does not overwrite v1 / v1b reports.
+BACKTEST ONLY. Addendum frozen: reports/fuzzyx_addendum_v1d.md
+Does not replace COMBO / A0. Does not overwrite v1 / v1b / v1c reports.
 
     python3 fuzzyx_pipeline.py
 """
@@ -299,7 +299,7 @@ def run_fuzzyx(root: Path | None = None) -> dict:
         rules = model.rule_sheet(FEATURE_COLS)
 
     write_report(
-        Path("reports/fuzzyx_v1c_report.md"),
+        Path("reports/fuzzyx_v1d_report.md"),
         mode=mode,
         gates=gates,
         bias_folds=bias_folds,
@@ -310,8 +310,8 @@ def run_fuzzyx(root: Path | None = None) -> dict:
         rules=rules,
         n_params=n_params or FuzzyXNet(seed=SEED).n_params(),
         notes=notes,
-        title="FuzzyX-v1c report",
-        addendum="reports/fuzzyx_addendum_v1c.md",
+        title="FuzzyX-v1d report",
+        addendum="reports/fuzzyx_addendum_v1d.md",
     )
     summary = {
         "mode": mode,

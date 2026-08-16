@@ -1,7 +1,6 @@
-"""v1c path loss: −corr(st_r, arange(T)).
+"""v1d path loss: −corr(cumprod(1+st_r), arange(T)).
 
-st_r is net weekly portfolio return. Occupancy nuke off. DD terms are
-diagnostics only (not in the train scalar).
+Wealth path, not period returns. Occupancy nuke off. DD terms are diagnostics.
 """
 
 from __future__ import annotations
@@ -117,12 +116,12 @@ def path_loss(
     turn_lambda: float = TURN_LAMBDA,
     bias_lambda: float = BIAS_LAMBDA,
 ) -> dict[str, float]:
-    """v1c: loss = −corr(st_r, arange). Lower is better."""
+    """v1d: loss = −corr(cumprod(1+st_r), arange). Lower is better."""
     port, w = portfolio_returns(positions, asset_ret, mask=mask)
     equity = np.cumprod(1.0 + port)
     maxdd, ddur, _ = max_dd_path(port)
-    core = trend_corr(port)
-    trend_eq = trend_corr(equity)
+    core = trend_corr(equity)
+    trend_r = trend_corr(port)
     long_f, short_f, traded_f = occupancy(positions, mask)
     if OCC_NUKE and (
         traded_f < OCC_TRADED_MIN or short_f < OCC_SHORT_MIN or long_f < OCC_LONG_MIN
@@ -135,7 +134,8 @@ def path_loss(
         "loss": float(loss),
         "core": float(core),
         "trend": float(core),
-        "trend_equity": float(trend_eq),
+        "trend_equity": float(core),
+        "trend_returns": float(trend_r),
         "maxdd": float(maxdd),
         "ddur": float(ddur),
         "long_frac": long_f,
