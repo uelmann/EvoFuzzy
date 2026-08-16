@@ -1,0 +1,123 @@
+{
+  "written_at_utc": "2026-08-16T16:19:48.910646+00:00",
+  "universe": "top40",
+  "ks": [
+    0,
+    3,
+    5,
+    10,
+    20,
+    40,
+    60
+  ],
+  "confirm_ks": [
+    5,
+    10,
+    20,
+    40
+  ],
+  "band": [
+    0.32,
+    0.48
+  ],
+  "ic0": 0.08032113973646492,
+  "rows": [
+    {
+      "k": 0,
+      "ic_k": 0.08032113973646492,
+      "nw_t": 7.800801814307777,
+      "n_days": 1620,
+      "rho_k": 1.0,
+      "rho_n": 1620,
+      "ic_k_over_ic_0": 1.0,
+      "c_rho_over_ic_ratio": 1.0
+    },
+    {
+      "k": 3,
+      "ic_k": 0.07051167064108359,
+      "nw_t": 7.157746615602347,
+      "n_days": 1617,
+      "rho_k": 0.5863996426898631,
+      "rho_n": 1617,
+      "ic_k_over_ic_0": 0.8778718886763015,
+      "c_rho_over_ic_ratio": 0.6679786085576398
+    },
+    {
+      "k": 5,
+      "ic_k": 0.06603306659718183,
+      "nw_t": 6.986717155058334,
+      "n_days": 1615,
+      "rho_k": 0.46700467260574124,
+      "rho_n": 1615,
+      "ic_k_over_ic_0": 0.8221131673907703,
+      "c_rho_over_ic_ratio": 0.5680539992905412
+    },
+    {
+      "k": 10,
+      "ic_k": 0.058511608345255456,
+      "nw_t": 6.744415717089078,
+      "n_days": 1610,
+      "rho_k": 0.2954361234771937,
+      "rho_n": 1610,
+      "ic_k_over_ic_0": 0.7284708426353644,
+      "c_rho_over_ic_ratio": 0.4055565524193177
+    },
+    {
+      "k": 20,
+      "ic_k": 0.04829338063884069,
+      "nw_t": 5.005414712586584,
+      "n_days": 1600,
+      "rho_k": 0.16717746576073242,
+      "rho_n": 1600,
+      "ic_k_over_ic_0": 0.6012536773916821,
+      "c_rho_over_ic_ratio": 0.2780481384928411
+    },
+    {
+      "k": 40,
+      "ic_k": 0.053396555321469225,
+      "nw_t": 5.11825760291773,
+      "n_days": 1580,
+      "rho_k": 0.11630489801123274,
+      "rho_n": 1580,
+      "ic_k_over_ic_0": 0.6647883172059593,
+      "c_rho_over_ic_ratio": 0.17495027364507687
+    },
+    {
+      "k": 60,
+      "ic_k": 0.058285728035037704,
+      "nw_t": 5.524360597776232,
+      "n_days": 1560,
+      "rho_k": 0.11165424696644514,
+      "rho_n": 1560,
+      "ic_k_over_ic_0": 0.7256586276822542,
+      "c_rho_over_ic_ratio": 0.15386607794227927
+    }
+  ],
+  "c_on_confirm_ks": [
+    0.5680539992905412,
+    0.4055565524193177,
+    0.2780481384928411,
+    0.17495027364507687
+  ],
+  "c_in_band_5_10_20_40": false,
+  "c_monotonic_confirm_ks": "decreasing",
+  "c_monotonic_k_gt_0": "decreasing",
+  "ic_high_rho_collapse": false,
+  "collapse_notes": [],
+  "verdict": "FALSIFIED",
+  "model": "score = persistent state + noise; IC_k/IC_0 = rho_theta(k); rho_k = rho_theta(k)*SNR; c = rho_k/(IC_k/IC_0) constant ~0.40",
+  "no_training": true,
+  "stage_a": false,
+  "amendment_written": false,
+  "investigation_reopened": true,
+  "y_cs_spearman_rho": {
+    "3": 0.4975,
+    "5": 0.2462,
+    "10": 0.0264,
+    "20": 0.0048,
+    "40": 0.0358,
+    "60": 0.0252,
+    "note": "top-40 CS Spearman of y_h7 at lag k; overlap of 7d forwards dies at k>=10"
+  },
+  "investigation_note": "c decreases monotonically on {5,10,20,40} and exits [0.32,0.48] except k=10. IC_k/IC_0 stays 0.60-0.73 at k>=20 while rho_k floors ~0.11. y CS rho ~0 after k=10, so the IC floor is not y-AR(1) and not single-factor SNR*rho_theta."
+}
