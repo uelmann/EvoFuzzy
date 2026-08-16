@@ -3,7 +3,9 @@ BTC-BEATER Phase 8 — MODEL-ZOO (CS-ATTN / TabPFN v2 / ridge-on-ranks).
 
 BACKTEST / ANALYSIS ONLY. CPU for A+C. GPU allowed ONLY for Arm B (TabPFN), cap $20.
 Frozen products untouched. Master only.
-Usage: modal run btcb_phase8_pipeline.py
+Usage:
+  modal run btcb_phase8_pipeline.py
+  modal run btcb_phase8_pipeline.py --mode judge   # resume: skip prepare/train
 """
 
 from __future__ import annotations
@@ -11,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import pickle
 import threading
 import time
 from pathlib import Path
@@ -348,7 +351,7 @@ def fold_to_dict_safe(f) -> dict:
     return fold_to_dict(f)
 
 
-def _load_prepared(need_close=True):
+def _load_prepared(need_close=True, slim=False):
     import pandas as pd
 
     from btcb.phase8 import fold_from_dict
@@ -359,10 +362,12 @@ def _load_prepared(need_close=True):
     if close is not None:
         close.index = pd.DatetimeIndex(pd.to_datetime(close.index, utc=True)).tz_convert("UTC").normalize()
         close.columns = [int(c) for c in close.columns]
-    pit = pd.read_parquet(WORK / "pit.parquet")
-    pit["date"] = pd.to_datetime(pit["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
-    twin = pd.read_parquet(WORK / "twin.parquet")
-    twin["date"] = pd.to_datetime(twin["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
+    pit = twin = None
+    if not slim:
+        pit = pd.read_parquet(WORK / "pit.parquet")
+        pit["date"] = pd.to_datetime(pit["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
+        twin = pd.read_parquet(WORK / "twin.parquet")
+        twin["date"] = pd.to_datetime(twin["date"], utc=True).dt.tz_convert("UTC").dt.normalize()
     folds = [fold_from_dict(x) for x in json.loads((WORK / "folds.json").read_text())]
     meta = json.loads((WORK / "meta.json").read_text())
     return labeled, close, pit, twin, folds, meta
@@ -553,11 +558,9 @@ def run_arm_b() -> dict:
 
 
 def _null_payload_run(payload: dict, device: str) -> dict:
-    import pandas as pd
-
     from btcb.phase8 import fold_from_dict, run_one_null_cell
 
-    labeled, close, pit, twin, folds, meta = _load_prepared()
+    labeled, close, _pit, _twin, _folds, meta = _load_prepared(slim=True)
     fold = fold_from_dict(payload["fold"])
     return run_one_null_cell(
         labeled,
@@ -571,6 +574,40 @@ def _null_payload_run(payload: dict, device: str) -> dict:
         int(meta["btc_id"]),
         device=device,
     )
+
+
+def _coerce_null_recs(payloads: list, recs: list) -> list:
+    clean = []
+    for p, r in zip(payloads, recs):
+        if isinstance(r, BaseException):
+            clean.append(
+                {
+                    "status": f"exc:{type(r).__name__}:{r}",
+                    "tail_ic_top": None,
+                    "overlap": None,
+                    "monster": None,
+                    "rankic": None,
+                    "fold_id": int(p["fold"]["fold_id"]),
+                    "shuffle_seed": int(p["shuffle_seed"]),
+                    "arm": p["arm"],
+                }
+            )
+        elif isinstance(r, dict):
+            clean.append(r)
+        else:
+            clean.append(
+                {
+                    "status": f"bad:{type(r).__name__}",
+                    "tail_ic_top": None,
+                    "overlap": None,
+                    "monster": None,
+                    "rankic": None,
+                    "fold_id": int(p["fold"]["fold_id"]),
+                    "shuffle_seed": int(p["shuffle_seed"]),
+                    "arm": p["arm"],
+                }
+            )
+    return clean
 
 
 @app.function(
@@ -614,28 +651,50 @@ def null_cell_gpu(payload: dict) -> dict:
     cpu=8,
     memory=65536,
 )
-def judge_phase8() -> dict:
+def null_seq_cpu(payloads: list) -> list:
+    """Sequential fallback if .map fan-out fails. Same frozen ridge/attn/tabpfn procedure."""
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""
+    os.environ["PYTHONUNBUFFERED"] = "1"
+    import torch
+
+    torch.set_num_threads(8)
+    hb = KillHeartbeat("null-seq")
+    out = []
+    try:
+        for i, p in enumerate(payloads):
+            rec = _null_payload_run(p, device="cpu")
+            out.append(rec)
+            hb.ping(f"cell {i+1}/{len(payloads)} fold={p.get('fold', {}).get('fold_id')} seed={p.get('shuffle_seed')}")
+        return out
+    finally:
+        hb.close()
+
+
+@app.function(
+    image=image_cpu,
+    timeout=60 * 60 * 4,
+    retries=0,
+    volumes={"/data/quant": quant_vol},
+    cpu=8,
+    memory=65536,
+)
+def judge_metrics() -> dict:
     os.environ["CUDA_VISIBLE_DEVICES"] = ""
     os.environ["PYTHONUNBUFFERED"] = "1"
     import pandas as pd
 
     from btcb.constants import (
         ALT_BPS,
-        DEATH_CONVENTION,
         PHASE3C_REF_START,
         PHASE8_CRITERION,
-        PHASE8_GPU_USD_PER_HOUR_A10G,
         PHASE8_H,
         PHASE8_NULL_FOLD_IDS,
     )
     from btcb.gates import pick_folds_by_id
-    from btcb.oracle_ladder import _as_utc, ffill_members, formation_dates, run_periodic_long
+    from btcb.oracle_ladder import ffill_members, formation_dates, run_periodic_long
     from btcb.phase4v2 import collapse_fold_preds, preds_to_score_at
     from btcb.phase8 import (
-        finish_phase8_null,
-        fold_cell,
         fold_to_dict,
-        mechanical_verdicts,
         null_shuffle_seeds,
         pick_best_arm,
         real_fold_metrics,
@@ -644,19 +703,12 @@ def judge_phase8() -> dict:
         signal_corr_matrix,
         subsample_oos_dates,
     )
-    from btcb.phase8_report import (
-        plot_corr,
-        plot_equity,
-        plot_rankic,
-        update_ledger_phase8,
-        write_phase8,
-    )
 
-    hb = KillHeartbeat("judge")
+    hb = KillHeartbeat("judge-metrics")
     t0 = time.time()
-    addendum = Path("/root/btcb_phase8_addendum.md").read_text()
     try:
         labeled, close, pit, twin, folds, meta = _load_prepared()
+        hb.ping("loaded prepared")
         btc_id = int(meta["btc_id"])
         frozen = collapse_fold_preds(twin.rename(columns={"spread": "p"}), "p").rename(columns={"p": "spread"})
 
@@ -677,6 +729,7 @@ def judge_phase8() -> dict:
             ridge = collapse_fold_preds(ridge, "signal")
         if not tab.empty:
             tab = collapse_fold_preds(tab, "signal")
+        hb.ping(f"preds attn={len(attn)} ridge={len(ridge)} tab={len(tab)}")
 
         tab_wall = {}
         if (WORK / "tabpfn_wall.json").exists():
@@ -685,7 +738,6 @@ def judge_phase8() -> dict:
         judgment_set = "full_oos"
         judge_dates = None
         if not tab_ok:
-            # TabPFN missing: still full OOS for A/C; B UNAVAILABLE
             judgment_set = "full_oos"
         elif tab_wall.get("subsample"):
             judgment_set = "1-in-3"
@@ -704,10 +756,9 @@ def judge_phase8() -> dict:
         for name, (df, col) in frames.items():
             grid_full[name] = score_signal(df, col, labeled, close, btc_id, None)
             grid[name] = score_signal(df, col, labeled, close, btc_id, judge_dates)
-            print(
-                f"[HB] {name} rankic={grid[name].get('rankic')} tailIC={grid[name].get('tail_ic_top')} "
-                f"n={grid[name].get('n_dates')}",
-                flush=True,
+            hb.ping(
+                f"{name} rankic={grid[name].get('rankic')} tailIC={grid[name].get('tail_ic_top')} "
+                f"n={grid[name].get('n_dates')}"
             )
 
         seed_path = WORK / "preds_cs_attn_seeds.parquet"
@@ -715,10 +766,11 @@ def judge_phase8() -> dict:
         if seed_path.exists():
             sp = pd.read_parquet(seed_path)
             disp = seed_dispersion(sp, labeled, close, btc_id, judge_dates)
+        hb.ping("seed dispersion")
 
         corr = signal_corr_matrix(frames, labeled, close, btc_id, judge_dates)
         best = pick_best_arm(grid)
-        print(f"[HB] best arm by RankIC={best}", flush=True)
+        hb.ping(f"best arm by RankIC={best}")
 
         from btcb.academic_factor import pit_members as _pm
 
@@ -735,7 +787,7 @@ def judge_phase8() -> dict:
             books[name] = run_periodic_long(
                 close, members, btc_id, scores, pairs14, cost_bps=float(ALT_BPS), label=name
             )
-            print(f"[HB] book {name} CAGR={books[name].get('cagr')} RankIC={books[name].get('rankic')}", flush=True)
+            hb.ping(f"book {name} CAGR={books[name].get('cagr')} RankIC={books[name].get('rankic')}")
 
         attn_diag = {}
         if (WORK / "attn_diag.json").exists():
@@ -749,49 +801,6 @@ def judge_phase8() -> dict:
         if (WORK / "tabpfn_meta.json").exists():
             configs["tabpfn"] = (json.loads((WORK / "tabpfn_meta.json").read_text()) or {}).get("config")
 
-        null = None
-        null_gpu_sec = 0.0
-        if best:
-            null_folds = pick_folds_by_id(folds, PHASE8_NULL_FOLD_IDS)
-            raw_map = {"cs_attn": attn, "tabpfn": tab, "ridge": ridge}
-            raw = raw_map.get(best)
-            # real fold metrics need fold_id — reload uncollapsed
-            raw_fold = _load_pred(best if best != "cs_attn" else "cs_attn")
-            if raw_fold.empty:
-                raw_fold = raw
-            real = real_fold_metrics(raw_fold, null_folds, labeled, close, btc_id, "signal")
-            payloads = []
-            for f in null_folds:
-                for ss in null_shuffle_seeds():
-                    payloads.append({"arm": best, "fold": fold_to_dict(f), "shuffle_seed": int(ss)})
-            print(f"[HB] null map arm={best} cells={len(payloads)}", flush=True)
-            t_n = time.time()
-            if best == "tabpfn":
-                recs = list(null_cell_gpu.map(payloads, return_exceptions=True))
-            else:
-                recs = list(null_cell_cpu.map(payloads, return_exceptions=True))
-            null_gpu_sec = time.time() - t_n if best == "tabpfn" else 0.0
-            clean = []
-            for r in recs:
-                if isinstance(r, Exception):
-                    clean.append({"status": f"exc:{r}", "tail_ic_top": None, "overlap": None, "monster": None, "rankic": None})
-                else:
-                    clean.append(r)
-            (WORK / "null_cells.json").write_text(json.dumps(_jsonable(clean), indent=2, default=str))
-            cells = {"tail_ic_top": [], "overlap": [], "monster": [], "rankic": []}
-            for f in null_folds:
-                sl = [c for c in clean if c.get("fold_id") == int(f.fold_id)]
-                cells["tail_ic_top"].append(fold_cell(f, [c.get("tail_ic_top") for c in sl], real, "tail_ic_top"))
-                cells["overlap"].append(fold_cell(f, [c.get("overlap") for c in sl], real, "overlap"))
-                cells["monster"].append(fold_cell(f, [c.get("monster") for c in sl], real, "monster"))
-                cells["rankic"].append(fold_cell(f, [c.get("rankic") for c in sl], real, "rankic"))
-            null = finish_phase8_null(f"{best}_vol_matched_null", cells)
-            (WORK / "null.json").write_text(json.dumps(_jsonable(null), indent=2, default=str))
-            print(f"[HB] null passed={null.get('passed')} verdict={(null.get('tail_ic_top') or {}).get('verdict')}", flush=True)
-
-        verdict = mechanical_verdicts(grid, null, best, corr)
-        ac_meta = {}
-        # timings from files if present
         ridge_sec = None
         cs_sec = None
         if (WORK / "ridge_meta.json").exists():
@@ -801,7 +810,134 @@ def judge_phase8() -> dict:
             am = json.loads((WORK / "cs_attn_meta.json").read_text())
             cs_sec = sum((m.get("elapsed") or 0) for m in (am.get("meta") or []))
 
-        gpu_usd = float(tab_wall.get("gpu_usd_est") or 0) + (null_gpu_sec / 3600.0) * float(PHASE8_GPU_USD_PER_HOUR_A10G)
+        payloads = []
+        real = {}
+        if best:
+            null_folds = pick_folds_by_id(folds, PHASE8_NULL_FOLD_IDS)
+            raw_fold = _load_pred(best)
+            if raw_fold.empty:
+                raw_fold = {"cs_attn": attn, "tabpfn": tab, "ridge": ridge}.get(best)
+            real = real_fold_metrics(raw_fold, null_folds, labeled, close, btc_id, "signal")
+            for f in null_folds:
+                for ss in null_shuffle_seeds():
+                    payloads.append({"arm": best, "fold": fold_to_dict(f), "shuffle_seed": int(ss)})
+        hb.ping(f"null payloads arm={best} cells={len(payloads)}")
+
+        blob = {
+            "best_arm": best,
+            "grid": grid,
+            "grid_full": grid_full,
+            "corr": corr,
+            "books": books,
+            "disp": disp,
+            "attn_diag": attn_diag,
+            "configs": configs,
+            "tab_wall": tab_wall,
+            "judgment_set": judgment_set,
+            "tab_ok": tab_ok,
+            "real": real,
+            "meta": meta,
+            "ridge_sec": ridge_sec,
+            "cs_sec": cs_sec,
+            "metrics_sec": time.time() - t0,
+        }
+        with open(WORK / "judge_partial.pkl", "wb") as f:
+            pickle.dump(blob, f, protocol=4)
+        (WORK / "null_payloads.json").write_text(json.dumps(payloads, indent=2, default=str))
+        (WORK / "judge_metrics.json").write_text(
+            json.dumps(
+                {
+                    "best_arm": best,
+                    "judgment_set": judgment_set,
+                    "tab_ok": tab_ok,
+                    "grid": {k: _jsonable(v) for k, v in grid.items()},
+                    "corr": _jsonable(corr),
+                    "n_payloads": len(payloads),
+                },
+                indent=2,
+                default=str,
+            )
+        )
+        quant_vol.commit()
+        hb.ping("pickled judge_partial")
+        return {
+            "best_arm": best,
+            "n_dates": int((grid.get("frozen_spread") or {}).get("n_dates") or 0),
+            "judgment_set": str(judgment_set),
+            "tab_ok": bool(tab_ok),
+            "n_payloads": int(len(payloads)),
+            "payloads": payloads,
+        }
+    finally:
+        hb.close()
+
+
+@app.function(
+    image=image_cpu,
+    timeout=60 * 60 * 2,
+    retries=0,
+    volumes={"/data/quant": quant_vol},
+    cpu=4,
+    memory=32768,
+)
+def write_reports(null_recs: list | None = None, null_gpu_sec: float = 0.0, null_map_sec: float = 0.0) -> dict:
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""
+    os.environ["PYTHONUNBUFFERED"] = "1"
+    import pandas as pd
+
+    from btcb.constants import PHASE8_CRITERION, PHASE8_GPU_USD_PER_HOUR_A10G, PHASE8_NULL_FOLD_IDS
+    from btcb.gates import pick_folds_by_id
+    from btcb.phase8 import finish_phase8_null, fold_cell, mechanical_verdicts
+    from btcb.phase8_report import plot_corr, plot_equity, plot_rankic, update_ledger_phase8, write_phase8
+
+    hb = KillHeartbeat("write-reports")
+    t0 = time.time()
+    addendum = Path("/root/btcb_phase8_addendum.md").read_text()
+    try:
+        quant_vol.reload()
+        hb.ping("volume reloaded")
+        with open(WORK / "judge_partial.pkl", "rb") as f:
+            blob = pickle.load(f)
+        labeled, close, _pit, _twin, folds, meta = _load_prepared(slim=True)
+        best = blob["best_arm"]
+        grid = blob["grid"]
+        grid_full = blob["grid_full"]
+        corr = blob["corr"]
+        books = blob["books"]
+        disp = blob.get("disp") or {}
+        attn_diag = blob.get("attn_diag") or {}
+        configs = blob.get("configs") or {}
+        tab_wall = blob.get("tab_wall") or {}
+        judgment_set = blob.get("judgment_set") or "full_oos"
+        real = blob.get("real") or {}
+        hb.ping(f"loaded pickle best={best}")
+
+        clean = null_recs
+        if clean is None:
+            if (WORK / "null_cells.json").exists():
+                clean = json.loads((WORK / "null_cells.json").read_text())
+            else:
+                clean = []
+        (WORK / "null_cells.json").write_text(json.dumps(_jsonable(clean), indent=2, default=str))
+
+        null = None
+        if best and clean:
+            null_folds = pick_folds_by_id(folds, PHASE8_NULL_FOLD_IDS)
+            cells = {"tail_ic_top": [], "overlap": [], "monster": [], "rankic": []}
+            for f in null_folds:
+                sl = [c for c in clean if c.get("fold_id") == int(f.fold_id)]
+                cells["tail_ic_top"].append(fold_cell(f, [c.get("tail_ic_top") for c in sl], real, "tail_ic_top"))
+                cells["overlap"].append(fold_cell(f, [c.get("overlap") for c in sl], real, "overlap"))
+                cells["monster"].append(fold_cell(f, [c.get("monster") for c in sl], real, "monster"))
+                cells["rankic"].append(fold_cell(f, [c.get("rankic") for c in sl], real, "rankic"))
+            null = finish_phase8_null(f"{best}_vol_matched_null", cells)
+            (WORK / "null.json").write_text(json.dumps(_jsonable(null), indent=2, default=str))
+            hb.ping(f"null passed={null.get('passed')} verdict={(null.get('tail_ic_top') or {}).get('verdict')}")
+
+        verdict = mechanical_verdicts(grid, null, best, corr)
+        gpu_usd = float(tab_wall.get("gpu_usd_est") or 0) + (float(null_gpu_sec) / 3600.0) * float(
+            PHASE8_GPU_USD_PER_HOUR_A10G
+        )
         extra = {
             "pred_sha256": (meta.get("pred_hash") or {}).get("sha256"),
             "cmc_panel_sha256": meta.get("cmc_sha"),
@@ -820,13 +956,14 @@ def judge_phase8() -> dict:
             "tabpfn_sec": tab_wall.get("elapsed"),
             "tabpfn_pred_sec": tab_wall.get("pred_sec_total"),
             "tabpfn_pred_per_date": tab_wall.get("pred_sec_per_date"),
-            "cs_attn_sec": cs_sec,
-            "ridge_sec": ridge_sec,
-            "elapsed_sec": time.time() - t0,
+            "cs_attn_sec": blob.get("cs_sec"),
+            "ridge_sec": blob.get("ridge_sec"),
+            "null_map_sec": float(null_map_sec),
+            "elapsed_sec": float(blob.get("metrics_sec") or 0) + float(null_map_sec) + (time.time() - t0),
             "seed_dispersion": disp,
             "plain": None,
         }
-        va = (verdict.get("arms") or {})
+        va = verdict.get("arms") or {}
         extra["plain"] = (
             f"Phase 8 MODEL-ZOO on {judgment_set}: "
             f"A CS-ATTN {(va.get('cs_attn') or {}).get('verdict')}; "
@@ -875,6 +1012,7 @@ def judge_phase8() -> dict:
         (rep_dir / "btcb_phase8_modelzoo.json").write_text(json.dumps(payload, indent=2, default=str))
         (rep_dir / "btcb_phase8_addendum.md").write_text(addendum)
         quant_vol.commit()
+        hb.ping("wrote reports")
 
         print(f"ARM A CS-ATTN-DAILY: {(va.get('cs_attn') or {}).get('verdict')}", flush=True)
         print(f"ARM B TabPFN: {(va.get('tabpfn') or {}).get('verdict')}", flush=True)
@@ -902,25 +1040,7 @@ def judge_phase8() -> dict:
         hb.close()
 
 
-@app.local_entrypoint()
-def main():
-    print("[local] Phase 8 MODEL-ZOO...", flush=True)
-    prep = prepare_phase8.remote()
-    print(json.dumps(_jsonable(prep), indent=2, default=str), flush=True)
-    ac = run_arms_ac.spawn()
-    b = run_arm_b.spawn()
-    ac_s = b_s = None
-    try:
-        ac_s = ac.get()
-        print("AC", json.dumps(_jsonable(ac_s), indent=2, default=str), flush=True)
-    except Exception as e:
-        print(f"[local] AC FAILED: {e}", flush=True)
-    try:
-        b_s = b.get()
-        print("B", json.dumps(_jsonable(b_s), indent=2, default=str), flush=True)
-    except Exception as e:
-        print(f"[local] B FAILED: {e}", flush=True)
-    summary = judge_phase8.remote()
+def _pull_artifacts():
     import shutil
     import subprocess
 
@@ -955,5 +1075,63 @@ def main():
         led = art / "reports" / "numbers_ledger.md"
         if led.exists():
             (opt / "reports" / "numbers_ledger.md").write_bytes(led.read_bytes())
+
+
+def _run_null_map(best: str | None, payloads: list) -> tuple[list, float]:
+    if not payloads:
+        return [], 0.0
+    fn = null_cell_gpu if best == "tabpfn" else null_cell_cpu
+    print(f"[local] null .map arm={best} cells={len(payloads)} (local entrypoint, not nested)", flush=True)
+    t_n = time.time()
+    try:
+        recs = list(fn.map(payloads, return_exceptions=True, order_outputs=True))
+    except Exception as e:
+        print(f"[local] null map failed ({e}); sequential fallback", flush=True)
+        recs = null_seq_cpu.remote(payloads)
+        return _coerce_null_recs(payloads, recs), time.time() - t_n
+    clean = _coerce_null_recs(payloads, recs)
+    failed_p, failed_i = [], []
+    for i, (p, c) in enumerate(zip(payloads, clean)):
+        st = str(c.get("status") or "")
+        if st.startswith("exc") or st.startswith("error") or st.startswith("bad"):
+            failed_p.append(p)
+            failed_i.append(i)
+    if failed_p:
+        print(f"[local] retrying {len(failed_p)} failed null cells sequentially", flush=True)
+        retry = null_seq_cpu.remote(failed_p)
+        for i, rec in zip(failed_i, retry):
+            clean[i] = rec
+    return clean, time.time() - t_n
+
+
+@app.local_entrypoint()
+def main(mode: str = "full"):
+    print(f"[local] Phase 8 MODEL-ZOO mode={mode}", flush=True)
+    if mode not in ("full", "judge"):
+        raise RuntimeError(f"unknown mode {mode}; use full|judge")
+    if mode == "full":
+        prep = prepare_phase8.remote()
+        print(json.dumps(_jsonable(prep), indent=2, default=str), flush=True)
+        ac = run_arms_ac.spawn()
+        b = run_arm_b.spawn()
+        try:
+            ac_s = ac.get()
+            print("AC", json.dumps(_jsonable(ac_s), indent=2, default=str), flush=True)
+        except Exception as e:
+            print(f"[local] AC FAILED: {e}", flush=True)
+        try:
+            b_s = b.get()
+            print("B", json.dumps(_jsonable(b_s), indent=2, default=str), flush=True)
+        except Exception as e:
+            print(f"[local] B FAILED: {e}", flush=True)
+    jm = judge_metrics.remote()
+    print("METRICS", json.dumps(_jsonable({k: v for k, v in jm.items() if k != "payloads"}), indent=2, default=str), flush=True)
+    payloads = jm.get("payloads") or []
+    best = jm.get("best_arm")
+    clean, null_map_sec = _run_null_map(best, payloads)
+    null_gpu_sec = null_map_sec if best == "tabpfn" else 0.0
+    print(f"[local] null done cells={len(clean)} sec={null_map_sec:.0f}", flush=True)
+    summary = write_reports.remote(clean, null_gpu_sec, null_map_sec)
+    _pull_artifacts()
     print(json.dumps(_jsonable(summary), indent=2, default=str))
     print("[local] Phase 8 complete.", flush=True)
