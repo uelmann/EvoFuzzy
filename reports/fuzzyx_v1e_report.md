@@ -131,3 +131,11 @@
 
 - Clause (iv) SKIP: A0 h=7 preds missing.
 - Official VIABLE is disabled for LOCAL-RESTRICTED even if Sharpe≥0.
+
+## Reading (not a retune)
+
+This is the product you meant: `corr(wealth, t) * (1 + cumRet[-1])` with `cumRet[-1] = wealth[-1] − 1`. Not `corr(1+r, t)`.
+
+Hard book: wealth-corr **−0.879**, last cumret **−90.4%** (`equity_end = 0.096`), Sharpe **−0.882**, traded_frac 0.76, almost all short (L 0.04 / S 0.72). Multiplying by ending wealth did inject return — the OOS path is a large loss, so the product is negative. Shuffle still FAIL (~**+1.05%/week** fold 0): the product does not remove net market exposure on 13-week expanding folds.
+
+No retune. v1–v1d untouched. COMBO / A0 not replaced.
