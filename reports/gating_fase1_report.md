@@ -51,8 +51,19 @@ On top-40, score_t vs y_{t→t+7} has mean RankIC 0.0803. Same scores vs y shift
 
 That is static/slow cross-sectional structure (name persistence: vol, ADV, beta), not 7-day timing. The test did its job. Threshold stays frozen. FASE 1 is not green; Stage A does not start on this result.
 
+## ICIR
+
+Top-40 **ICIR 5.90 is annualized**: `mean(daily RankIC) / std * sqrt(252)` (`baseline.evaluate.summarize_ic`). Explicit in `results/baseline.json` → `icir_convention`. Daily CS Spearman SE at N≈40 is ~0.16; a non-annualized ICIR of 5.9 is impossible.
+
+## Survivorship + score persistence (2026-08-16)
+
+See `reports/gating_fase1_survivorship.md`. Short version: 831 is Vision S3 prefixes, not `exchangeInfo`. Panel 695 has **28** names with last kline &lt; 2026-07-01 (4.0%), not ~0 — not survivors-only; `baseline.json` stands. Top-40 lag-10 CS ρ Spearman **0.295** (not 0.73). Within-bar residual RankIC vs y_h7 **0.0609**, NW-t **6.40**. Pre-reg and shifted-target threshold unchanged. No Stage A.
+
 ## Files
 
 - `results/baseline.json`
 - `results/fase1_suite.json`
 - `results/LADDER.md`
+- `reports/gating_fase1_survivorship.md`
+- `results/fase1_survivorship.json`
+- `results/fase1_survivorship_persist.json`
