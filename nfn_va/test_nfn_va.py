@@ -119,6 +119,30 @@ def test_membership_movement() -> None:
     assert rows[0]["feature"] == "f2"
 
 
+def test_attach_excess_ignores_colliding_score_cols() -> None:
+    import pandas as pd
+    from nfn_va.magdiag import attach_excess
+
+    scores = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2020-01-01", "2020-01-01"], utc=True),
+            "id": [2, 3],
+            "spread": [0.2, 0.1],
+            "excess_h14": [np.nan, np.nan],
+        }
+    )
+    labeled = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2020-01-01", "2020-01-01"], utc=True),
+            "id": [2, 3],
+            "excess_h14": [0.05, -0.01],
+        }
+    )
+    out = attach_excess(scores, labeled, "spread", "excess_h14")
+    assert "excess_h14" in out.columns
+    assert list(out["excess_h14"]) == [0.05, -0.01]
+
+
 def test_nfn_v0_readonly_baked() -> None:
     assert NFN_V0_READONLY["n_params"] == 5488
     assert NFN_V0_READONLY["verdict"] == "PARKED"
@@ -168,6 +192,7 @@ if __name__ == "__main__":
     test_verdict_parked_a()
     test_top_rules_print()
     test_membership_movement()
+    test_attach_excess_ignores_colliding_score_cols()
     test_nfn_v0_readonly_baked()
     test_loss_and_single_head_cpu()
     print("nfn_va unit tests OK")

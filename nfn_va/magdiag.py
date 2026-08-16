@@ -13,7 +13,11 @@ def _utc(s):
 
 
 def attach_excess(scores: pd.DataFrame, labeled: pd.DataFrame, score_col: str, excess_col: str) -> pd.DataFrame:
-    a = scores.copy()
+    if scores is None or scores.empty or score_col not in scores.columns:
+        return pd.DataFrame(columns=["date", "id", score_col, excess_col])
+    if excess_col not in labeled.columns:
+        raise RuntimeError(f"labeled missing {excess_col}; have {list(labeled.columns)}")
+    a = scores[["date", "id", score_col]].copy()
     a["date"] = _utc(a["date"])
     a["id"] = a["id"].astype(int)
     b = labeled[["date", "id", excess_col]].copy()

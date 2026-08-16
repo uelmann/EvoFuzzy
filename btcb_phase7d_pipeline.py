@@ -681,6 +681,11 @@ def run_btcb_p7d_va() -> dict:
         print(f"[p7d] book {name} total={packed.get('total')} sharpe={packed.get('sharpe')}", flush=True)
 
     excess_col = f"excess_h{HORIZON}"
+    print(
+        f"[p7d] magdiag excess_col={excess_col} labeled_has={excess_col in labeled.columns} "
+        f"frozen_cols={list(frozen.columns)} ens_cols={list(ensemble.columns)}",
+        flush=True,
+    )
     va_ex = attach_excess(ensemble, labeled, "score", excess_col)
     fr_ex = attach_excess(frozen, labeled, "spread", excess_col)
     va_top10 = topk_mean_excess(va_ex, "score", excess_col)
