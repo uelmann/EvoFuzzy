@@ -108,3 +108,13 @@ gauss(ret14)·gauss(ret28)/gauss(std63), top-50 mcap, top 5%, long-only. Backtes
 **MANUEL-2 STRONG.** Best=`daily_btc_in` total `59.39273490080397` vs BTC `6.892730650871092`; corr `0.41445744898283027`. Clause1=True clause2=True. Score-vol tilt `-0.4419882390985122`.
 
 Mechanical, no post-hoc adjustment. Frozen products untouched.
+
+## BTC-BEATER Phase 7.b FUZZY-STACK
+
+Learned fuzzy rules as LightGBM features + fixed-membership product library. Backtest/analysis only. Nothing adopted. Binance-priced.
+
+**ARM-A=FAIL; ARM-B=STACK-SKIPPED.** Best arm=`arm_a`. UNDERTRAINED count=`246`. Gain share originals=`0.05438706890460848` products=`0.9456129310953915` rules=`0.0`. Baseline tail-IC(top-half) `0.06373363864654095` overlap `0.09440625421215797`; best-arm tail-IC `0.06139224332971208` overlap `0.09962066508770916`.
+
+**fuzzy-GBM composition on daily 33-features does not exceed the frozen spread; the daily composition question is closed.**
+
+Mechanical, no post-hoc adjustment. Frozen products untouched.
