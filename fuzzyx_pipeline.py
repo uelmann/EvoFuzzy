@@ -20,7 +20,6 @@ import yaml
 
 from baseline.data import build_pit_topn, download_symbol_months, load_panel, month_range
 from baseline.features import build_feature_panel
-from baseline.model import make_folds
 from baseline.seedutil import seed_everything
 from fuzzyx.constants import (
     EXEC_DV_WINDOW,
@@ -57,15 +56,17 @@ def _cfg() -> dict:
     return {}
 
 
-def _find_panel(root: Path) -> Path | None:
+def _find_panel(root: Path) -> tuple[Path | None, str | None]:
     for p in (
         root / "panel" / "panel.parquet",
         root / "btcb" / "full" / "panel.parquet",
-        Path("artifacts/fuzzyx/panel.parquet"),
     ):
         if p.exists() and p.stat().st_size > 1000:
-            return p
-    return None
+            return p, "VOLUME-PANEL"
+    local = Path("artifacts/fuzzyx/panel.parquet")
+    if local.exists() and local.stat().st_size > 1000:
+        return local, "LOCAL-RESTRICTED"
+    return None, None
 
 
 def _find_a0_pred() -> Path | None:
@@ -79,11 +80,20 @@ def _find_a0_pred() -> Path | None:
 
 
 def _ensure_local_panel(raw_dir: Path, start_month: str = "2019-09") -> pd.DataFrame:
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     raw_dir.mkdir(parents=True, exist_ok=True)
     months = month_range(start_month)
-    for i, sym in enumerate(LOCAL_SEED_SYMBOLS, 1):
-        print(f"[data] {i}/{len(LOCAL_SEED_SYMBOLS)} {sym}", flush=True)
+
+    def _one(sym: str) -> str:
         download_symbol_months(sym, months, raw_dir, interval="1d", kind="um")
+        return sym
+
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        futs = [ex.submit(_one, s) for s in LOCAL_SEED_SYMBOLS]
+        for i, fut in enumerate(as_completed(futs), 1):
+            sym = fut.result()
+            print(f"[data] {i}/{len(LOCAL_SEED_SYMBOLS)} {sym}", flush=True)
     panel = load_panel(raw_dir, LOCAL_SEED_SYMBOLS)
     counts = panel.groupby("symbol").size()
     keep = counts[counts >= 100].index.tolist()
@@ -124,10 +134,10 @@ def run_fuzzyx(root: Path | None = None) -> dict:
     art.mkdir(parents=True, exist_ok=True)
     notes = []
 
-    panel_path = _find_panel(root)
+    panel_path, found_mode = _find_panel(root)
     if panel_path is not None:
-        mode = "VOLUME-PANEL"
-        print(f"[fuzzyx] panel {panel_path}", flush=True)
+        mode = found_mode or "VOLUME-PANEL"
+        print(f"[fuzzyx] panel {panel_path} mode={mode}", flush=True)
         panel = pd.read_parquet(panel_path)
         panel["date"] = pd.to_datetime(panel["date"], utc=True)
         if "dollar_volume" not in panel.columns:
@@ -156,6 +166,7 @@ def run_fuzzyx(root: Path | None = None) -> dict:
 
     print(f"[fuzzyx] panel rows={len(panel)} names={panel['symbol'].nunique()}", flush=True)
     feat = build_feature_panel(panel, clip=5.0, zscore=True)
+    feat = feat.drop_duplicates(["date", "symbol"], keep="last")
     feat_path = art / "feat.parquet"
     feat.to_parquet(feat_path, index=False)
 
@@ -173,8 +184,10 @@ def run_fuzzyx(root: Path | None = None) -> dict:
         mask=packed.mask,
         ret_h7=packed.ret_h7,
         symbols=np.array(packed.symbols),
-        dates=packed.reb_dates.astype("datetime64[ns]"),
+        dates=packed.reb_dates.asi8,
     )
+
+    from baseline.model import make_folds
 
     dates = pd.DatetimeIndex(sorted(feat["date"].unique()))
     folds = make_folds(
