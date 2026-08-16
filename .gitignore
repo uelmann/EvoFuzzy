@@ -1,3 +1,5 @@
 __pycache__/
 artifacts/
 *.pyc
+data/nasdaq/*.parquet
+data/nasdaq/preds/
