@@ -43,6 +43,10 @@ Grid: frozen spread (baseline) · ARM-A spread · ARM-B spread (if run) · ARM-A
 
 VOL-MATCHED NULL (house standard, folds `{0,5,9,15,21,24}` × 25) on the **best arm's** tail-IC(top) and overlap. Best arm = highest full-OOS tail-IC(top-half) among the fuzzy arms that ran.
 
+## Vol-matched null (house standard; verbatim)
+
+> For tail metrics (tail-IC top-half, top-decile overlap, monster capture), the empirical null shuffles labels WITHIN vol-quintile buckets per date (yz_vol_30 quintiles), preserving the vol→outcome loading. Folds {0,5,9,15,21,24} × 25 replicates. The null mean per fold becomes the structural reference level; bias check = null mean stability across replicates (2·SE band around the fold's own null mean, E.1b tolerance: ≥2 fold violations for CONTAMINATED). Skill = real metric exceeds the vol-matched null 95th percentile on ≥5/6 folds OR Stouffer z ≥ 3.0. This supersedes the plain within-date shuffle for tail metrics in all future phases; plain-shuffle results remain on the record.
+
 Crude-14d book per signal (information only). Feature-importance dump: share of total gain captured by library/rule features vs originals.
 
 ## Death-in-position convention (verbatim)
