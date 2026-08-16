@@ -48,9 +48,11 @@ def plot_equity(
     ew: pd.Series | None,
     btc: pd.Series | None,
     out_path: Path,
+    treat_label: str = "RETSTD-LO (P top-decile ret/std)",
+    title: str = "RETSTD-LO vs A0-LO10 (long-only top 10%)",
 ) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    series = [(a0, "A0-LO10 (frozen scores)"), (retstd, "RETSTD-LO (P top-decile ret/std)")]
+    series = [(a0, "A0-LO10 (frozen scores)"), (retstd, treat_label)]
     if isinstance(ew, pd.Series) and len(ew):
         series.append((ew, "EW PIT top-40 (costless, informational)"))
     if isinstance(btc, pd.Series) and len(btc):
@@ -63,7 +65,7 @@ def plot_equity(
         d, y = _eq_from_rets(rets)
         end = d.max() if end is None else max(end, d.max())
         axes[0].plot(d, y, label=lab, lw=1.4)
-    axes[0].set_title("RETSTD-LO vs A0-LO10 (long-only top 10%)")
+    axes[0].set_title(title)
     axes[0].set_ylabel("Equity (rebased, log)")
     axes[0].set_yscale("log")
     axes[0].legend(fontsize=8)
@@ -124,6 +126,10 @@ def write_report(
     gap_retstd: dict,
     benches: dict,
     extra: dict,
+    product_name: str = "RETSTD-LO",
+    treat_row_name: str = "RETSTD-LO",
+    heading: str | None = None,
+    mandate_line: str | None = None,
 ) -> str:
     cells = null.get("cells") or []
     null_rows = []
@@ -144,44 +150,56 @@ def write_report(
             f"CAGR={_pct(cagr)}, MaxDD={_pct(maxdd)}, total={_pct(total)}."
         )
 
-    text = f"""# RETSTD-LO — P(top 10% of ret/std) vs frozen A0 (long-only)
+    heading = heading or f"{product_name} — P(top 10% of ret/std) vs frozen A0 (long-only)"
+    mandate_line = mandate_line or (
+        "long-only top 10% of PIT top-40 by score. Residual is cash. No hedge."
+    )
+    icrit = extra.get("improve_criterion") or IMPROVE_CRITERION
+    vcrit = extra.get("viability_criterion") or VIABILITY_CRITERION
+    train_note = extra.get("train_note") or f"{product_name} fallback 500 trees: {extra.get('used_fixed')}"
+    if extra.get("short_name"):
+        short = extra["short_name"]
+    else:
+        short = "RETSTD-FULL" if "FULL" in product_name else "RETSTD"
 
-**BACKTEST AND ANALYSIS ONLY.** Same 33 A0 features. Frozen A0 Huber scores are **not retrained**. RETSTD is a new binary LightGBM on a working copy of the labels. No schedules, no live components. COMBO, SPREAD-LS, and LONG-TIDE are **untouched**.
+    text = f"""# {heading}
+
+**BACKTEST AND ANALYSIS ONLY.** Same 33 A0 features. Frozen A0 Huber scores are **not retrained**. {product_name} is a new binary LightGBM on a working copy of the labels. No schedules, no live components. COMBO, SPREAD-LS, and LONG-TIDE are **untouched**.
 
 **Frozen A0 SHA256 (features/config):** `{frozen_hash}`
-**Mandate:** long-only top 10% of PIT top-40 by score. Residual is cash. No hedge.
+**Mandate:** {mandate_line}
 **Horizon:** h=10. Label = 1 iff h=10 USDT simple return / forward path std is in that date's PIT-120 top decile.
 
 ## Pre-registered improvement statement
 
-> {IMPROVE_CRITERION}
+> {icrit}
 
 ## Pre-registered viability statement
 
-> {VIABILITY_CRITERION}
+> {vcrit}
 
 Verdicts below are mechanical. No post-hoc adjustment.
 
 ## Mechanical verdict
 
-- **Target A/B: {improve.get('verdict')}** — RankIC vs ratio RETSTD={_fmt(improve.get('ric_retstd'))} vs A0={_fmt(improve.get('ric_a0'))} (pass={improve.get('pass_ric')}); top−universe gap RETSTD={_fmt(improve.get('gap_retstd'), 5)} vs A0={_fmt(improve.get('gap_a0'), 5)} (pass={improve.get('pass_gap')}); Sharpe RETSTD={_fmt(improve.get('sharpe_retstd'))} vs A0={_fmt(improve.get('sharpe_a0'))} (pass={improve.get('pass_sharpe')}); null={improve.get('null_verdict')} pass={improve.get('pass_null')}.
-- **RETSTD-LO: {verdict.get('verdict')}** — full Sharpe={_fmt(verdict.get('sharpe_full'))} (need ≥ {_fmt(verdict.get('need_full'))}, pass={verdict.get('pass_full')}); trail-18m Sharpe={_fmt(verdict.get('sharpe_trail18m'))} (need ≥ {_fmt(verdict.get('need_trail'))}, pass={verdict.get('pass_trail')}); total={_pct(verdict.get('total_return'))} (need > 0, pass={verdict.get('pass_total')}); avg gross={_fmt(verdict.get('avg_gross'))} (need ≥ {_fmt(verdict.get('need_gross'))}, pass={verdict.get('pass_gross')}); null={verdict.get('null_verdict')} pass={verdict.get('pass_null')}.
+- **Target A/B: {improve.get('verdict')}** — RankIC vs ratio {short}={_fmt(improve.get('ric_retstd'))} vs A0={_fmt(improve.get('ric_a0'))} (pass={improve.get('pass_ric')}); top−universe gap {short}={_fmt(improve.get('gap_retstd'), 5)} vs A0={_fmt(improve.get('gap_a0'), 5)} (pass={improve.get('pass_gap')}); Sharpe {short}={_fmt(improve.get('sharpe_retstd'))} vs A0={_fmt(improve.get('sharpe_a0'))} (pass={improve.get('pass_sharpe')}); null={improve.get('null_verdict')} pass={improve.get('pass_null')}.
+- **{product_name}: {verdict.get('verdict')}** — full Sharpe={_fmt(verdict.get('sharpe_full'))} (need ≥ {_fmt(verdict.get('need_full'))}, pass={verdict.get('pass_full')}); trail-18m Sharpe={_fmt(verdict.get('sharpe_trail18m'))} (need ≥ {_fmt(verdict.get('need_trail'))}, pass={verdict.get('pass_trail')}); total={_pct(verdict.get('total_return'))} (need > 0, pass={verdict.get('pass_total')}); avg gross={_fmt(verdict.get('avg_gross'))} (need ≥ {_fmt(verdict.get('need_gross'))}, pass={verdict.get('pass_gross')}); null={verdict.get('null_verdict')} pass={verdict.get('pass_null')}.
 
 ## Headline books
 
 | book | full | trail-18m | 2022 | 2023 | 2024 | 2025 | 2026 | CAGR | MaxDD | total | avg #longs | avg gross | % flat | funding | costs | ann TO | forced | BTC max |w| | % days BTC | top-5 name PnL |
 |------|------|-----------|------|------|------|------|------|------|-------|-------|------------|-----------|--------|---------|-------|--------|--------|----------------|------------|----------------|
 {_book_row("A0-LO10", a0_book)}
-{_book_row("RETSTD-LO", retstd_book)}
+{_book_row(treat_row_name, retstd_book)}
 
 ## RankIC vs ratio and vs USDT return (PIT top-40)
 
 | arm | RankIC vs ratio | ICIR | NW-t | n | RankIC vs USDT | top−uni USDT | % gap>0 | gap NW-t |
 |-----|-----------------|------|------|---|----------------|--------------|---------|----------|
 | A0-LO10 | {_fmt(ric_a0_ratio.get('mean_ic'))} | {_fmt(ric_a0_ratio.get('icir'))} | {_fmt(ric_a0_ratio.get('nw_tstat'))} | {ric_a0_ratio.get('n_days')} | {_fmt(ric_a0_simple.get('mean_ic'))} | {_fmt(gap_a0.get('mean_gap'), 5)} | {_pct(gap_a0.get('pct_gap_pos'))} | {_fmt(gap_a0.get('nw_t'))} |
-| RETSTD | {_fmt(ric_retstd_ratio.get('mean_ic'))} | {_fmt(ric_retstd_ratio.get('icir'))} | {_fmt(ric_retstd_ratio.get('nw_tstat'))} | {ric_retstd_ratio.get('n_days')} | {_fmt(ric_retstd_simple.get('mean_ic'))} | {_fmt(gap_retstd.get('mean_gap'), 5)} | {_pct(gap_retstd.get('pct_gap_pos'))} | {_fmt(gap_retstd.get('nw_t'))} |
+| {short} | {_fmt(ric_retstd_ratio.get('mean_ic'))} | {_fmt(ric_retstd_ratio.get('icir'))} | {_fmt(ric_retstd_ratio.get('nw_tstat'))} | {ric_retstd_ratio.get('n_days')} | {_fmt(ric_retstd_simple.get('mean_ic'))} | {_fmt(gap_retstd.get('mean_gap'), 5)} | {_pct(gap_retstd.get('pct_gap_pos'))} | {_fmt(gap_retstd.get('nw_t'))} |
 
-## RETSTD label-shuffle null (vs binary y)
+## {short} label-shuffle null (vs binary y)
 
 Verdict **{null.get('verdict')}** (bias_pass={null.get('bias_pass')}, skill_pass={null.get('skill_pass')}, n_violate={null.get('n_violate')}, n_folds={null.get('n_folds')}).
 
@@ -200,9 +218,9 @@ Verdict **{null.get('verdict')}** (bias_pass={null.get('bias_pass')}, skill_pass
 
 ## Frozen products are unchanged
 
-COMBO v2.0-combo-final, SPREAD-LS BOOK-HYBRID, and LONG-TIDE are not modified by this run. Frozen A0 Huber scores and `features_labeled.parquet` are read-only. RETSTD-LO is a parallel A/B test. No outcome here rewrites the system card.
+COMBO v2.0-combo-final, SPREAD-LS BOOK-HYBRID, and LONG-TIDE are not modified by this run. Frozen A0 Huber scores and `features_labeled.parquet` are read-only. {product_name} is a parallel A/B test. No outcome here rewrites the system card.
 
-Elapsed seconds: {_fmt(extra.get('elapsed_sec'), 1)}. GPU used: false. Scheduled jobs created: false. RETSTD fallback 500 trees: {extra.get('used_fixed')}. Mean label rate: {_fmt(extra.get('mean_label_rate'), 4)}.
+Elapsed seconds: {_fmt(extra.get('elapsed_sec'), 1)}. GPU used: false. Scheduled jobs created: false. {train_note}. Mean label rate: {_fmt(extra.get('mean_label_rate'), 4)}.
 """
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text)
