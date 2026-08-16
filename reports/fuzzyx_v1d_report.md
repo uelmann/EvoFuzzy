@@ -127,3 +127,13 @@
 
 - Clause (iv) SKIP: A0 h=7 preds missing.
 - Official VIABLE is disabled for LOCAL-RESTRICTED even if Sharpe≥0.
+
+## Reading (not a retune)
+
+`corr(1+st_r, t)` was **not** this shot: Pearson is invariant to `+1`, so that equals v1c. This shot is `corr(cumprod(1+st_r), t)`.
+
+Hard OOS wealth-corr is **+0.226** (v1c period-return corr was −0.109). Hard Sharpe **+1.26**, traded_frac **0.57** (v1c 0.95), mostly short (L 0.06 / S 0.51). Soft path still has wealth-corr **−0.83** — train/eval mismatch: we backprop soft, we report hard.
+
+Shuffle-bias still FAIL (~**+1.1–1.3%/week** null mean PnL). Switching the left argument from returns to wealth does not kill net market exposure. Pearson of equity also still saturates: a smooth +1%/week and +10%/week both go to corr≈1.
+
+No retune. v1/v1b/v1c untouched. COMBO / A0 not replaced.
