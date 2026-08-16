@@ -118,3 +118,15 @@ Evolutionary strategy miner, compounding 12-book fitness, nested MINE/SELECT/JUD
 - C1 `min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(amihud_14, mul(funding_z_7, pdiv(ts_mean_28(ts_std_14(turnover)), dist_high_28))))` total=-0.5490805600086217 vs BTC=-0.330774582304703 relSharpe=-0.14796674842554697 MaxDD=-0.7245028817923658 pass=False
 
 Mechanical, no post-hoc adjustment. Frozen products untouched.
+
+## BTC-BEATER PHASE 8 MODEL-ZOO
+
+Three non-GBM classes on the daily CS (CS-ATTN / TabPFN v2 / ridge-on-ranks). Backtest/analysis only. Nothing adopted. Binance-hybrid priced. Independent of 7.c/7.d.
+
+**A CS-ATTN `NOT LIVE (null not run)`.** **B TabPFN `NOT LIVE (null not run)`.** **C RIDGE `NOT LIVE`.**
+
+LINEAR-CEILING YES: Arm C RankIC=0.1767 vs frozen RankIC=0.1622 (ratio=1.089, threshold=0.9) — nonlinearity contributes less than 10% of the daily signal; future daily modeling effort is unjustified.
+
+ORTHOGONAL SIGNAL: none. Best arm by RankIC=`ridge`. Judgment set=`full_oos`. GPU est USD=`0.22527377363708287`.
+
+Mechanical, no post-hoc adjustment. Frozen products untouched.

@@ -964,12 +964,13 @@ def write_reports(null_recs: list | None = None, null_gpu_sec: float = 0.0, null
             "plain": None,
         }
         va = verdict.get("arms") or {}
+        lc = (verdict.get("linear_ceiling_text") or "LINEAR-CEILING n/a").rstrip(".")
         extra["plain"] = (
             f"Phase 8 MODEL-ZOO on {judgment_set}: "
             f"A CS-ATTN {(va.get('cs_attn') or {}).get('verdict')}; "
             f"B TabPFN {(va.get('tabpfn') or {}).get('verdict')}; "
             f"C RIDGE {(va.get('ridge') or {}).get('verdict')}. "
-            f"{verdict.get('linear_ceiling_text')}. "
+            f"{lc}. "
             f"ORTHOGONAL={verdict.get('orthogonal') or 'none'}. Nothing adopted."
         )
 

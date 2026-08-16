@@ -258,6 +258,8 @@ def write_phase8(
             or "none"
         ),
         "",
+        "## Conclusion",
+        "",
         extra.get("plain") or "",
         "",
         "## 1 — Judgment grid (judgment date set)",
