@@ -108,3 +108,13 @@ gauss(ret14)·gauss(ret28)/gauss(std63), top-50 mcap, top 5%, long-only. Backtes
 **MANUEL-2 STRONG.** Best=`daily_btc_in` total `59.39273490080397` vs BTC `6.892730650871092`; corr `0.41445744898283027`. Clause1=True clause2=True. Score-vol tilt `-0.4419882390985122`.
 
 Mechanical, no post-hoc adjustment. Frozen products untouched.
+
+## BTC-BEATER FORGE F0
+
+Evolutionary strategy miner, compounding 12-book fitness, nested MINE/SELECT/JUDGE. Backtest only. Nothing adopted. Binance-hybrid.
+
+**FORGE-DEAD.** n_pass=`0` / `1`. Null SELECT floor `−∞` (all 50 null formulas discarded on real SELECT). Census `primitives[dist_high_28×137, turnover×78, dist_ath×54, mcap×54, funding_z_30×53] operators[mul×196, min×150, pdiv×104, ts_std×86, sub×50]`.
+
+- C1 `min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(amihud_14, mul(funding_z_7, pdiv(ts_mean_28(ts_std_14(turnover)), dist_high_28))))` total=-0.5490805600086217 vs BTC=-0.330774582304703 relSharpe=-0.14796674842554697 MaxDD=-0.7245028817923658 pass=False
+
+Mechanical, no post-hoc adjustment. Frozen products untouched.

@@ -3,7 +3,7 @@
 **BACKTEST AND ANALYSIS ONLY.** Evolutionary strategy miner. Compounding fitness. Nested windows.
 Master only. CPU only. Zero GPU. Frozen products untouched. Nothing adopted.
 
-**Stage:** `pre_judge`.
+**Stage:** `judge`.
 
 ## Non-contamination clause (verbatim)
 
@@ -34,13 +34,13 @@ See `reports/forge_f0_addendum.md` for the full freeze, including search-space c
 - CMC panel sha256 = `c8062ed5d524584c1369e2dab1a075e51c1e6b7c2ad90982bf810ee76eb11249` (read-only assert)
 - 2.c pred cache sha256 = `28b0719167fe567d1a32e56bbb7bac77c597affb44b968dd40994ac985843f78` (expected `28b0719167fe567d1a32e56bbb7bac77c597affb44b968dd40994ac985843f78`)
 - gpu_used = `False`
-- elapsed_sec = `3187.911952972412`
+- elapsed_sec = `48.68971633911133`
 - budget_flag = `False`
-- null_budget_flag = `False`
+- null_budget_flag = `None`
 - n_jobs = `32`
 - cube mean DV100 / MCAP50 = `98.7` / `50.0`
-- code/freeze sha = `65a3ca26d9fdb2419c57813fbbfc493b4d7a47da`
-- champions commit sha (pre-JUDGE freeze) = `PENDING_COMMIT`
+- code/freeze sha = `f7fddbb4591ac791a3c07ceaef163ed83d0a5cc0`
+- champions commit sha (pre-JUDGE freeze) = `f7fddbb4591ac791a3c07ceaef163ed83d0a5cc0`
 
 ## Evolution (MINE)
 
@@ -98,7 +98,7 @@ See `reports/forge_f0_addendum.md` for the full freeze, including search-space c
 | 49 | 1.6210 | 1.3888 | 1675 | 25 |
 | 50 | 1.6210 | 1.3019 | 1653 | 25 |
 
-Early stop / last gen: `50`. Best MINE formula: `min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_max_28(turnover)), dist_high_28))))`.
+Early stop / last gen: `None`. Best MINE formula: `None`.
 
 ## MINE → SELECT decay (top-20 by MINE fitness)
 
@@ -127,9 +127,7 @@ Early stop / last gen: `50`. Best MINE formula: `min(mul(mcap_rank, mul(sub(mul(
 
 ## Champions (formulas verbatim; frozen before JUDGE)
 
-**JUDGE has not been touched.** The formulas below are the freeze set.
-
-The final MINE population collapsed to one lineage (top-20 by MINE fitness share the same `min(mul(mcap_rank, … dist_high_28 … turnover … funding_z_*))` skeleton). Greedy SELECT diversity (headline daily book-PnL corr < 0.7) therefore keeps **1** champion, not 5. This is reported, not patched.
+Formulas frozen in commit `f7fddbb4591ac791a3c07ceaef163ed83d0a5cc0` before this JUDGE job. The final MINE population collapsed to one lineage (top-20 share the same skeleton). Greedy SELECT diversity (headline corr < 0.7) keeps **1** champion. This is reported, not patched.
 
 ### Champion 1
 
@@ -149,7 +147,7 @@ The final MINE population collapsed to one lineage (top-20 by MINE fitness share
 
 Champions' SELECT fitness vs null floor:
 
-- C1 SELECT `0.4791` − null `−∞` (discarded) = C1 is above the noise floor
+- C1 SELECT `0.4791` − null `−∞` (discarded) = C1 is above the noise floor on SELECT; JUDGE is a separate window.
 
 ## Ingredient census (top-50 by MINE fitness)
 
@@ -195,6 +193,31 @@ Champions' SELECT fitness vs null floor:
 
 ## JUDGE
 
-Not evaluated in this document. Formulas above are frozen; JUDGE is a later one-shot job.
+**Verdict: FORGE-DEAD** (n_pass=0 / 1).
+
+Headline book = k=5, daily, floored PIT top-100 DV. Mechanical, no post-hoc adjustment.
+
+| champion | formula | total | BTC | rel Sharpe | MaxDD | BTC MaxDD | a | b | c | pass |
+|----------|---------|-------|-----|------------|-------|-----------|---|---|---|------|
+| C1 | `min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(amihud_14, mul(funding_z_7, pdiv(ts_mean_28(ts_std_14(turnover)), dist_high_28))))` | -0.5491 | -0.3308 | -0.1480 | -0.7245 | -0.5297 | False | False | False | False |
+
+### Per-champion honesty (PHASE2 cycles on JUDGE window)
+
+#### C1 `min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(amihud_14, mul(funding_z_7, pdiv(ts_mean_28(ts_std_14(turnover)), dist_high_28))))`
+
+| cycle | n | book total | BTC total | rel Sharpe | MaxDD | BTC MaxDD |
+|-------|---|------------|-----------|------------|-------|-----------|
+| 2025-26 | 584 | -0.5491 | -0.3138 | -0.1480 | -0.7245 | -0.5297 |
+
+### Benchmarks (JUDGE)
+
+| book | total | CAGR | Sharpe | MaxDD | rel Sharpe | corr BTC |
+|------|-------|------|--------|-------|------------|----------|
+| btc_bh | -0.3308 | -0.2220 | -0.3623 | -0.5297 | 0.0000 | 1.0000 |
+| ew_dv100 | 1.3378 | 0.7002 | 0.7055 | -0.8152 | 0.7135 | 0.0771 |
+| ew_mcap50 | -0.6550 | -0.4858 | -0.7946 | -0.6887 | -1.1185 | 0.8458 |
+| frozen_spread | -0.2747 | -0.1847 | -0.1774 | -0.4898 | 0.2794 | 0.7843 |
+
+If FORGE-DEAD: GP-mined formulaic strategies do not survive nesting on this data.
 
 Mechanical, no post-hoc adjustment. Frozen products untouched. Nothing adopted.

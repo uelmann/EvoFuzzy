@@ -653,9 +653,7 @@
         "select_fitness": null,
         "nodes": 18
       }
-    ],
-    "all_discarded_on_select": true,
-    "floor_note": "all 50 null-mined formulas discarded on real SELECT (knife-edge or invalid); floor=-inf"
+    ]
   },
   "history": [
     {
@@ -1488,7 +1486,5 @@
     "best_mine_expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_max_28(turnover)), dist_high_28))))",
     "champions_sha": "PENDING_COMMIT"
   },
-  "judge_touched": false,
-  "n_champions": 1,
-  "diversity_note": "population collapsed to one lineage; greedy corr<0.7 keeps 1 champion"
+  "judge_touched": false
 }

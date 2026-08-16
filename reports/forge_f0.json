@@ -1,8 +1,10 @@
 {
-  "stage": "pre_judge",
-  "noncontamination": "The PI's hand-made formulas are EXCLUDED from this project: not as seeds, not as operator biases, not as fitness shaping. The search space contains generic primitives and operators only. If the miner independently evolves similar structures, they are reported without censorship \u2014 that is evidence the method works, not contamination.",
-  "fitness": "fitness(S) = median over the perturbation set P of [ann. net log-wealth of BOOK(S, p)] \u2212 \u03bb_c \u00b7 nodes(S)/25, computed ONLY on the MINE window. BOOK(S, p): long-only, top-k by S (k per p), equal-weight, daily rebalance, 10 bps/side, always invested, death convention. Perturbation set P (fixed): k \u2208 {3, 5, 8} \u00d7 rebalance \u2208 {daily, weekly} \u00d7 the two universes = 12 books. \u03bb_c = 0.02. A formula whose 12-book spread (max\u2212min ann log-wealth) exceeds 1.0 is discarded regardless of median (knife-edge filter). No correlation metric appears anywhere in the fitness.",
-  "criterion": "On the JUDGE window, per champion (headline book = k=5, daily, top-100 DV): FORGE-ALIVE if \u22651 champion has (a) total return \u2265 BTC B&H same-window; (b) relative-line Sharpe > 0; (c) MaxDD \u2264 1.15 \u00d7 BTC's. FORGE-STRONG if \u22652 champions pass, or one passes with relative-line Sharpe \u2265 0.5. FORGE-DEAD otherwise, and the ledger records that GP-mined formulaic strategies do not survive nesting on this data. Champions' formulas, MINE/SELECT/JUDGE numbers, and the full per-cycle honesty tables are printed regardless. Benchmarks on JUDGE: BTC B&H, EW baskets (both universes), frozen-spread crude book. Mechanical, no post-hoc adjustment; no re-mining, no second look at JUDGE.",
+  "stage": "judge",
+  "verdict": {
+    "label": "FORGE-DEAD",
+    "n_pass": 0,
+    "n": 1
+  },
   "champions": [
     {
       "rank": 1,
@@ -15,450 +17,309 @@
       "max_pairwise_corr": 0.0
     }
   ],
-  "decay_top20": [
-    {
-      "rank_mine": 1,
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_max_28(turnover)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6209798114972251,
-      "select_fitness": 0.4753970555961531
+  "judge": {
+    "champions": [
+      {
+        "rank": 1,
+        "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(amihud_14, mul(funding_z_7, pdiv(ts_mean_28(ts_std_14(turnover)), dist_high_28))))",
+        "nodes": 24,
+        "book": {
+          "n_days": 584,
+          "start": "2025-01-02",
+          "end": "2026-08-08",
+          "book_total": -0.5490805600086217,
+          "btc_total": -0.31384438180870766,
+          "book_cagr": -0.39212840573097574,
+          "btc_cagr": -0.20975066365607342,
+          "book_sharpe": -0.284550188933844,
+          "btc_sharpe": -0.3254564190737556,
+          "maxdd": -0.7245028817923658,
+          "btc_maxdd": -0.529717648077783,
+          "rel_cagr": -0.23078506198900384,
+          "rel_sharpe": -0.14796674842554697,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 11.50513698630137,
+          "ann_turnover": 127.87500000000001,
+          "cycles": {
+            "2025-26": {
+              "n": 584,
+              "book_total": -0.5490805600086217,
+              "btc_total": -0.31384438180870766,
+              "book_cagr": -0.39212840573097574,
+              "btc_cagr": -0.20975066365607342,
+              "book_sharpe": -0.284550188933844,
+              "rel_cagr": -0.23078506198900384,
+              "rel_sharpe": -0.14796674842554697,
+              "maxdd": -0.7245028817923658,
+              "btc_maxdd": -0.529717648077783,
+              "avg_w_btc": 0.0,
+              "avg_n_names": 11.50513698630137
+            }
+          },
+          "label": "dv100_daily_k5",
+          "ann_log_wealth": -0.49779161295695884,
+          "forced_n": 1,
+          "forced_weight_sum": 0.01,
+          "total": -0.5490805600086217,
+          "cagr": -0.39212840573097574,
+          "sharpe": -0.284550188933844,
+          "rel_total": -0.3428321097479272,
+          "corr_btc": 0.5963776808851514
+        },
+        "pass_bits": {
+          "a_total_ge_btc": false,
+          "b_rel_sharpe_gt0": false,
+          "c_maxdd_le": false,
+          "pass": false,
+          "rel_sharpe": -0.14796674842554697,
+          "book_total": -0.5490805600086217,
+          "btc_total": -0.330774582304703,
+          "maxdd": -0.7245028817923658,
+          "btc_maxdd": -0.5297176591351067,
+          "rel_strong": false
+        },
+        "book_total": -0.5490805600086217,
+        "btc_total": -0.330774582304703,
+        "rel_sharpe": -0.14796674842554697,
+        "maxdd": -0.7245028817923658,
+        "btc_maxdd": -0.5297176591351067
+      }
+    ]
+  },
+  "bench": {
+    "btc_bh": {
+      "n_days": 584,
+      "start": "2025-01-02",
+      "end": "2026-08-08",
+      "book_total": -0.330774582304703,
+      "btc_total": -0.330774582304703,
+      "book_cagr": -0.2219943209168448,
+      "btc_cagr": -0.2219943209168448,
+      "book_sharpe": -0.362309444058916,
+      "btc_sharpe": -0.362309444058916,
+      "maxdd": -0.5297176591351067,
+      "btc_maxdd": -0.5297176591351067,
+      "rel_cagr": 0.0,
+      "rel_sharpe": 0.0,
+      "avg_w_btc": 1.0,
+      "avg_n_names": 1.0,
+      "ann_turnover": 0.0,
+      "cycles": {
+        "2025-26": {
+          "n": 584,
+          "book_total": -0.330774582304703,
+          "btc_total": -0.330774582304703,
+          "book_cagr": -0.2219943209168448,
+          "btc_cagr": -0.2219943209168448,
+          "book_sharpe": -0.362309444058916,
+          "rel_cagr": 0.0,
+          "rel_sharpe": 0.0,
+          "maxdd": -0.5297176591351067,
+          "btc_maxdd": -0.5297176591351067,
+          "avg_w_btc": 1.0,
+          "avg_n_names": 0.0
+        }
+      },
+      "label": "btc_bh",
+      "net_sharpe_trail18m": -0.39344231216580206,
+      "corr_btc": 1.0,
+      "corr_btc_n": 584,
+      "forced_exits": {
+        "n_events": 0,
+        "n_ids": 0,
+        "weight_sum": 0.0
+      },
+      "forced_n": 0,
+      "top5": [],
+      "top5_share": null,
+      "total": -0.330774582304703,
+      "cagr": -0.2219943209168448,
+      "sharpe": -0.362309444058916,
+      "rel_total": 0.0
     },
-    {
-      "rank_mine": 2,
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(lag_28(ts_std_14(turnover)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6167998718588357,
-      "select_fitness": 0.47134924216934504
+    "ew_dv100": {
+      "n_days": 584,
+      "start": "2025-01-02",
+      "end": "2026-08-08",
+      "book_total": 1.3378332536444453,
+      "btc_total": -0.31384438180870766,
+      "book_cagr": 0.7002330633681535,
+      "btc_cagr": -0.20975066365607342,
+      "book_sharpe": 0.705482186345081,
+      "btc_sharpe": -0.3254564190737556,
+      "maxdd": -0.8152177594100223,
+      "btc_maxdd": -0.529717648077783,
+      "rel_cagr": 1.1515146994418868,
+      "rel_sharpe": 0.7135218226237836,
+      "avg_w_btc": 0.0,
+      "avg_n_names": 99.99143835616438,
+      "ann_turnover": 4.550000000000001,
+      "cycles": {
+        "2025-26": {
+          "n": 584,
+          "book_total": 1.3378332536444453,
+          "btc_total": -0.31384438180870766,
+          "book_cagr": 0.7002330633681535,
+          "btc_cagr": -0.20975066365607342,
+          "book_sharpe": 0.705482186345081,
+          "rel_cagr": 1.1515146994418868,
+          "rel_sharpe": 0.7135218226237836,
+          "maxdd": -0.8152177594100223,
+          "btc_maxdd": -0.529717648077783,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 99.99143835616438
+        }
+      },
+      "label": "dv100_daily_k100",
+      "ann_log_wealth": 0.5307653377642746,
+      "forced_n": 5,
+      "forced_weight_sum": 0.05,
+      "total": 1.3378332536444453,
+      "cagr": 0.7002330633681535,
+      "sharpe": 0.705482186345081,
+      "rel_total": 2.4071472879679665,
+      "corr_btc": 0.07714511028998931
     },
-    {
-      "rank_mine": 3,
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_mean_28(ts_std_14(turnover)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6135232814525997,
-      "select_fitness": 0.47828150261164504
+    "ew_mcap50": {
+      "n_days": 584,
+      "start": "2025-01-02",
+      "end": "2026-08-08",
+      "book_total": -0.6549894838328785,
+      "btc_total": -0.31384438180870766,
+      "book_cagr": -0.48578444718512737,
+      "btc_cagr": -0.20975066365607342,
+      "book_sharpe": -0.7946366660336152,
+      "btc_sharpe": -0.3254564190737556,
+      "maxdd": -0.6887068952621879,
+      "btc_maxdd": -0.529717648077783,
+      "rel_cagr": -0.3492996081542047,
+      "rel_sharpe": -1.1184648680472475,
+      "avg_w_btc": 0.0,
+      "avg_n_names": 49.99828767123287,
+      "ann_turnover": 15.437500000000002,
+      "cycles": {
+        "2025-26": {
+          "n": 584,
+          "book_total": -0.6549894838328785,
+          "btc_total": -0.31384438180870766,
+          "book_cagr": -0.48578444718512737,
+          "btc_cagr": -0.20975066365607342,
+          "book_sharpe": -0.7946366660336152,
+          "rel_cagr": -0.3492996081542047,
+          "rel_sharpe": -1.1184648680472475,
+          "maxdd": -0.6887068952621879,
+          "btc_maxdd": -0.529717648077783,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 49.99828767123287
+        }
+      },
+      "label": "mcap50_daily_k50",
+      "ann_log_wealth": -0.6651127379821898,
+      "forced_n": 2,
+      "forced_weight_sum": 0.04,
+      "total": -0.6549894838328785,
+      "cagr": -0.48578444718512737,
+      "sharpe": -0.7946366660336152,
+      "rel_total": -0.4971832817217615,
+      "corr_btc": 0.8457887803064259
     },
-    {
-      "rank_mine": 4,
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(amihud_14, mul(funding_z_7, pdiv(ts_mean_28(ts_std_14(turnover)), dist_high_28))))",
-      "nodes": 24,
-      "mine_fitness": 1.6108090560700337,
-      "select_fitness": 0.47908150261164506
-    },
-    {
-      "rank_mine": 5,
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(dist_ath, mul(funding_z_7, pdiv(ts_mean_28(ts_std_14(turnover)), dist_high_28))))",
-      "nodes": 24,
-      "mine_fitness": 1.6108090560700337,
-      "select_fitness": 0.47908150261164506
-    },
-    {
-      "rank_mine": 6,
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(mcap, mul(funding_z_7, pdiv(ts_mean_28(ts_std_14(turnover)), dist_high_28))))",
-      "nodes": 24,
-      "mine_fitness": 1.6108090560700337,
-      "select_fitness": 0.47908150261164506
-    },
-    {
-      "rank_mine": 7,
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(ts_std_14(turnover), mul(funding_z_7, pdiv(ts_mean_28(ts_std_14(turnover)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6100090560700338,
-      "select_fitness": 0.47828150261164504
-    },
-    {
-      "rank_mine": 8,
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(ts_std_14(close), mul(funding_z_7, pdiv(ts_mean_28(ts_std_14(turnover)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6100090560700338,
-      "select_fitness": 0.47828150261164504
-    },
-    {
-      "rank_mine": 9,
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), pdiv(funding_z_7, pdiv(ts_rank_5(ts_std_14(dOI_7)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.609950048020654,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "rank_mine": 10,
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), pdiv(funding_z_7, pdiv(ts_rank_5(ts_std_14(basis)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.609950048020654,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "rank_mine": 11,
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), pdiv(funding_z_7, pdiv(ts_rank_5(ts_std_14(funding_z_30)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.609950048020654,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "rank_mine": 12,
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_14(ts_max_28(turnover)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6076774508504625,
-      "select_fitness": 0.47828150261164504
-    },
-    {
-      "rank_mine": 13,
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_std_14(turnover)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.607228631595179,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "rank_mine": 14,
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_std_14(ts_rank_5(turnover)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.607228631595179,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "rank_mine": 15,
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_std_14(pos_missing)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6069873796824887,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "rank_mine": 16,
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_std_14(close)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6069873796824887,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "rank_mine": 17,
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_std_14(dOI_30)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6069873796824887,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "rank_mine": 18,
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_std_14(taker_imb_7)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6069873796824887,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "rank_mine": 19,
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_std_14(funding_z_30)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6069873796824887,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "rank_mine": 20,
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_std_14(funding_z_7)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6069873796824887,
-      "select_fitness": 0.4680873727546748
+    "frozen_spread": {
+      "n_days": 574,
+      "start": "2025-01-02",
+      "end": "2026-07-29",
+      "total": -0.27466324438770007,
+      "cagr": -0.18469747095643207,
+      "maxdd": -0.48976145441842023,
+      "sharpe": -0.17743179200203804,
+      "cycles": {
+        "2025-26": {
+          "n": 574,
+          "total": -0.27466324438770007,
+          "cagr": -0.18469747095643207,
+          "maxdd": -0.48976145441842023,
+          "sharpe": -0.17743179200203804
+        }
+      },
+      "label": "frozen_spread",
+      "rankic": 0.24305731603482597,
+      "rankic_n": 41,
+      "n_formations": 41,
+      "avg_n_names": 9.0,
+      "ann_turnover": 12.49520905923345,
+      "forced_n": 0,
+      "forced_exits": {
+        "n_events": 0,
+        "n_ids": 0,
+        "weight_sum": 0.0
+      },
+      "cost_bps": 10.0,
+      "rel_sharpe": 0.27936642371169,
+      "corr_btc": 0.784311664947295,
+      "book_total": -0.27466324438770007
     }
-  ],
-  "top50": [
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_max_28(turnover)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6209798114972251,
-      "select_fitness": 0.4753970555961531
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(lag_28(ts_std_14(turnover)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6167998718588357,
-      "select_fitness": 0.47134924216934504
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_mean_28(ts_std_14(turnover)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6135232814525997,
-      "select_fitness": 0.47828150261164504
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(amihud_14, mul(funding_z_7, pdiv(ts_mean_28(ts_std_14(turnover)), dist_high_28))))",
-      "nodes": 24,
-      "mine_fitness": 1.6108090560700337,
-      "select_fitness": 0.47908150261164506
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(dist_ath, mul(funding_z_7, pdiv(ts_mean_28(ts_std_14(turnover)), dist_high_28))))",
-      "nodes": 24,
-      "mine_fitness": 1.6108090560700337,
-      "select_fitness": 0.47908150261164506
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(mcap, mul(funding_z_7, pdiv(ts_mean_28(ts_std_14(turnover)), dist_high_28))))",
-      "nodes": 24,
-      "mine_fitness": 1.6108090560700337,
-      "select_fitness": 0.47908150261164506
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(ts_std_14(turnover), mul(funding_z_7, pdiv(ts_mean_28(ts_std_14(turnover)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6100090560700338,
-      "select_fitness": 0.47828150261164504
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(ts_std_14(close), mul(funding_z_7, pdiv(ts_mean_28(ts_std_14(turnover)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6100090560700338,
-      "select_fitness": 0.47828150261164504
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), pdiv(funding_z_7, pdiv(ts_rank_5(ts_std_14(dOI_7)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.609950048020654,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), pdiv(funding_z_7, pdiv(ts_rank_5(ts_std_14(basis)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.609950048020654,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), pdiv(funding_z_7, pdiv(ts_rank_5(ts_std_14(funding_z_30)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.609950048020654,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_14(ts_max_28(turnover)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6076774508504625,
-      "select_fitness": 0.47828150261164504
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_std_14(turnover)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.607228631595179,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_std_14(ts_rank_5(turnover)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.607228631595179,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_std_14(pos_missing)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6069873796824887,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_std_14(close)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6069873796824887,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_std_14(dOI_30)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6069873796824887,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_std_14(taker_imb_7)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6069873796824887,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_std_14(funding_z_30)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6069873796824887,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_std_14(funding_z_7)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6069873796824887,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_std_14(mcap)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6069873796824887,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_std_14(ret_1)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6069873796824887,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_std_14(mcap_rank)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6069873796824887,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_rank_14(ret_3)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6069873796824887,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_std_14(ts_rank_5(funding_z_7)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6069873796824887,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_std_14(ret_14)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6069873796824887,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_std_14(ret_28)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.604474606655209,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_std_14(dist_high_28)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.604474606655209,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_std_14(dist_ath)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.604474606655209,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_std_14(ts_rank_5(mcap)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.604474606655209,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_mean_5(ts_std_14(turnover)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6036991168033452,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_std_14(dist_low_28)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.603457864890655,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_std_14(basis)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.603457864890655,
-      "select_fitness": 0.4680873727546748
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(turnover, mul(funding_z_7, pdiv(ts_rank_5(ts_max_28(turnover)), dist_high_28))))",
-      "nodes": 24,
-      "mine_fitness": 1.601803162037632,
-      "select_fitness": 0.4761970555961531
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(dist_ath, mul(funding_z_7, pdiv(ts_rank_5(ts_max_28(turnover)), dist_high_28))))",
-      "nodes": 24,
-      "mine_fitness": 1.601803162037632,
-      "select_fitness": 0.4761970555961531
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(pos_missing, mul(funding_z_7, pdiv(ts_rank_5(ts_max_28(turnover)), dist_high_28))))",
-      "nodes": 24,
-      "mine_fitness": 1.601803162037632,
-      "select_fitness": 0.4761970555961531
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(mcap, mul(funding_z_7, pdiv(ts_rank_5(ts_max_28(turnover)), dist_high_28))))",
-      "nodes": 24,
-      "mine_fitness": 1.601803162037632,
-      "select_fitness": 0.4761970555961531
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(ret_21, mul(funding_z_7, pdiv(ts_rank_5(ts_max_28(turnover)), dist_high_28))))",
-      "nodes": 24,
-      "mine_fitness": 1.601803162037632,
-      "select_fitness": 0.4761970555961531
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(ret_1, mul(funding_z_7, pdiv(ts_rank_5(ts_max_28(turnover)), dist_high_28))))",
-      "nodes": 24,
-      "mine_fitness": 1.601803162037632,
-      "select_fitness": 0.4761970555961531
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(ts_std_14(funding_z_7), mul(funding_z_7, pdiv(ts_rank_5(ts_max_28(turnover)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6010031620376322,
-      "select_fitness": 0.4753970555961531
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_ath), mul(funding_z_7, pdiv(ts_rank_5(ts_max_28(turnover)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6010031620376322,
-      "select_fitness": 0.4753970555961531
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(neg(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_max_28(turnover)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6010031620376322,
-      "select_fitness": 0.4753970555961531
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(abs(dist_low_28), mul(funding_z_7, pdiv(ts_rank_5(ts_max_28(turnover)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6010031620376322,
-      "select_fitness": 0.4753970555961531
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(ts_std_14(turnover), mul(funding_z_7, pdiv(ts_rank_5(ts_max_28(turnover)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.6010031620376322,
-      "select_fitness": 0.4753970555961531
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_max_28(turnover), dist_high_28))))",
-      "nodes": 24,
-      "mine_fitness": 1.5987176733086468,
-      "select_fitness": 0.4591072787656293
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_std_14(ts_max_28(turnover)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.59525119604582,
-      "select_fitness": 0.47828150261164504
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), pdiv(funding_z_7, pdiv(ts_rank_5(ts_std_28(funding_z_30)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.5927659737168587,
-      "select_fitness": 0.47442852949425307
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_max_28(dist_low_28)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.5898033053786933,
-      "select_fitness": 0.47442852949425307
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_max_28(dist_high_28)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.5898033053786933,
-      "select_fitness": 0.47442852949425307
-    },
-    {
-      "expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_max_28(pos_missing)), dist_high_28))))",
-      "nodes": 25,
-      "mine_fitness": 1.5898033053786933,
-      "select_fitness": 0.47442852949425307
-    }
-  ],
+  },
+  "null": {
+    "best_select_fitness": null,
+    "best_expr": "ts_std_28(min(min(min(ts_std_28(mcap_rank), min(abs(ts_mean_5(ret_21)), ts_std_28(mcap_rank))), ts_std_28(abs(ret_21))), ts_std_28(mcap)))",
+    "n_gen": 30,
+    "skipped": false,
+    "best_nodes": 17,
+    "n": 50,
+    "top": [
+      {
+        "expr": "ts_std_28(min(min(min(ts_std_28(mcap_rank), min(abs(ts_mean_5(ret_21)), ts_std_28(mcap_rank))), ts_std_28(abs(ret_21))), ts_std_28(mcap)))",
+        "select_fitness": null,
+        "nodes": 17
+      },
+      {
+        "expr": "ts_std_28(min(min(min(abs(ts_mean_5(ret_21)), min(abs(ts_mean_5(ret_21)), ts_std_28(mcap_rank))), ts_std_28(abs(ret_21))), mcap))",
+        "select_fitness": null,
+        "nodes": 17
+      },
+      {
+        "expr": "ts_std_28(min(ts_std_28(mcap_rank), min(min(abs(ts_mean_5(ret_21)), ts_std_28(abs(ret_21))), ts_std_28(min(abs(ret_21), mcap)))))",
+        "select_fitness": null,
+        "nodes": 17
+      },
+      {
+        "expr": "ts_std_28(min(min(min(ts_std_28(mcap_rank), abs(ts_mean_5(ret_21))), ts_std_28(abs(ret_21))), ts_std_28(min(abs(ret_21), mcap))))",
+        "select_fitness": null,
+        "nodes": 17
+      },
+      {
+        "expr": "ts_std_28(min(ts_std_28(mcap_rank), min(min(abs(ts_mean_5(ret_21)), ts_std_28(abs(ret_21))), ts_std_28(min(abs(ret_21), mcap)))))",
+        "select_fitness": null,
+        "nodes": 17
+      },
+      {
+        "expr": "ts_std_28(min(ts_std_28(mcap_rank), min(min(abs(ts_mean_5(ret_21)), ts_std_28(abs(ret_21))), ts_std_28(min(abs(ret_21), mcap)))))",
+        "select_fitness": null,
+        "nodes": 17
+      },
+      {
+        "expr": "ts_std_28(min(min(min(abs(ts_mean_5(ret_21)), min(abs(ts_mean_5(ret_21)), ts_std_28(mcap_rank))), ts_std_28(abs(ret_21))), ts_std_28(mcap)))",
+        "select_fitness": null,
+        "nodes": 18
+      },
+      {
+        "expr": "ts_std_28(min(min(min(abs(ts_mean_5(mcap)), min(abs(ts_mean_5(ret_21)), ts_std_28(mcap_rank))), ts_std_28(abs(ret_21))), ts_std_28(mcap)))",
+        "select_fitness": null,
+        "nodes": 18
+      },
+      {
+        "expr": "ts_std_28(min(min(min(abs(ts_mean_5(ret_21)), min(abs(ts_mean_5(mcap)), ts_std_28(mcap_rank))), ts_std_28(abs(ret_21))), ts_std_28(mcap)))",
+        "select_fitness": null,
+        "nodes": 18
+      },
+      {
+        "expr": "ts_std_28(min(min(min(abs(ts_mean_5(ret_21)), min(abs(ts_mean_5(ret_21)), ts_std_28(mcap_rank))), ts_std_28(abs(ret_21))), ts_std_28(mcap)))",
+        "select_fitness": null,
+        "nodes": 18
+      }
+    ],
+    "all_discarded_on_select": true,
+    "floor_note": "all 50 null-mined formulas discarded on real SELECT (knife-edge or invalid); floor=-inf"
+  },
   "census": {
     "n_formulas": 50,
     "primitives": [
@@ -594,68 +455,6 @@
       ]
     ],
     "one_liner": "primitives[dist_high_28\u00d7137, turnover\u00d778, dist_ath\u00d754, mcap\u00d754, funding_z_30\u00d753] operators[mul\u00d7196, min\u00d7150, pdiv\u00d7104, ts_std\u00d786, sub\u00d750]"
-  },
-  "null": {
-    "best_select_fitness": null,
-    "best_expr": "ts_std_28(min(min(min(ts_std_28(mcap_rank), min(abs(ts_mean_5(ret_21)), ts_std_28(mcap_rank))), ts_std_28(abs(ret_21))), ts_std_28(mcap)))",
-    "n_gen": 30,
-    "skipped": false,
-    "best_nodes": 17,
-    "n": 50,
-    "top": [
-      {
-        "expr": "ts_std_28(min(min(min(ts_std_28(mcap_rank), min(abs(ts_mean_5(ret_21)), ts_std_28(mcap_rank))), ts_std_28(abs(ret_21))), ts_std_28(mcap)))",
-        "select_fitness": null,
-        "nodes": 17
-      },
-      {
-        "expr": "ts_std_28(min(min(min(abs(ts_mean_5(ret_21)), min(abs(ts_mean_5(ret_21)), ts_std_28(mcap_rank))), ts_std_28(abs(ret_21))), mcap))",
-        "select_fitness": null,
-        "nodes": 17
-      },
-      {
-        "expr": "ts_std_28(min(ts_std_28(mcap_rank), min(min(abs(ts_mean_5(ret_21)), ts_std_28(abs(ret_21))), ts_std_28(min(abs(ret_21), mcap)))))",
-        "select_fitness": null,
-        "nodes": 17
-      },
-      {
-        "expr": "ts_std_28(min(min(min(ts_std_28(mcap_rank), abs(ts_mean_5(ret_21))), ts_std_28(abs(ret_21))), ts_std_28(min(abs(ret_21), mcap))))",
-        "select_fitness": null,
-        "nodes": 17
-      },
-      {
-        "expr": "ts_std_28(min(ts_std_28(mcap_rank), min(min(abs(ts_mean_5(ret_21)), ts_std_28(abs(ret_21))), ts_std_28(min(abs(ret_21), mcap)))))",
-        "select_fitness": null,
-        "nodes": 17
-      },
-      {
-        "expr": "ts_std_28(min(ts_std_28(mcap_rank), min(min(abs(ts_mean_5(ret_21)), ts_std_28(abs(ret_21))), ts_std_28(min(abs(ret_21), mcap)))))",
-        "select_fitness": null,
-        "nodes": 17
-      },
-      {
-        "expr": "ts_std_28(min(min(min(abs(ts_mean_5(ret_21)), min(abs(ts_mean_5(ret_21)), ts_std_28(mcap_rank))), ts_std_28(abs(ret_21))), ts_std_28(mcap)))",
-        "select_fitness": null,
-        "nodes": 18
-      },
-      {
-        "expr": "ts_std_28(min(min(min(abs(ts_mean_5(mcap)), min(abs(ts_mean_5(ret_21)), ts_std_28(mcap_rank))), ts_std_28(abs(ret_21))), ts_std_28(mcap)))",
-        "select_fitness": null,
-        "nodes": 18
-      },
-      {
-        "expr": "ts_std_28(min(min(min(abs(ts_mean_5(ret_21)), min(abs(ts_mean_5(mcap)), ts_std_28(mcap_rank))), ts_std_28(abs(ret_21))), ts_std_28(mcap)))",
-        "select_fitness": null,
-        "nodes": 18
-      },
-      {
-        "expr": "ts_std_28(min(min(min(abs(ts_mean_5(ret_21)), min(abs(ts_mean_5(ret_21)), ts_std_28(mcap_rank))), ts_std_28(abs(ret_21))), ts_std_28(mcap)))",
-        "select_fitness": null,
-        "nodes": 18
-      }
-    ],
-    "all_discarded_on_select": true,
-    "floor_note": "all 50 null-mined formulas discarded on real SELECT (knife-edge or invalid); floor=-inf"
   },
   "history": [
     {
@@ -1177,318 +976,15 @@
     "n_jobs": 32,
     "mean_dv": 98.74092934436665,
     "mean_mcap": 50.0,
-    "code_sha": "65a3ca26d9fdb2419c57813fbbfc493b4d7a47da",
+    "code_sha": "f7fddbb4591ac791a3c07ceaef163ed83d0a5cc0",
     "smoke": false,
-    "null_budget_flag": false,
-    "null_history": [
-      {
-        "generation": 0,
-        "best": 1.9470122907775356,
-        "median": 0.6277982163564453,
-        "mean": 0.6826179487485743,
-        "n_finite": 946,
-        "best_expr": "abs(neg(log1pabs(ts_mean_5(ret_21))))",
-        "best_nodes": 5,
-        "elapsed_s": 1952.0448129177094
-      },
-      {
-        "generation": 1,
-        "best": 2.0185647765001518,
-        "median": 1.2730020852115829,
-        "mean": 1.1445308003870858,
-        "n_finite": 1344,
-        "best_expr": "ts_std_28(ret_14)",
-        "best_nodes": 2,
-        "elapsed_s": 1988.3507034778595
-      },
-      {
-        "generation": 2,
-        "best": 2.3937850851716354,
-        "median": 1.5840760821605075,
-        "mean": 1.4253712766979925,
-        "n_finite": 1471,
-        "best_expr": "ts_max_28(add(ts_rank_63(basis), min(abs(ret_21), mcap)))",
-        "best_nodes": 8,
-        "elapsed_s": 2027.0906717777252
-      },
-      {
-        "generation": 3,
-        "best": 2.3937850851716354,
-        "median": 1.597742339018202,
-        "mean": 1.4789548880803374,
-        "n_finite": 1215,
-        "best_expr": "ts_max_28(add(ts_rank_63(basis), min(abs(ret_21), mcap)))",
-        "best_nodes": 8,
-        "elapsed_s": 2079.1668605804443
-      },
-      {
-        "generation": 4,
-        "best": 2.3937850851716354,
-        "median": 1.71694131086125,
-        "mean": 1.5788051122069289,
-        "n_finite": 1161,
-        "best_expr": "ts_max_28(add(ts_rank_63(basis), min(abs(ret_21), mcap)))",
-        "best_nodes": 8,
-        "elapsed_s": 2123.216778755188
-      },
-      {
-        "generation": 5,
-        "best": 2.436086094208078,
-        "median": 1.8990969102959143,
-        "mean": 1.6920030664684285,
-        "n_finite": 1050,
-        "best_expr": "ts_max_28(add(ts_rank_63(basis), min(abs(log1pabs(ret_21)), ret_21)))",
-        "best_nodes": 9,
-        "elapsed_s": 2164.6903026103973
-      },
-      {
-        "generation": 6,
-        "best": 2.4456770826124337,
-        "median": 1.9478122907775355,
-        "mean": 1.7136359460725872,
-        "n_finite": 1091,
-        "best_expr": "log1pabs(ts_mean_5(ts_std_28(abs(min(abs(ret_21), mcap)))))",
-        "best_nodes": 8,
-        "elapsed_s": 2209.9510197639465
-      },
-      {
-        "generation": 7,
-        "best": 2.5256747522050507,
-        "median": 2.1241681950049527,
-        "mean": 1.7545725278957234,
-        "n_finite": 1014,
-        "best_expr": "ts_max_28(add(ts_rank_63(taker_imb_7), min(abs(ts_mean_5(ret_21)), mcap)))",
-        "best_nodes": 9,
-        "elapsed_s": 2258.4260675907135
-      },
-      {
-        "generation": 8,
-        "best": 2.6407675060059908,
-        "median": 2.209294930052967,
-        "mean": 1.8101323087686207,
-        "n_finite": 1006,
-        "best_expr": "log1pabs(ts_std_28(min(min(abs(ts_mean_5(ret_21)), mcap), ts_std_28(min(abs(ret_21), mcap)))))",
-        "best_nodes": 13,
-        "elapsed_s": 2309.574364900589
-      },
-      {
-        "generation": 9,
-        "best": 2.6407675060059908,
-        "median": 2.216746810771805,
-        "mean": 1.8575171702161528,
-        "n_finite": 987,
-        "best_expr": "log1pabs(ts_std_28(min(min(abs(ts_mean_5(ret_21)), mcap), ts_std_28(min(abs(ret_21), mcap)))))",
-        "best_nodes": 13,
-        "elapsed_s": 2358.130844593048
-      },
-      {
-        "generation": 10,
-        "best": 2.641567506005991,
-        "median": 2.2633844377292274,
-        "mean": 1.9080741285358094,
-        "n_finite": 1051,
-        "best_expr": "ts_std_28(min(min(abs(ts_mean_5(ret_21)), mcap), ts_std_28(min(abs(ret_21), mcap))))",
-        "best_nodes": 12,
-        "elapsed_s": 2401.235321044922
-      },
-      {
-        "generation": 11,
-        "best": 2.7523981260168355,
-        "median": 2.2811091534435652,
-        "mean": 1.9781336197610746,
-        "n_finite": 987,
-        "best_expr": "ts_std_28(min(abs(log1pabs(ret_21)), log1pabs(min(min(abs(ts_mean_5(ret_21)), mcap), ts_std_28(min(abs(ret_21), mcap))))))",
-        "best_nodes": 17,
-        "elapsed_s": 2438.328577518463
-      },
-      {
-        "generation": 12,
-        "best": 2.7523981260168355,
-        "median": 2.4090713589892214,
-        "mean": 2.0959885849686484,
-        "n_finite": 908,
-        "best_expr": "ts_std_28(min(abs(log1pabs(ret_21)), log1pabs(min(min(abs(ts_mean_5(ret_21)), mcap), ts_std_28(min(abs(ret_21), mcap))))))",
-        "best_nodes": 17,
-        "elapsed_s": 2480.354539871216
-      },
-      {
-        "generation": 13,
-        "best": 2.7523981260168355,
-        "median": 2.455931272132139,
-        "mean": 2.1542095744363774,
-        "n_finite": 1095,
-        "best_expr": "ts_std_28(min(abs(log1pabs(ret_21)), log1pabs(min(min(abs(ts_mean_5(ret_21)), mcap), ts_std_28(min(abs(ret_21), mcap))))))",
-        "best_nodes": 17,
-        "elapsed_s": 2521.5920786857605
-      },
-      {
-        "generation": 14,
-        "best": 2.7523981260168355,
-        "median": 2.4575312721321394,
-        "mean": 2.1852976444467407,
-        "n_finite": 1076,
-        "best_expr": "ts_std_28(min(abs(log1pabs(ret_21)), log1pabs(min(min(abs(ts_mean_5(ret_21)), mcap), ts_std_28(min(abs(ret_21), mcap))))))",
-        "best_nodes": 17,
-        "elapsed_s": 2559.1893174648285
-      },
-      {
-        "generation": 15,
-        "best": 2.7539981260168354,
-        "median": 2.4583312721321393,
-        "mean": 2.223013309238275,
-        "n_finite": 1015,
-        "best_expr": "ts_std_28(min(abs(log1pabs(ret_21)), log1pabs(min(abs(ts_mean_5(ret_21)), ts_std_28(min(abs(ret_21), mcap))))))",
-        "best_nodes": 15,
-        "elapsed_s": 2596.113310813904
-      },
-      {
-        "generation": 16,
-        "best": 2.7539981260168354,
-        "median": 2.537189958368191,
-        "mean": 2.3007618570438275,
-        "n_finite": 1098,
-        "best_expr": "ts_std_28(min(abs(log1pabs(ret_21)), log1pabs(min(abs(ts_mean_5(ret_21)), ts_std_28(min(abs(ret_21), mcap))))))",
-        "best_nodes": 15,
-        "elapsed_s": 2632.235059261322
-      },
-      {
-        "generation": 17,
-        "best": 2.802195794800122,
-        "median": 2.537989958368191,
-        "mean": 2.3453940360684498,
-        "n_finite": 1093,
-        "best_expr": "ts_std_28(min(abs(log1pabs(ret_21)), log1pabs(min(min(abs(ts_mean_5(ret_21)), ts_std_28(mcap_rank)), ts_std_28(min(abs(ret_21), mcap))))))",
-        "best_nodes": 18,
-        "elapsed_s": 2668.505122900009
-      },
-      {
-        "generation": 18,
-        "best": 2.802195794800122,
-        "median": 2.537989958368191,
-        "mean": 2.3110416923719526,
-        "n_finite": 1074,
-        "best_expr": "ts_std_28(min(abs(log1pabs(ret_21)), log1pabs(min(min(abs(ts_mean_5(ret_21)), ts_std_28(mcap_rank)), ts_std_28(min(abs(ret_21), mcap))))))",
-        "best_nodes": 18,
-        "elapsed_s": 2703.9877803325653
-      },
-      {
-        "generation": 19,
-        "best": 2.802195794800122,
-        "median": 2.537989958368191,
-        "mean": 2.2678909796579334,
-        "n_finite": 1036,
-        "best_expr": "ts_std_28(min(abs(log1pabs(ret_21)), log1pabs(min(min(abs(ts_mean_5(ret_21)), ts_std_28(mcap_rank)), ts_std_28(min(abs(ret_21), mcap))))))",
-        "best_nodes": 18,
-        "elapsed_s": 2739.253164768219
-      },
-      {
-        "generation": 20,
-        "best": 2.8066203853991287,
-        "median": 2.538789958368191,
-        "mean": 2.3209808035104933,
-        "n_finite": 1066,
-        "best_expr": "ts_std_28(min(ts_std_28(mcap_rank), log1pabs(min(min(abs(ts_mean_5(ret_21)), abs(ret_21)), ts_std_28(min(abs(ret_21), mcap))))))",
-        "best_nodes": 17,
-        "elapsed_s": 2773.207236289978
-      },
-      {
-        "generation": 21,
-        "best": 2.8066203853991287,
-        "median": 2.537989958368191,
-        "mean": 2.290179420619215,
-        "n_finite": 1033,
-        "best_expr": "ts_std_28(min(ts_std_28(mcap_rank), log1pabs(min(min(abs(ts_mean_5(ret_21)), abs(ret_21)), ts_std_28(min(abs(ret_21), mcap))))))",
-        "best_nodes": 17,
-        "elapsed_s": 2808.3359684944153
-      },
-      {
-        "generation": 22,
-        "best": 2.8066203853991287,
-        "median": 2.538789958368191,
-        "mean": 2.3281313519404523,
-        "n_finite": 1057,
-        "best_expr": "ts_std_28(min(ts_std_28(mcap_rank), log1pabs(min(min(abs(ts_mean_5(ret_21)), abs(ret_21)), ts_std_28(min(abs(ret_21), mcap))))))",
-        "best_nodes": 17,
-        "elapsed_s": 2844.9571838378906
-      },
-      {
-        "generation": 23,
-        "best": 2.8066203853991287,
-        "median": 2.524777652223283,
-        "mean": 2.338216666673038,
-        "n_finite": 1012,
-        "best_expr": "ts_std_28(min(ts_std_28(mcap_rank), log1pabs(min(min(abs(ts_mean_5(ret_21)), abs(ret_21)), ts_std_28(min(abs(ret_21), mcap))))))",
-        "best_nodes": 17,
-        "elapsed_s": 2884.8947508335114
-      },
-      {
-        "generation": 24,
-        "best": 2.8066203853991287,
-        "median": 2.490558743240126,
-        "mean": 2.312304553665449,
-        "n_finite": 922,
-        "best_expr": "ts_std_28(min(ts_std_28(mcap_rank), log1pabs(min(min(abs(ts_mean_5(ret_21)), abs(ret_21)), ts_std_28(min(abs(ret_21), mcap))))))",
-        "best_nodes": 17,
-        "elapsed_s": 2926.6669166088104
-      },
-      {
-        "generation": 25,
-        "best": 2.8066203853991287,
-        "median": 2.4893587432401256,
-        "mean": 2.316779506279807,
-        "n_finite": 1037,
-        "best_expr": "ts_std_28(min(ts_std_28(mcap_rank), log1pabs(min(min(abs(ts_mean_5(ret_21)), abs(ret_21)), ts_std_28(min(abs(ret_21), mcap))))))",
-        "best_nodes": 17,
-        "elapsed_s": 2973.473895072937
-      },
-      {
-        "generation": 26,
-        "best": 2.845585105471909,
-        "median": 2.487758743240126,
-        "mean": 2.3304501314589063,
-        "n_finite": 1018,
-        "best_expr": "ts_std_28(min(min(min(abs(ts_mean_5(ret_21)), min(abs(ts_mean_5(ret_21)), ts_std_28(mcap_rank))), ts_std_28(abs(ret_21))), ts_std_28(min(abs(ret_21), mcap))))",
-        "best_nodes": 21,
-        "elapsed_s": 3018.4688391685486
-      },
-      {
-        "generation": 27,
-        "best": 2.848785105471909,
-        "median": 2.4845575949781735,
-        "mean": 2.335294406396211,
-        "n_finite": 1018,
-        "best_expr": "ts_std_28(min(ts_std_28(mcap_rank), min(min(abs(ts_mean_5(ret_21)), ts_std_28(abs(ret_21))), ts_std_28(min(abs(ret_21), mcap)))))",
-        "best_nodes": 17,
-        "elapsed_s": 3067.7175772190094
-      },
-      {
-        "generation": 28,
-        "best": 2.848785105471909,
-        "median": 2.482157594978174,
-        "mean": 2.318746754096799,
-        "n_finite": 1028,
-        "best_expr": "ts_std_28(min(ts_std_28(mcap_rank), min(min(abs(ts_mean_5(ret_21)), ts_std_28(abs(ret_21))), ts_std_28(min(abs(ret_21), mcap)))))",
-        "best_nodes": 17,
-        "elapsed_s": 3120.459568977356
-      },
-      {
-        "generation": 29,
-        "best": 2.8493839796212277,
-        "median": 2.50387007568417,
-        "mean": 2.36133007282208,
-        "n_finite": 1110,
-        "best_expr": "ts_std_28(min(min(min(ts_std_28(mcap_rank), min(abs(ts_mean_5(ret_21)), ts_std_28(mcap_rank))), ts_std_28(abs(ret_21))), ts_std_28(mcap)))",
-        "best_nodes": 17,
-        "elapsed_s": 3183.1254756450653
-      }
-    ],
-    "elapsed_sec": 3187.911952972412,
+    "elapsed_sec": 48.68971633911133,
     "budget_flag": false,
-    "last_generation": 50,
-    "best_mine_expr": "min(mul(mcap_rank, mul(sub(mul(min(dist_ath, pdiv(funding_z_30, dist_high_28)), ts_std_14(turnover)), pos_missing), mcap)), min(z_cs(dist_high_28), mul(funding_z_7, pdiv(ts_rank_5(ts_max_28(turnover)), dist_high_28))))",
-    "champions_sha": "PENDING_COMMIT"
+    "champions_sha": "f7fddbb4591ac791a3c07ceaef163ed83d0a5cc0",
+    "judge_start": "2025-01-01",
+    "judge_end": "2026-08-13"
   },
-  "judge_touched": false,
-  "n_champions": 1,
-  "diversity_note": "population collapsed to one lineage; greedy corr<0.7 keeps 1 champion"
+  "criterion": "On the JUDGE window, per champion (headline book = k=5, daily, top-100 DV): FORGE-ALIVE if \u22651 champion has (a) total return \u2265 BTC B&H same-window; (b) relative-line Sharpe > 0; (c) MaxDD \u2264 1.15 \u00d7 BTC's. FORGE-STRONG if \u22652 champions pass, or one passes with relative-line Sharpe \u2265 0.5. FORGE-DEAD otherwise, and the ledger records that GP-mined formulaic strategies do not survive nesting on this data. Champions' formulas, MINE/SELECT/JUDGE numbers, and the full per-cycle honesty tables are printed regardless. Benchmarks on JUDGE: BTC B&H, EW baskets (both universes), frozen-spread crude book. Mechanical, no post-hoc adjustment; no re-mining, no second look at JUDGE.",
+  "fitness": "fitness(S) = median over the perturbation set P of [ann. net log-wealth of BOOK(S, p)] \u2212 \u03bb_c \u00b7 nodes(S)/25, computed ONLY on the MINE window. BOOK(S, p): long-only, top-k by S (k per p), equal-weight, daily rebalance, 10 bps/side, always invested, death convention. Perturbation set P (fixed): k \u2208 {3, 5, 8} \u00d7 rebalance \u2208 {daily, weekly} \u00d7 the two universes = 12 books. \u03bb_c = 0.02. A formula whose 12-book spread (max\u2212min ann log-wealth) exceeds 1.0 is discarded regardless of median (knife-edge filter). No correlation metric appears anywhere in the fitness.",
+  "noncontamination": "The PI's hand-made formulas are EXCLUDED from this project: not as seeds, not as operator biases, not as fitness shaping. The search space contains generic primitives and operators only. If the miner independently evolves similar structures, they are reported without censorship \u2014 that is evidence the method works, not contamination."
 }
