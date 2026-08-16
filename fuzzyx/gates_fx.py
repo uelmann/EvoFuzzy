@@ -67,6 +67,7 @@ def gate_shuffle_bias(
     m = torch.from_numpy(sl.mask).to(device=device)
     pos = model(x, m)["soft_pos"]
     pnls = []
+    corrs = []
     for s in seeds:
         rng = np.random.default_rng(int(s))
         rh = sl.ret_h7.copy()
@@ -78,6 +79,7 @@ def gate_shuffle_bias(
         rt = torch.from_numpy(rh).to(device=device, dtype=torch.float32)
         stats = path_loss_torch(pos, rt, mask=m)
         pnls.append(float(stats["mean_pnl"].cpu()))
+        corrs.append(float(stats["core"].cpu()))
     arr = np.asarray(pnls, dtype=float)
     mean = float(np.mean(arr))
     sd = float(np.std(arr, ddof=1)) if arr.size > 1 else 0.0
@@ -93,6 +95,8 @@ def gate_shuffle_bias(
         "threshold": float(2.0 * se),
         "n": int(arr.size),
         "pnls": [float(c) for c in arr],
+        "mean_corr_st_r": float(np.mean(corrs)),
+        "corrs": [float(c) for c in corrs],
     }
 
 

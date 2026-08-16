@@ -1,11 +1,10 @@
 """
-FuzzyX-v1b one shot — pay-to-play loss, no occupancy floors.
+FuzzyX-v1c one shot — loss = −corr(st_r, arange(T)).
 
-BACKTEST ONLY. Addendum frozen: reports/fuzzyx_addendum_v1b.md
-Does not replace COMBO / A0. Does not overwrite reports/fuzzyx_v1_report.md.
+BACKTEST ONLY. Addendum frozen: reports/fuzzyx_addendum_v1c.md
+Does not replace COMBO / A0. Does not overwrite v1 / v1b reports.
 
-    python fuzzyx_pipeline.py
-    modal run fuzzyx_pipeline.py   # optional, uses /data/quant volume
+    python3 fuzzyx_pipeline.py
 """
 
 from __future__ import annotations
@@ -300,7 +299,7 @@ def run_fuzzyx(root: Path | None = None) -> dict:
         rules = model.rule_sheet(FEATURE_COLS)
 
     write_report(
-        Path("reports/fuzzyx_v1b_report.md"),
+        Path("reports/fuzzyx_v1c_report.md"),
         mode=mode,
         gates=gates,
         bias_folds=bias_folds,
@@ -311,8 +310,8 @@ def run_fuzzyx(root: Path | None = None) -> dict:
         rules=rules,
         n_params=n_params or FuzzyXNet(seed=SEED).n_params(),
         notes=notes,
-        title="FuzzyX-v1b report",
-        addendum="reports/fuzzyx_addendum_v1b.md",
+        title="FuzzyX-v1c report",
+        addendum="reports/fuzzyx_addendum_v1c.md",
     )
     summary = {
         "mode": mode,

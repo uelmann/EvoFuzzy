@@ -1,7 +1,7 @@
-"""Notebook-style path loss: trend × (1 − maxDD) × (1 − DD duration).
+"""v1c path loss: −corr(st_r, arange(T)).
 
-v1b: occupancy floors are diagnostics only. The core/1e5 nuke is off
-(OCC_NUKE=False). Training pay-to-play lives in torch_loss, not here.
+st_r is net weekly portfolio return. Occupancy nuke off. DD terms are
+diagnostics only (not in the train scalar).
 """
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ import numpy as np
 
 from .constants import (
     GROSS_LIMIT,
+    LEVER_UP,
     MAXDD_CAP,
     OCC_LONG_MIN,
     OCC_NUKE,
@@ -18,6 +19,8 @@ from .constants import (
     OCC_TRADED_MIN,
     SLIPPAGE_BPS,
     TAKER_FEE_BPS,
+    TURN_LAMBDA,
+    BIAS_LAMBDA,
 )
 
 
@@ -45,11 +48,12 @@ def max_dd_path(returns: np.ndarray) -> tuple[float, float, float]:
     return maxdd, float(ddur), float(equity[-1])
 
 
-def trend_corr(equity: np.ndarray) -> float:
-    eq = np.asarray(equity, dtype=np.float64).reshape(-1)
+def trend_corr(series: np.ndarray) -> float:
+    """np.corrcoef(series, np.arange(len(series)))[1, 0]. Constant → 0."""
+    eq = np.asarray(series, dtype=np.float64).reshape(-1)
     if eq.size < 3 or np.std(eq) < 1e-12:
         return 0.0
-    t = np.linspace(0.0, 1.0, eq.size)
+    t = np.arange(eq.size, dtype=np.float64)
     c = np.corrcoef(eq, t)[0, 1]
     return float(c) if np.isfinite(c) else 0.0
 
@@ -87,9 +91,14 @@ def portfolio_returns(
     if mask is not None:
         p = np.where(mask.astype(bool), p, 0.0)
         r = np.where(mask.astype(bool), r, 0.0)
-    # v1b: never lever dust up to unit gross. w = p / max(Σ|p|, 1).
+    # v1c: unit-gross if LEVER_UP else no dust lever-up.
     gross = np.sum(np.abs(p), axis=-1, keepdims=True)
-    w = p / np.maximum(gross, 1.0) * gross_limit
+    if LEVER_UP:
+        w = np.zeros_like(p)
+        np.divide(p, gross, out=w, where=gross > 1e-8)
+        w *= gross_limit
+    else:
+        w = p / np.maximum(gross, 1.0) * gross_limit
     gross_pnl = np.sum(w * r, axis=-1)
     if prev_positions is None:
         prev = np.zeros_like(w)
@@ -105,15 +114,15 @@ def path_loss(
     positions: np.ndarray,
     asset_ret: np.ndarray,
     mask: np.ndarray | None = None,
-    turn_lambda: float = 0.05,
-    bias_lambda: float = 0.05,
+    turn_lambda: float = TURN_LAMBDA,
+    bias_lambda: float = BIAS_LAMBDA,
 ) -> dict[str, float]:
-    """Scalar loss plus diagnostics. Lower is better (we return −core)."""
+    """v1c: loss = −corr(st_r, arange). Lower is better."""
     port, w = portfolio_returns(positions, asset_ret, mask=mask)
     equity = np.cumprod(1.0 + port)
     maxdd, ddur, _ = max_dd_path(port)
-    trend = trend_corr(equity)
-    core = trend * (1.0 - maxdd) * (1.0 - ddur)
+    core = trend_corr(port)
+    trend_eq = trend_corr(equity)
     long_f, short_f, traded_f = occupancy(positions, mask)
     if OCC_NUKE and (
         traded_f < OCC_TRADED_MIN or short_f < OCC_SHORT_MIN or long_f < OCC_LONG_MIN
@@ -125,7 +134,8 @@ def path_loss(
     return {
         "loss": float(loss),
         "core": float(core),
-        "trend": float(trend),
+        "trend": float(core),
+        "trend_equity": float(trend_eq),
         "maxdd": float(maxdd),
         "ddur": float(ddur),
         "long_frac": long_f,

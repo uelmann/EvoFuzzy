@@ -1,8 +1,7 @@
-"""Differentiable weekly path loss (notebook core + pay-to-play + costs).
+"""Differentiable weekly path loss.
 
-v1b: occupancy floors / core-nuke are off. Default is flat; being long or
-short must pay for itself via λ_active. Book weights never lever dust up
-to unit gross: w = p / max(Σ|p|, 1).
+v1c: loss = −corr(st_r, arange(T)). st_r is net weekly portfolio return.
+No DD multipliers, no occupancy nuke, no pay-to-play.
 """
 
 from __future__ import annotations
@@ -13,6 +12,7 @@ from .constants import (
     ACTIVE_LAMBDA,
     BIAS_LAMBDA,
     GROSS_LIMIT,
+    LEVER_UP,
     MAXDD_CAP,
     SLIPPAGE_BPS,
     TAKER_FEE_BPS,
@@ -24,8 +24,9 @@ def _weights(pos: torch.Tensor, mask: torch.Tensor | None, gross_limit: float = 
     p = pos
     if mask is not None:
         p = torch.where(mask, p, torch.zeros_like(p))
-    # v1b: do not renormalize tiny |pos| into a fully invested book.
     gross = p.abs().sum(dim=-1, keepdim=True)
+    if LEVER_UP:
+        return p / gross.clamp(min=1e-8) * gross_limit
     return p / gross.clamp(min=1.0) * gross_limit
 
 
@@ -47,6 +48,16 @@ def portfolio_net(
     return pnl - cost, w
 
 
+def _pearson_vs_arange(x: torch.Tensor) -> torch.Tensor:
+    """np.corrcoef(x, np.arange(len(x)))[1, 0], differentiable. Constant x → 0."""
+    n = x.numel()
+    t = torch.arange(n, device=x.device, dtype=x.dtype)
+    vx = x - x.mean()
+    vt = t - t.mean()
+    denom = vx.norm() * vt.norm()
+    return (vx * vt).sum() / denom.clamp(min=1e-8)
+
+
 def path_loss_torch(
     pos: torch.Tensor,
     asset_ret: torch.Tensor,
@@ -62,12 +73,9 @@ def path_loss_torch(
     maxdd = (-dd.min()).clamp(max=MAXDD_CAP)
     under = torch.sigmoid((-dd - 1e-4) / 0.02)
     ddur = under.mean()
-    t = torch.linspace(0.0, 1.0, equity.numel(), device=equity.device, dtype=equity.dtype)
-    vx = equity - equity.mean()
-    vt = t - t.mean()
-    denom = vx.norm() * vt.norm()
-    trend = (vx * vt).sum() / denom.clamp(min=1e-8)
-    core = trend * (1.0 - maxdd) * (1.0 - ddur)
+    # v1c train core: corr(st_r, arange). Equity trend kept as diagnostic only.
+    core = _pearson_vs_arange(port)
+    trend_eq = _pearson_vs_arange(equity)
 
     if mask is not None:
         m = mask.to(dtype=pos.dtype)
@@ -84,12 +92,12 @@ def path_loss_torch(
 
     turn = (w[1:] - w[:-1]).abs().sum(dim=-1).mean() if w.shape[0] > 1 else w.new_zeros(())
     bias = w.mean().abs()
-    # Pay-to-play: default is flat. Occupancy floors / nuke are gone (v1b).
     loss = -core + turn_lambda * turn + bias_lambda * bias + active_lambda * active
     return {
         "loss": loss,
         "core": core.detach(),
-        "trend": trend.detach(),
+        "trend": core.detach(),
+        "trend_equity": trend_eq.detach(),
         "maxdd": maxdd.detach(),
         "ddur": ddur.detach(),
         "long_frac": long_f.detach(),

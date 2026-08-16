@@ -36,9 +36,9 @@ def market_token(x: torch.Tensor, mask: torch.Tensor | None) -> torch.Tensor:
 
 
 def soft_positions(logits: torch.Tensor, temperature: float = POS_TEMPERATURE) -> torch.Tensor:
-    """Uncertain names → 0: (P_L − P_S) · (P_L + P_S) = P_L² − P_S²."""
+    """P(long) − P(short). v1c: notebook-style signed score, not P_L²−P_S²."""
     p = F.softmax(logits / max(float(temperature), 1e-6), dim=-1)
-    return (p[..., 0] - p[..., 1]) * (p[..., 0] + p[..., 1])
+    return p[..., 0] - p[..., 1]
 
 
 def hard_positions(logits: torch.Tensor) -> torch.Tensor:

@@ -8,7 +8,7 @@ import torch
 
 from .constants import N_FEATURES, SEED, UNIVERSE_N
 from .pack import PackedPanel
-from .torch_loss import path_loss_torch
+from .torch_loss import path_loss_torch, portfolio_net
 from .torch_model import FuzzyXNet
 from .train import train_fold
 
@@ -38,12 +38,16 @@ def run() -> dict:
     m = torch.from_numpy(p.mask)
     r = torch.from_numpy(p.ret_h7).float()
     out = model(x, m)
-    # FLAT prior: init logits prefer FLAT over LONG/SHORT
-    logits = out["logits"]
-    assert float(logits[..., 2].mean().detach()) > float(logits[..., 0].mean().detach())
-    assert float(logits[..., 2].mean().detach()) > float(logits[..., 1].mean().detach())
     stats = path_loss_torch(out["soft_pos"], r, mask=m)
-    assert "mean_pnl" in stats and "active" in stats
+    assert "mean_pnl" in stats and "core" in stats
+    # torch pearson(st_r, arange) must match numpy corrcoef
+    with torch.no_grad():
+        port, _ = portfolio_net(out["soft_pos"].detach(), r, mask=m)
+        st = port.cpu().numpy()
+        np_c = float(np.corrcoef(st, np.arange(st.size))[1, 0]) if np.std(st) > 1e-12 else 0.0
+        torch_c = float(stats["core"].detach().cpu())
+        if np.isfinite(np_c):
+            assert abs(np_c - torch_c) < 1e-5, (np_c, torch_c)
     stats["loss"].backward()
     grad = float(sum(float(t.grad.abs().sum()) for t in model.parameters() if t.grad is not None))
     assert grad > 0.0
