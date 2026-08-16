@@ -1,0 +1,305 @@
+{
+  "frozen_sha256": "e6b7407c8243ea49df3801ccaacedecd194315f45790e549a68c3368078b3faa",
+  "gpu_used": false,
+  "scheduled_jobs_created": false,
+  "improve": {
+    "improves": false,
+    "verdict": "NO LIFT",
+    "pass_ric": false,
+    "pass_gap": false,
+    "pass_sharpe": true,
+    "pass_null": true,
+    "ric_a0": 0.05010872331271975,
+    "ric_dd10": 0.02267992701177209,
+    "gap_a0": 0.008096967922864759,
+    "gap_dd10": 0.005449965484591929,
+    "sharpe_a0": 0.26303299628093224,
+    "sharpe_dd10": 0.28222154860966686,
+    "null_verdict": "GREEN"
+  },
+  "verdict": {
+    "viable": false,
+    "verdict": "NOT VIABLE",
+    "pass_full": false,
+    "pass_trail": false,
+    "pass_total": false,
+    "pass_gross": true,
+    "pass_null": true,
+    "sharpe_full": 0.28222154860966686,
+    "sharpe_trail18m": -0.03286308324785396,
+    "total_return": -0.0871189684486594,
+    "avg_gross": 0.958453429001326,
+    "null_verdict": "GREEN",
+    "need_full": 0.5,
+    "need_trail": 0.0,
+    "need_gross": 0.15
+  },
+  "null": {
+    "bias_pass": true,
+    "skill_pass": true,
+    "n_violate": 0,
+    "n_folds": 2,
+    "verdict": "GREEN",
+    "passed": true,
+    "cells": [
+      {
+        "fold_id": 0,
+        "n": 10,
+        "mean": 0.0036117502152448605,
+        "sd": 0.02265229442730132,
+        "p95": 0.03698312565984465,
+        "se": 0.007163284461901163,
+        "bias_lim": 0.014326568923802326,
+        "bias_ok": true,
+        "real": 0.0517420023111005,
+        "exceeds_p95": true
+      },
+      {
+        "fold_id": 1,
+        "n": 10,
+        "mean": 0.00738842817913984,
+        "sd": 0.016494194397376646,
+        "p95": 0.029881672941528183,
+        "se": 0.00521592224652986,
+        "bias_lim": 0.01043184449305972,
+        "bias_ok": true,
+        "real": 0.03503088907882703,
+        "exceeds_p95": true
+      }
+    ]
+  },
+  "seed_gate": {
+    "name": "seed_determinism",
+    "passed": true,
+    "max_score_diff": 0.0
+  },
+  "ric_a0_ratio": {
+    "n_days": 1620,
+    "mean_ic": 0.05010872331271975,
+    "std_ic": 0.19316055031284862,
+    "icir": 4.118083744916184,
+    "nw_tstat": 5.153789037965472
+  },
+  "ric_dd10_ratio": {
+    "n_days": 1620,
+    "mean_ic": 0.02267992701177209,
+    "std_ic": 0.22264638103087486,
+    "icir": 1.6170605517614267,
+    "nw_tstat": 1.9034623386587652
+  },
+  "ric_a0_simple": {
+    "n_days": 1620,
+    "mean_ic": 0.07454539975827533,
+    "std_ic": 0.22829779024660957,
+    "icir": 5.183455930902599,
+    "nw_tstat": 5.7366307987614045
+  },
+  "ric_dd10_simple": {
+    "n_days": 1620,
+    "mean_ic": 0.014577671551811831,
+    "std_ic": 0.22498700714737863,
+    "icir": 1.0285632253033286,
+    "nw_tstat": 1.137182082931373
+  },
+  "gap_a0": {
+    "n_days": 1620,
+    "mean_gap": 0.008096967922864759,
+    "pct_gap_pos": 0.5049382716049383,
+    "nw_t": 1.7994523147954973
+  },
+  "gap_dd10": {
+    "n_days": 1620,
+    "mean_gap": 0.005449965484591929,
+    "pct_gap_pos": 0.508641975308642,
+    "nw_t": 0.9747723878438087
+  },
+  "a0_book": {
+    "tau_pct": 0.0,
+    "tau": 0.0,
+    "variant": "a0_lo10",
+    "horizon": 10,
+    "lag": 0,
+    "funding_on": true,
+    "net_sharpe": 0.26303299628093224,
+    "gross_sharpe": 0.2870238358469358,
+    "net_cagr": -0.0563399002241991,
+    "max_drawdown": -0.69815004718937,
+    "total_return": -0.22680038742955122,
+    "avg_n_positions": 10.948116121062384,
+    "avg_n_long": 10.948116121062384,
+    "avg_n_short": 0.0,
+    "n_flat_days": 0,
+    "n_days": 1619,
+    "pct_flat_days": 0.0,
+    "ann_turnover": 25.933556052695653,
+    "gross_total_pnl": 0.8769456540474994,
+    "hedge_total_pnl": 0.0,
+    "cost_drag": 0.1505316397180834,
+    "funding_total_pnl": 0.0768188837040545,
+    "net_total_pnl": 0.8032328980334702,
+    "identity_gap": -3.3306690738754696e-16,
+    "gross_ann_return": 0.1977054748161441,
+    "hedge_ann_return": 0.0,
+    "cost_ann_drag": 0.033937028101976796,
+    "funding_ann_return": 0.017318648889425504,
+    "net_ann_return": 0.1810870956035927,
+    "avg_holding_days": NaN,
+    "n_closed_trades": 0,
+    "trade_pnl_p10": NaN,
+    "trade_pnl_p50": NaN,
+    "trade_pnl_p90": NaN,
+    "turnover_entry_exit_ann": 25.933556052695653,
+    "turnover_resize_ann": 0.0,
+    "turnover_hedge_ann": 0.0,
+    "avg_gross_deployed": 0.9328511503918763,
+    "n_forced_exits": 10,
+    "forced_exit_pnl": 0.0,
+    "max_abs_btc_weight": 0.523046146244592,
+    "btc_weight_identically_zero": false,
+    "pct_days_btc_held": 0.5719579987646696,
+    "long_only": true,
+    "apply_beta_hedge": false,
+    "top_pct": 0.1,
+    "net_sharpe_full": 0.26303299628093224,
+    "net_sharpe_trail18m": -0.4449909095974381,
+    "net_sharpe_by_year": {
+      "2022": -0.597578215993936,
+      "2023": 1.9986108715919604,
+      "2024": 0.6108345624287108,
+      "2025": -0.29454089000481626,
+      "2026": -0.5694689384088519
+    },
+    "mean_ann": 0.1810870956035927,
+    "nw_t_vs_cash": 0.6008614503429448,
+    "nw_t_vs_cash_trail18m": -0.6943937879366197,
+    "top5_names": [
+      {
+        "symbol": "XRPUSDT",
+        "pnl": 0.5573126956184655
+      },
+      {
+        "symbol": "FTMUSDT",
+        "pnl": -0.20616268137988422
+      },
+      {
+        "symbol": "SOLUSDT",
+        "pnl": 0.1571979295734725
+      },
+      {
+        "symbol": "ADAUSDT",
+        "pnl": 0.1385600389843678
+      },
+      {
+        "symbol": "DOGEUSDT",
+        "pnl": 0.130720082082696
+      }
+    ]
+  },
+  "dd10_book": {
+    "tau_pct": 0.0,
+    "tau": 0.0,
+    "variant": "dd10_lo",
+    "horizon": 10,
+    "lag": 0,
+    "funding_on": true,
+    "net_sharpe": 0.28222154860966686,
+    "gross_sharpe": 0.20406224995922145,
+    "net_cagr": -0.020339800525072338,
+    "max_drawdown": -0.7148707800941836,
+    "total_return": -0.0871189684486594,
+    "avg_n_positions": 9.25633106856084,
+    "avg_n_long": 9.25633106856084,
+    "avg_n_short": 0.0,
+    "n_flat_days": 0,
+    "n_days": 1619,
+    "pct_flat_days": 0.0,
+    "ann_turnover": 22.6054917909258,
+    "gross_total_pnl": 0.5669989913443151,
+    "hedge_total_pnl": 0.0,
+    "cost_drag": 0.12207066362049841,
+    "funding_total_pnl": 0.3392284544917664,
+    "net_total_pnl": 0.7841567822155828,
+    "identity_gap": -2.220446049250313e-16,
+    "gross_ann_return": 0.1278286793333385,
+    "hedge_ann_return": 0.0,
+    "cost_ann_drag": 0.027520563447487288,
+    "funding_ann_return": 0.07647831123501837,
+    "net_ann_return": 0.1767864271208695,
+    "avg_holding_days": NaN,
+    "n_closed_trades": 0,
+    "trade_pnl_p10": NaN,
+    "trade_pnl_p50": NaN,
+    "trade_pnl_p90": NaN,
+    "turnover_entry_exit_ann": 22.6054917909258,
+    "turnover_resize_ann": 0.0,
+    "turnover_hedge_ann": 0.0,
+    "avg_gross_deployed": 0.958453429001326,
+    "n_forced_exits": 0,
+    "forced_exit_pnl": 0.0,
+    "max_abs_btc_weight": 0.7036142283780422,
+    "btc_weight_identically_zero": false,
+    "pct_days_btc_held": 0.6905497220506486,
+    "long_only": true,
+    "apply_beta_hedge": false,
+    "top_pct": 0.1,
+    "net_sharpe_full": 0.28222154860966686,
+    "net_sharpe_trail18m": -0.03286308324785396,
+    "net_sharpe_by_year": {
+      "2022": -1.0684927633475367,
+      "2023": 2.104335117277836,
+      "2024": 0.40593082406127273,
+      "2025": 0.005954128934457591,
+      "2026": 0.07633279000396426
+    },
+    "mean_ann": 0.1767864271208695,
+    "nw_t_vs_cash": 0.668906033358831,
+    "nw_t_vs_cash_trail18m": -0.04784606748748924,
+    "top5_names": [
+      {
+        "symbol": "XRPUSDT",
+        "pnl": 0.40677685442844685
+      },
+      {
+        "symbol": "LTCUSDT",
+        "pnl": -0.21792602774003417
+      },
+      {
+        "symbol": "SIRENUSDT",
+        "pnl": 0.18719090082287332
+      },
+      {
+        "symbol": "ETHUSDT",
+        "pnl": -0.1785350672724928
+      },
+      {
+        "symbol": "BNBUSDT",
+        "pnl": 0.16969648081033184
+      }
+    ]
+  },
+  "used_fixed": false,
+  "n_folds": 18,
+  "mean_label_rate": 0.10115781365394236,
+  "elapsed_sec": 196.005624294281,
+  "dd10_iters": [
+    52,
+    204,
+    13,
+    59,
+    17,
+    201,
+    74,
+    2,
+    6,
+    11,
+    61,
+    1,
+    4,
+    11,
+    5,
+    55,
+    62,
+    39
+  ],
+  "frozen_feat_sha256": "f01dca8b8647b60f520721bd574bc23aa252aa602f63e52c7f34b25ce7263fb6"
+}
