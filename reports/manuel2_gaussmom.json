@@ -1,0 +1,1741 @@
+{
+  "criterion": "MANUEL-2 is CONFIRMED if the best pre-declared book (daily or weekly, btc-in or btc-ex \u2014 4 books, disclosed as a 4-way look) on Binance-hybrid pricing has: total \u2265 BTC B&H AND daily correlation with BTC \u2264 0.70. It is STRONG if additionally relative-line Sharpe \u2265 0.50 and MaxDD \u2264 1.10 \u00d7 BTC's. It is PARTIAL if exactly one of the two claim clauses passes (state which). REFUTED if neither. Per-cycle honesty table mandatory; no single cycle overrides. If CONFIRMED, a fresh pre-registered phase evaluates adoption. Mechanical, no post-hoc adjustment.",
+  "formula": "Score = gauss(ret_14d) \u00d7 gauss(ret_28d) / gauss(std_63d), gauss(x) = \u03a6(z_cs(x)), z_cs = cross-sectional z-score per date across that day's universe. All inputs use data \u2264 t.",
+  "verdict": {
+    "label": "MANUEL-2 STRONG",
+    "best_book": "daily_btc_in",
+    "clause1_total_ge_btc": true,
+    "clause2_corr_le_070": true,
+    "confirmed": true,
+    "strong": true,
+    "partial_which": null,
+    "best_total": 59.39273490080397,
+    "btc_total": 6.892730650871092,
+    "best_corr": 0.41445744898283027,
+    "best_rel_sharpe": 0.7554201699668939,
+    "best_maxdd": -0.7545584327122357,
+    "btc_maxdd": -0.7662925431645938,
+    "rel_ok": true,
+    "maxdd_ok": true,
+    "best_rule": "Best book = highest full-window total return among the four pre-declared books (daily/weekly \u00d7 btc-in/btc-ex). Verdicts apply to that book. All four are reported. This is the disclosed 4-way look. No other selection.",
+    "nothing_adopted": true
+  },
+  "books": {
+    "daily_btc_in": {
+      "n_days": 2485,
+      "start": "2019-10-20",
+      "end": "2026-08-08",
+      "book_total": 59.39273490080397,
+      "btc_total": 7.166155628621581,
+      "book_cagr": 0.8263891805350223,
+      "btc_cagr": 0.3613140510977644,
+      "book_sharpe": 1.1059608972446882,
+      "btc_sharpe": 0.8175522703021646,
+      "maxdd": -0.7545584327122357,
+      "btc_maxdd": -0.7662925431645937,
+      "rel_cagr": 0.3416369125568204,
+      "rel_sharpe": 0.7554201699668939,
+      "avg_w_btc": 0.0,
+      "avg_n_names": 3.0,
+      "ann_turnover": 90.84607645875252,
+      "cycles": {
+        "2019-20": {
+          "n": 439,
+          "book_total": 4.705229303587067,
+          "btc_total": 2.639103373045572,
+          "book_cagr": 3.253946157255359,
+          "btc_cagr": 1.92705186183461,
+          "book_sharpe": 1.9498751596738868,
+          "rel_cagr": 0.4533210746013503,
+          "rel_sharpe": 0.8864476591605859,
+          "maxdd": -0.5792486868717579,
+          "btc_maxdd": -0.5359790262519866,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 3.0
+        },
+        "2021": {
+          "n": 365,
+          "book_total": 10.197755915492323,
+          "btc_total": 0.5978952157803168,
+          "book_cagr": 10.197755915492323,
+          "btc_cagr": 0.5978952157803168,
+          "book_sharpe": 2.385596672129169,
+          "rel_cagr": 6.007816160225504,
+          "rel_sharpe": 2.1200553026415236,
+          "maxdd": -0.6761542939694241,
+          "btc_maxdd": -0.5314140778607939,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 3.0
+        },
+        "2022": {
+          "n": 365,
+          "book_total": -0.5133440475738831,
+          "btc_total": -0.64207055726116,
+          "book_cagr": -0.5133440475738831,
+          "btc_cagr": -0.64207055726116,
+          "book_sharpe": -0.8542473172645183,
+          "rel_cagr": 0.3596421370152585,
+          "rel_sharpe": 0.8976921160887933,
+          "maxdd": -0.6197377523972427,
+          "btc_maxdd": -0.669312370541033,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 3.0
+        },
+        "2023-24": {
+          "n": 731,
+          "book_total": 4.240273903776413,
+          "btc_total": 4.6567366283006235,
+          "book_cagr": 1.286572413755188,
+          "btc_cagr": 1.3755721679069688,
+          "book_sharpe": 1.477403664311387,
+          "rel_cagr": -0.03746455500452994,
+          "rel_sharpe": 0.28070464589903044,
+          "maxdd": -0.5884306208105069,
+          "btc_maxdd": -0.26151375053867665,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 3.0
+        },
+        "2025-26": {
+          "n": 585,
+          "book_total": -0.629315378533829,
+          "btc_total": -0.3063960139582709,
+          "book_cagr": -0.46162074053816493,
+          "btc_cagr": -0.2040890305998918,
+          "book_sharpe": -0.6028440242010062,
+          "rel_cagr": -0.3235684892399199,
+          "rel_sharpe": -0.22864931140363454,
+          "maxdd": -0.7545584327122359,
+          "btc_maxdd": -0.5297176591351058,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 3.0
+        }
+      },
+      "label": "daily_btc_in",
+      "net_sharpe_trail18m": -0.6721621848595555,
+      "n_formations": 2485,
+      "n_empty_sel": 0,
+      "forced_exits": {
+        "n_events": 0,
+        "n_ids": 0,
+        "weight_sum": 0.0
+      },
+      "forced_n": 0,
+      "corr_btc": 0.41445744898283027,
+      "corr_btc_n": 2485,
+      "score_vol_tilt": -0.4419882390985122,
+      "score_vol_tilt_n": 2485,
+      "top5": [
+        {
+          "id": 52,
+          "symbol": "XRP",
+          "contrib": 0.6908894551252361,
+          "share": 0.08744270281778864
+        },
+        {
+          "id": 1,
+          "symbol": "BTC",
+          "contrib": 0.6269329474434743,
+          "share": 0.07934802160215745
+        },
+        {
+          "id": 4172,
+          "symbol": "LUNC",
+          "contrib": 0.5955047645530185,
+          "share": 0.07537030094626022
+        },
+        {
+          "id": 3635,
+          "symbol": "CRO",
+          "contrib": 0.48126808419883194,
+          "share": 0.060911889376943196
+        },
+        {
+          "id": 2416,
+          "symbol": "THETA",
+          "contrib": 0.4397039715516781,
+          "share": 0.05565131067925364
+        }
+      ],
+      "top5_share": 0.1662706778380847,
+      "top5_share_signed": 0.3587242254224031,
+      "total": 59.39273490080397,
+      "cagr": 0.8263891805350223,
+      "sharpe": 1.1059608972446882,
+      "rel_total": 6.395491544287169
+    },
+    "daily_btc_ex": {
+      "n_days": 2485,
+      "start": "2019-10-20",
+      "end": "2026-08-08",
+      "book_total": 55.22761522989077,
+      "btc_total": 7.166155628621581,
+      "book_cagr": 0.807319190889457,
+      "btc_cagr": 0.3613140510977644,
+      "book_sharpe": 1.092363946975609,
+      "btc_sharpe": 0.8175522703021646,
+      "maxdd": -0.7623289854589026,
+      "btc_maxdd": -0.7662925431645937,
+      "rel_cagr": 0.32762839657170506,
+      "rel_sharpe": 0.7443397895416131,
+      "avg_w_btc": 0.0,
+      "avg_n_names": 3.0,
+      "ann_turnover": 93.19617706237425,
+      "cycles": {
+        "2019-20": {
+          "n": 439,
+          "book_total": 3.0123331837256346,
+          "btc_total": 2.639103373045572,
+          "book_cagr": 2.174573774427049,
+          "btc_cagr": 1.92705186183461,
+          "book_sharpe": 1.6550503983697917,
+          "rel_cagr": 0.0845635555077926,
+          "rel_sharpe": 0.5991496256751612,
+          "maxdd": -0.597712123978337,
+          "btc_maxdd": -0.5359790262519866,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 3.0
+        },
+        "2021": {
+          "n": 365,
+          "book_total": 9.867591311586171,
+          "btc_total": 0.5978952157803168,
+          "book_cagr": 9.867591311586171,
+          "btc_cagr": 0.5978952157803168,
+          "book_sharpe": 2.37961877034914,
+          "rel_cagr": 5.8011914700421,
+          "rel_sharpe": 2.0712570414898197,
+          "maxdd": -0.6559156842783029,
+          "btc_maxdd": -0.5314140778607939,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 3.0
+        },
+        "2022": {
+          "n": 365,
+          "book_total": -0.3354679204097928,
+          "btc_total": -0.64207055726116,
+          "book_cagr": -0.3354679204097928,
+          "btc_cagr": -0.64207055726116,
+          "book_sharpe": -0.33079738243050355,
+          "rel_cagr": 0.8566007716640323,
+          "rel_sharpe": 1.4758302791156566,
+          "maxdd": -0.5868810654380197,
+          "btc_maxdd": -0.669312370541033,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 3.0
+        },
+        "2023-24": {
+          "n": 731,
+          "book_total": 5.004052182328976,
+          "btc_total": 4.6567366283006235,
+          "book_cagr": 1.447314466005008,
+          "btc_cagr": 1.3755721679069688,
+          "book_sharpe": 1.5318787036677886,
+          "rel_cagr": 0.030200007841162835,
+          "rel_sharpe": 0.39297560868167,
+          "maxdd": -0.5582086662758214,
+          "btc_maxdd": -0.26151375053867665,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 3.0
+        },
+        "2025-26": {
+          "n": 585,
+          "book_total": -0.6768092162676576,
+          "btc_total": -0.3063960139582709,
+          "book_cagr": -0.5057622235122181,
+          "btc_cagr": -0.2040890305998918,
+          "book_sharpe": -0.7309718176603006,
+          "rel_cagr": -0.3790288166774515,
+          "rel_sharpe": -0.3488943349173839,
+          "maxdd": -0.7623289854589024,
+          "btc_maxdd": -0.5297176591351058,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 3.0
+        }
+      },
+      "label": "daily_btc_ex",
+      "net_sharpe_trail18m": -0.7001874909592412,
+      "n_formations": 2485,
+      "n_empty_sel": 0,
+      "forced_exits": {
+        "n_events": 0,
+        "n_ids": 0,
+        "weight_sum": 0.0
+      },
+      "forced_n": 0,
+      "corr_btc": 0.3983612328904305,
+      "corr_btc_n": 2485,
+      "score_vol_tilt": -0.43108476345641683,
+      "score_vol_tilt_n": 2485,
+      "top5": [
+        {
+          "id": 4172,
+          "symbol": "LUNC",
+          "contrib": 0.7717787986408663,
+          "share": 0.09804747493393949
+        },
+        {
+          "id": 52,
+          "symbol": "XRP",
+          "contrib": 0.7125756986550397,
+          "share": 0.09052625969442503
+        },
+        {
+          "id": 2416,
+          "symbol": "THETA",
+          "contrib": 0.4578038168802727,
+          "share": 0.0581598099601561
+        },
+        {
+          "id": 3635,
+          "symbol": "CRO",
+          "contrib": 0.43794995064549314,
+          "share": 0.05563755688009687
+        },
+        {
+          "id": 2010,
+          "symbol": "ADA",
+          "contrib": 0.4053371319213644,
+          "share": 0.05149439496374177
+        }
+      ],
+      "top5_share": 0.15661019459571154,
+      "top5_share_signed": 0.35386549643235926,
+      "total": 55.22761522989077,
+      "cagr": 0.807319190889457,
+      "sharpe": 1.092363946975609,
+      "rel_total": 5.885444973987325
+    },
+    "weekly_btc_in": {
+      "n_days": 2485,
+      "start": "2019-10-20",
+      "end": "2026-08-08",
+      "book_total": 2.5128489237697766,
+      "btc_total": 7.166155628621581,
+      "book_cagr": 0.20267190565529591,
+      "btc_cagr": 0.3613140510977644,
+      "book_sharpe": 0.6361231423185317,
+      "btc_sharpe": 0.8175522703021646,
+      "maxdd": -0.8523907202951443,
+      "btc_maxdd": -0.7662925431645937,
+      "rel_cagr": -0.11653603759877407,
+      "rel_sharpe": 0.21009908322057616,
+      "avg_w_btc": 0.0,
+      "avg_n_names": 2.9979879275653922,
+      "ann_turnover": 25.924547283702214,
+      "cycles": {
+        "2019-20": {
+          "n": 439,
+          "book_total": 2.5096606492357294,
+          "btc_total": 2.639103373045572,
+          "book_cagr": 1.8402237442536413,
+          "btc_cagr": 1.92705186183461,
+          "book_sharpe": 1.549178509561053,
+          "rel_cagr": -0.029664017475435678,
+          "rel_sharpe": 0.4432064790811551,
+          "maxdd": -0.5292411031021667,
+          "btc_maxdd": -0.5359790262519866,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 3.0
+        },
+        "2021": {
+          "n": 365,
+          "book_total": 2.094868115366737,
+          "btc_total": 0.5978952157803168,
+          "book_cagr": 2.094868115366737,
+          "btc_cagr": 0.5978952157803168,
+          "book_sharpe": 1.5148033093205122,
+          "rel_cagr": 0.9368404666355972,
+          "rel_sharpe": 1.1540106347263186,
+          "maxdd": -0.4760225777176801,
+          "btc_maxdd": -0.5314140778607939,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 3.0
+        },
+        "2022": {
+          "n": 365,
+          "book_total": -0.5851003786246523,
+          "btc_total": -0.64207055726116,
+          "book_cagr": -0.5851003786246523,
+          "btc_cagr": -0.64207055726116,
+          "book_sharpe": -1.0466961308016158,
+          "rel_cagr": 0.1591659467871036,
+          "rel_sharpe": 0.5383396223026174,
+          "maxdd": -0.6428289166857843,
+          "btc_maxdd": -0.669312370541033,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 3.0
+        },
+        "2023-24": {
+          "n": 731,
+          "book_total": 2.0464429149096546,
+          "btc_total": 4.6567366283006235,
+          "book_cagr": 0.744076821838312,
+          "btc_cagr": 1.3755721679069688,
+          "book_sharpe": 1.2103229135839415,
+          "rel_cagr": -0.265828735746237,
+          "rel_sharpe": -0.21039819267938722,
+          "maxdd": -0.520602266125711,
+          "btc_maxdd": -0.26151375053867665,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 3.0
+        },
+        "2025-26": {
+          "n": 585,
+          "book_total": -0.744131916382236,
+          "btc_total": -0.3063960139582709,
+          "book_cagr": -0.5727888941471702,
+          "btc_cagr": -0.2040890305998918,
+          "book_sharpe": -0.7475397821432835,
+          "rel_cagr": -0.4632425958712112,
+          "rel_sharpe": -0.44707670079542366,
+          "maxdd": -0.8523907202951444,
+          "btc_maxdd": -0.5297176591351058,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 2.9914529914529915
+        }
+      },
+      "label": "weekly_btc_in",
+      "net_sharpe_trail18m": -0.8357208692952998,
+      "n_formations": 356,
+      "n_empty_sel": 0,
+      "forced_exits": {
+        "n_events": 1,
+        "n_ids": 1,
+        "weight_sum": 0.3333333333333333
+      },
+      "forced_n": 1,
+      "corr_btc": 0.5066114943027946,
+      "corr_btc_n": 2485,
+      "score_vol_tilt": -0.4406831155946669,
+      "score_vol_tilt_n": 356,
+      "top5": [
+        {
+          "id": 1,
+          "symbol": "BTC",
+          "contrib": 0.5277075448495114,
+          "share": 0.13330270352458864
+        },
+        {
+          "id": 3635,
+          "symbol": "CRO",
+          "contrib": 0.5044070129103783,
+          "share": 0.12741682235543988
+        },
+        {
+          "id": 1321,
+          "symbol": "ETC",
+          "contrib": 0.46656791135269776,
+          "share": 0.1178583944235089
+        },
+        {
+          "id": 52,
+          "symbol": "XRP",
+          "contrib": 0.4378214651047765,
+          "share": 0.11059683631433888
+        },
+        {
+          "id": 18579,
+          "symbol": "WTRX",
+          "contrib": 0.4332352765419897,
+          "share": 0.1094383322522691
+        }
+      ],
+      "top5_share": 0.16038156848589713,
+      "top5_share_signed": 0.5986130888701454,
+      "total": 2.5128489237697766,
+      "cagr": 0.20267190565529591,
+      "sharpe": 0.6361231423185317,
+      "rel_total": -0.5698283153632803
+    },
+    "weekly_btc_ex": {
+      "n_days": 2485,
+      "start": "2019-10-20",
+      "end": "2026-08-08",
+      "book_total": 7.960841116651201,
+      "btc_total": 7.166155628621581,
+      "book_cagr": 0.3800099405036479,
+      "btc_cagr": 0.3613140510977644,
+      "book_sharpe": 0.7993394791853468,
+      "btc_sharpe": 0.8175522703021646,
+      "maxdd": -0.7900696750857806,
+      "btc_maxdd": -0.7662925431645937,
+      "rel_cagr": 0.013733707802991546,
+      "rel_sharpe": 0.39821241893208964,
+      "avg_w_btc": 0.0,
+      "avg_n_names": 2.9979879275653922,
+      "ann_turnover": 26.120389000670688,
+      "cycles": {
+        "2019-20": {
+          "n": 439,
+          "book_total": 2.582081405847558,
+          "btc_total": 2.639103373045572,
+          "book_cagr": 1.8888677001644307,
+          "btc_cagr": 1.92705186183461,
+          "book_sharpe": 1.5560174599980363,
+          "rel_cagr": -0.013045263108609984,
+          "rel_sharpe": 0.4747114521552321,
+          "maxdd": -0.5292411031021667,
+          "btc_maxdd": -0.5359790262519866,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 3.0
+        },
+        "2021": {
+          "n": 365,
+          "book_total": 2.466853130990939,
+          "btc_total": 0.5978952157803168,
+          "book_cagr": 2.466853130990939,
+          "btc_cagr": 0.5978952157803168,
+          "book_sharpe": 1.609092883121723,
+          "rel_cagr": 1.1696373433960967,
+          "rel_sharpe": 1.2694037548907005,
+          "maxdd": -0.4878078414269966,
+          "btc_maxdd": -0.5314140778607939,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 3.0
+        },
+        "2022": {
+          "n": 365,
+          "book_total": -0.5140788197401438,
+          "btc_total": -0.64207055726116,
+          "book_cagr": -0.5140788197401438,
+          "btc_cagr": -0.64207055726116,
+          "book_sharpe": -0.745465291620406,
+          "rel_cagr": 0.3575892962077565,
+          "rel_sharpe": 0.8527809241613158,
+          "maxdd": -0.6090216728711069,
+          "btc_maxdd": -0.669312370541033,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 3.0
+        },
+        "2023-24": {
+          "n": 731,
+          "book_total": 3.960708520635661,
+          "btc_total": 4.6567366283006235,
+          "book_cagr": 1.2248262846494828,
+          "btc_cagr": 1.3755721679069688,
+          "book_sharpe": 1.5696872841973781,
+          "rel_cagr": -0.06345666332263145,
+          "rel_sharpe": 0.21718186479911666,
+          "maxdd": -0.504029171437604,
+          "btc_maxdd": -0.26151375053867665,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 3.0
+        },
+        "2025-26": {
+          "n": 585,
+          "book_total": -0.7006575265869941,
+          "btc_total": -0.3063960139582709,
+          "book_cagr": -0.5288438509305942,
+          "btc_cagr": -0.2040890305998918,
+          "book_sharpe": -0.720624779262868,
+          "rel_cagr": -0.40802907965381563,
+          "rel_sharpe": -0.39417243731672347,
+          "maxdd": -0.7900696750857809,
+          "btc_maxdd": -0.5297176591351058,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 2.9914529914529915
+        }
+      },
+      "label": "weekly_btc_ex",
+      "net_sharpe_trail18m": -0.6317578830548226,
+      "n_formations": 356,
+      "n_empty_sel": 0,
+      "forced_exits": {
+        "n_events": 1,
+        "n_ids": 1,
+        "weight_sum": 0.3333333333333333
+      },
+      "forced_n": 1,
+      "corr_btc": 0.4929705639205258,
+      "corr_btc_n": 2485,
+      "score_vol_tilt": -0.43104814543763853,
+      "score_vol_tilt_n": 356,
+      "top5": [
+        {
+          "id": 3635,
+          "symbol": "CRO",
+          "contrib": 0.5565118692431281,
+          "share": 0.11381885710446223
+        },
+        {
+          "id": 52,
+          "symbol": "XRP",
+          "contrib": 0.4378214651047765,
+          "share": 0.08954407179455173
+        },
+        {
+          "id": 38417,
+          "symbol": "RIVER",
+          "contrib": -0.4305054534331176,
+          "share": -0.08804778728913118
+        },
+        {
+          "id": 4172,
+          "symbol": "LUNC",
+          "contrib": 0.4081906141813624,
+          "share": 0.08348391427855399
+        },
+        {
+          "id": 24165,
+          "symbol": "WKAVA",
+          "contrib": -0.4057886933348529,
+          "share": -0.08299266889689322
+        }
+      ],
+      "top5_share": 0.15265560295831984,
+      "top5_share_signed": 0.11580638699154354,
+      "total": 7.960841116651201,
+      "cagr": 0.3800099405036479,
+      "sharpe": 0.7993394791853468,
+      "rel_total": 0.09731451666734392
+    },
+    "daily_dv100_btc_ex": {
+      "n_days": 2485,
+      "start": "2019-10-20",
+      "end": "2026-08-08",
+      "book_total": 288.9800600507113,
+      "btc_total": 7.166155628621581,
+      "book_cagr": 1.299724450312853,
+      "btc_cagr": 0.3613140510977644,
+      "book_sharpe": 1.3948895058311472,
+      "btc_sharpe": 0.8175522703021646,
+      "maxdd": -0.914942455666139,
+      "btc_maxdd": -0.7662925431645937,
+      "rel_cagr": 0.6893415949525785,
+      "rel_sharpe": 1.0706491048319118,
+      "avg_w_btc": 0.0,
+      "avg_n_names": 4.995573440643863,
+      "ann_turnover": 91.09577464788732,
+      "cycles": {
+        "2019-20": {
+          "n": 439,
+          "book_total": 6.324710987884398,
+          "btc_total": 2.639103373045572,
+          "book_cagr": 4.236211169827924,
+          "btc_cagr": 1.92705186183461,
+          "book_sharpe": 2.2905768433441325,
+          "rel_cagr": 0.7889027653052876,
+          "rel_sharpe": 1.1078154267858813,
+          "maxdd": -0.42960599573287883,
+          "btc_maxdd": -0.5359790262519866,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 5.0
+        },
+        "2021": {
+          "n": 365,
+          "book_total": 73.64907941101798,
+          "btc_total": 0.5978952157803168,
+          "book_cagr": 73.64907941101798,
+          "btc_cagr": 0.5978952157803168,
+          "book_sharpe": 4.02911554760382,
+          "rel_cagr": 45.7171305563762,
+          "rel_sharpe": 3.9720215639476657,
+          "maxdd": -0.5303751628767044,
+          "btc_maxdd": -0.5314140778607939,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 5.0
+        },
+        "2022": {
+          "n": 365,
+          "book_total": -0.7477975705655788,
+          "btc_total": -0.64207055726116,
+          "book_cagr": -0.7477975705655788,
+          "btc_cagr": -0.64207055726116,
+          "book_sharpe": -1.5290941955964705,
+          "rel_cagr": -0.2953850694578416,
+          "rel_sharpe": -0.5393018068542175,
+          "maxdd": -0.7596818524427342,
+          "btc_maxdd": -0.669312370541033,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 5.0
+        },
+        "2023-24": {
+          "n": 731,
+          "book_total": 6.0287484759743,
+          "btc_total": 4.6567366283006235,
+          "book_cagr": 1.6476449232166974,
+          "btc_cagr": 1.3755721679069688,
+          "book_sharpe": 1.6538933986490776,
+          "rel_cagr": 0.11452935801543851,
+          "rel_sharpe": 0.4731183171889336,
+          "maxdd": -0.6308334512073226,
+          "btc_maxdd": -0.26151375053867665,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 5.0
+        },
+        "2025-26": {
+          "n": 585,
+          "book_total": -0.7008245742613959,
+          "btc_total": -0.3063960139582709,
+          "book_cagr": -0.5290079172871087,
+          "btc_cagr": -0.2040890305998918,
+          "book_sharpe": -0.9127146910760747,
+          "rel_cagr": -0.40823521622288206,
+          "rel_sharpe": -0.662935460538663,
+          "maxdd": -0.7366098721918731,
+          "btc_maxdd": -0.5297176591351058,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 4.981196581196581
+        }
+      },
+      "label": "daily_dv100_btc_ex",
+      "net_sharpe_trail18m": -0.7166631022286006,
+      "n_formations": 2485,
+      "n_empty_sel": 0,
+      "forced_exits": {
+        "n_events": 0,
+        "n_ids": 0,
+        "weight_sum": 0.0
+      },
+      "forced_n": 0,
+      "corr_btc": 0.5283656986043233,
+      "corr_btc_n": 2485,
+      "score_vol_tilt": -0.44932379556888985,
+      "score_vol_tilt_n": 2485,
+      "top5": [
+        {
+          "id": 4066,
+          "symbol": "CHZ",
+          "contrib": 0.7433751795672121,
+          "share": 0.07974351714228806
+        },
+        {
+          "id": 74,
+          "symbol": "DOGE",
+          "contrib": 0.7309602703207166,
+          "share": 0.0784117420769782
+        },
+        {
+          "id": 52,
+          "symbol": "XRP",
+          "contrib": 0.5243095486795526,
+          "share": 0.0562438572502984
+        },
+        {
+          "id": 1839,
+          "symbol": "BNB",
+          "contrib": 0.5185204330876954,
+          "share": 0.05562284588063346
+        },
+        {
+          "id": 1321,
+          "symbol": "ETC",
+          "contrib": 0.4980827208515926,
+          "share": 0.05343044680565002
+        }
+      ],
+      "top5_share": 0.1370399854444623,
+      "top5_share_signed": 0.32345240915584816,
+      "total": 288.9800600507113,
+      "cagr": 1.299724450312853,
+      "sharpe": 1.3948895058311472,
+      "rel_total": 34.50998453107597
+    }
+  },
+  "bench": {
+    "btc_bh": {
+      "n_days": 2485,
+      "start": "2019-10-20",
+      "end": "2026-08-08",
+      "book_total": 6.892730650871092,
+      "btc_total": 6.892730650871092,
+      "book_cagr": 0.35452148664745486,
+      "btc_cagr": 0.35452148664745486,
+      "book_sharpe": 0.8093420664310463,
+      "btc_sharpe": 0.8093420664310463,
+      "maxdd": -0.7662925431645938,
+      "btc_maxdd": -0.7662925431645938,
+      "rel_cagr": 0.0,
+      "rel_sharpe": 0.0,
+      "avg_w_btc": 1.0,
+      "avg_n_names": 1.0,
+      "ann_turnover": 0.0,
+      "cycles": {
+        "2019-20": {
+          "n": 439,
+          "book_total": 2.5172563492980293,
+          "btc_total": 2.5172563492980293,
+          "book_cagr": 1.8453335503503778,
+          "btc_cagr": 1.8453335503503778,
+          "book_sharpe": 1.8133298875742474,
+          "rel_cagr": 0.0,
+          "rel_sharpe": 0.0,
+          "maxdd": -0.5359790262519863,
+          "btc_maxdd": -0.5359790262519863,
+          "avg_w_btc": 1.0,
+          "avg_n_names": 0.0
+        },
+        "2021": {
+          "n": 365,
+          "book_total": 0.5978952157803168,
+          "btc_total": 0.5978952157803168,
+          "book_cagr": 0.5978952157803168,
+          "btc_cagr": 0.5978952157803168,
+          "book_sharpe": 0.981426465524432,
+          "rel_cagr": 0.0,
+          "rel_sharpe": 0.0,
+          "maxdd": -0.5314140778607939,
+          "btc_maxdd": -0.5314140778607939,
+          "avg_w_btc": 1.0,
+          "avg_n_names": 0.0
+        },
+        "2022": {
+          "n": 365,
+          "book_total": -0.64207055726116,
+          "btc_total": -0.64207055726116,
+          "book_cagr": -0.64207055726116,
+          "btc_cagr": -0.64207055726116,
+          "book_sharpe": -1.287920046865425,
+          "rel_cagr": 0.0,
+          "rel_sharpe": 0.0,
+          "maxdd": -0.669312370541033,
+          "btc_maxdd": -0.669312370541033,
+          "avg_w_btc": 1.0,
+          "avg_n_names": 0.0
+        },
+        "2023-24": {
+          "n": 731,
+          "book_total": 4.6567366283006235,
+          "btc_total": 4.6567366283006235,
+          "book_cagr": 1.3755721679069688,
+          "btc_cagr": 1.3755721679069688,
+          "book_sharpe": 2.0174769697711215,
+          "rel_cagr": 0.0,
+          "rel_sharpe": 0.0,
+          "maxdd": -0.26151375053867665,
+          "btc_maxdd": -0.26151375053867665,
+          "avg_w_btc": 1.0,
+          "avg_n_names": 0.0
+        },
+        "2025-26": {
+          "n": 585,
+          "book_total": -0.3063960139582709,
+          "btc_total": -0.3063960139582709,
+          "book_cagr": -0.2040890305998918,
+          "btc_cagr": -0.2040890305998918,
+          "book_sharpe": -0.30948478234242344,
+          "rel_cagr": 0.0,
+          "rel_sharpe": 0.0,
+          "maxdd": -0.5297176591351058,
+          "btc_maxdd": -0.5297176591351058,
+          "avg_w_btc": 1.0,
+          "avg_n_names": 0.0
+        }
+      },
+      "label": "btc_bh",
+      "net_sharpe_trail18m": -0.39344231216580206,
+      "corr_btc": 1.0,
+      "corr_btc_n": 2485,
+      "forced_exits": {
+        "n_events": 0,
+        "n_ids": 0,
+        "weight_sum": 0.0
+      },
+      "forced_n": 0,
+      "top5": [],
+      "top5_share": null,
+      "total": 6.892730650871092,
+      "cagr": 0.35452148664745486,
+      "sharpe": 0.8093420664310463,
+      "rel_total": 0.0
+    },
+    "ew_mcap50": {
+      "n_days": 2485,
+      "start": "2019-10-20",
+      "end": "2026-08-08",
+      "book_total": 1.0538309372015195,
+      "btc_total": 7.166155628621581,
+      "book_cagr": 0.11150111929198481,
+      "btc_cagr": 0.3613140510977644,
+      "book_sharpe": 0.5246758284257321,
+      "btc_sharpe": 0.8175522703021646,
+      "maxdd": -0.8685726505597554,
+      "btc_maxdd": -0.7662925431645937,
+      "rel_cagr": -0.18350867061449216,
+      "rel_sharpe": -0.27025689483292814,
+      "avg_w_btc": 0.0,
+      "avg_n_names": 49.99959758551308,
+      "ann_turnover": 16.0923138832998,
+      "cycles": {
+        "2019-20": {
+          "n": 439,
+          "book_total": 1.2819208033347422,
+          "btc_total": 2.639103373045572,
+          "book_cagr": 0.9856543934452959,
+          "btc_cagr": 1.92705186183461,
+          "book_sharpe": 1.2810032173576689,
+          "rel_cagr": -0.32161967495829313,
+          "rel_sharpe": -0.594981096397032,
+          "maxdd": -0.5919280839955139,
+          "btc_maxdd": -0.5359790262519866,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 50.0
+        },
+        "2021": {
+          "n": 365,
+          "book_total": 3.5640270206243025,
+          "btc_total": 0.5978952157803168,
+          "book_cagr": 3.5640270206243025,
+          "btc_cagr": 0.5978952157803168,
+          "book_sharpe": 2.0271592280637547,
+          "rel_cagr": 1.8562742885462011,
+          "rel_sharpe": 2.084370615770145,
+          "maxdd": -0.6392483495104988,
+          "btc_maxdd": -0.5314140778607939,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 50.0
+        },
+        "2022": {
+          "n": 365,
+          "book_total": -0.8062350010288895,
+          "btc_total": -0.64207055726116,
+          "book_cagr": -0.8062350010288895,
+          "btc_cagr": -0.64207055726116,
+          "book_sharpe": -1.639483701253036,
+          "rel_cagr": -0.45865029295036386,
+          "rel_sharpe": -1.3988804605856862,
+          "maxdd": -0.8144631104627791,
+          "btc_maxdd": -0.669312370541033,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 50.0
+        },
+        "2023-24": {
+          "n": 731,
+          "book_total": 1.819296099233382,
+          "btc_total": 4.6567366283006235,
+          "book_cagr": 0.6778860041560721,
+          "btc_cagr": 1.3755721679069688,
+          "book_sharpe": 1.1640479153595271,
+          "rel_cagr": -0.2936918411388878,
+          "rel_sharpe": -0.8110857325950501,
+          "maxdd": -0.5226136239164259,
+          "btc_maxdd": -0.26151375053867665,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 49.998632010943915
+        },
+        "2025-26": {
+          "n": 585,
+          "book_total": -0.6390060728508506,
+          "btc_total": -0.3063960139582709,
+          "book_cagr": -0.47044607476043165,
+          "btc_cagr": -0.2040890305998918,
+          "book_sharpe": -0.74472547980621,
+          "rel_cagr": -0.3346568327375834,
+          "rel_sharpe": -1.1118941344200333,
+          "maxdd": -0.6885663263404693,
+          "btc_maxdd": -0.5297176591351058,
+          "avg_w_btc": 0.0,
+          "avg_n_names": 50.0
+        }
+      },
+      "label": "ew_mcap50",
+      "net_sharpe_trail18m": -0.5869882270941653,
+      "n_formations": 0,
+      "n_empty_sel": 0,
+      "forced_exits": {
+        "n_events": 1,
+        "n_ids": 1,
+        "weight_sum": 0.02
+      },
+      "forced_n": 1,
+      "corr_btc": 0.8278819406887891,
+      "corr_btc_n": 2485,
+      "score_vol_tilt": null,
+      "score_vol_tilt_n": 0,
+      "top5": [
+        {
+          "id": 1518,
+          "symbol": "MKR",
+          "contrib": 0.3236636974908795,
+          "share": 0.11267638316171649
+        },
+        {
+          "id": 74,
+          "symbol": "DOGE",
+          "contrib": 0.21361731205223558,
+          "share": 0.0743661593480125
+        },
+        {
+          "id": 5426,
+          "symbol": "SOL",
+          "contrib": 0.1309277764774288,
+          "share": 0.045579619905621475
+        },
+        {
+          "id": 1839,
+          "symbol": "BNB",
+          "contrib": 0.11483282070063175,
+          "share": 0.03997651576346365
+        },
+        {
+          "id": 328,
+          "symbol": "XMR",
+          "contrib": 0.11051799231515314,
+          "share": 0.038474403354169
+        }
+      ],
+      "top5_share": 0.1536702869315789,
+      "top5_share_signed": 0.31107308153298313,
+      "total": 1.0538309372015195,
+      "cagr": 0.11150111929198481,
+      "sharpe": 0.5246758284257321,
+      "rel_total": -0.7484947592716649
+    },
+    "frozen_spread": {
+      "n_days": 2478,
+      "start": "2019-10-20",
+      "end": "2026-08-01",
+      "total": 1.2744212814427764,
+      "cagr": 0.12866675058717547,
+      "maxdd": -0.8074152798445523,
+      "sharpe": 0.5149277469181575,
+      "cycles": {
+        "2019-20": {
+          "n": 439,
+          "total": 0.9619647571346834,
+          "cagr": 0.7512725189388938,
+          "maxdd": -0.4412304195871425,
+          "sharpe": 1.2295448062044687
+        },
+        "2021": {
+          "n": 365,
+          "total": 2.7462269823623124,
+          "cagr": 2.7462269823623124,
+          "maxdd": -0.5165898431770676,
+          "sharpe": 1.884484290658224
+        },
+        "2022": {
+          "n": 365,
+          "total": -0.6984186823683909,
+          "cagr": -0.6984186823683909,
+          "maxdd": -0.7071558194782533,
+          "sharpe": -1.2149114074861043
+        },
+        "2023-24": {
+          "n": 731,
+          "total": 0.8902215639499993,
+          "cagr": 0.37425467643755317,
+          "maxdd": -0.36818747911763905,
+          "sharpe": 0.9047072934813275
+        },
+        "2025-26": {
+          "n": 578,
+          "total": -0.4571642105346543,
+          "cagr": -0.32009794443646544,
+          "maxdd": -0.5459467436803922,
+          "sharpe": -0.5505960773672515
+        }
+      },
+      "label": "frozen_spread",
+      "rankic": 0.1567069970963407,
+      "rankic_n": 177,
+      "n_formations": 177,
+      "avg_n_names": 9.0,
+      "ann_turnover": 12.998890234059724,
+      "forced_n": 0,
+      "forced_exits": {
+        "n_events": 0,
+        "n_ids": 0,
+        "weight_sum": 0.0
+      },
+      "cost_bps": 10.0,
+      "corr_btc": 0.7904213844020055,
+      "net_sharpe_trail18m": -0.6637059529025644,
+      "rel_sharpe": -0.23903137494765098,
+      "rel_total": null,
+      "book_sharpe": 0.5149277469181575
+    }
+  },
+  "peg": {
+    "n_tagged": 62,
+    "sample_symbols": [
+      "AEUR",
+      "AUSD",
+      "BFUSD",
+      "BTCB",
+      "BUSD",
+      "CBBTC",
+      "CRVUSD",
+      "CUSD",
+      "DAI",
+      "DEUSD",
+      "DUSD",
+      "EURC",
+      "EURS",
+      "EURt",
+      "EZETH",
+      "FDUSD",
+      "FRAX",
+      "GHO",
+      "GUSD",
+      "GUSD",
+      "HBTC",
+      "HUSD",
+      "LUSD",
+      "METH",
+      "MUSD",
+      "OUSD",
+      "PAXG",
+      "PYUSD",
+      "RENBTC",
+      "RETH",
+      "RLUSD",
+      "RSETH",
+      "SUSD",
+      "SWETH",
+      "TUSD",
+      "USD0",
+      "USD1",
+      "USDC",
+      "USDC.e",
+      "USDD"
+    ],
+    "tagged_rows": [
+      {
+        "id": 28596,
+        "symbol": "AEUR",
+        "name": "Anchored Coins AEUR",
+        "slug": "anchored-coins-aeur",
+        "reasons": [
+          "symbol=AEUR in tag-set"
+        ]
+      },
+      {
+        "id": 32864,
+        "symbol": "AUSD",
+        "name": "AUSD",
+        "slug": "agora-finance",
+        "reasons": [
+          "symbol=AUSD USD-suffix",
+          "name=AUSD USD-suffix"
+        ]
+      },
+      {
+        "id": 37760,
+        "symbol": "BFUSD",
+        "name": "BFUSD",
+        "slug": "bfusd",
+        "reasons": [
+          "symbol=BFUSD USD-suffix",
+          "name=BFUSD USD-suffix",
+          "slug=BFUSD USD-suffix"
+        ]
+      },
+      {
+        "id": 4023,
+        "symbol": "BTCB",
+        "name": "Bitcoin BEP2",
+        "slug": "bitcoin-bep2",
+        "reasons": [
+          "symbol=BTCB in tag-set"
+        ]
+      },
+      {
+        "id": 4687,
+        "symbol": "BUSD",
+        "name": "BUSD",
+        "slug": "binance-usd",
+        "reasons": [
+          "symbol=BUSD in tag-set",
+          "symbol=BUSD USD-suffix",
+          "name=BUSD in tag-set",
+          "name=BUSD USD-suffix",
+          "slug needle 'binance-usd'"
+        ]
+      },
+      {
+        "id": 32994,
+        "symbol": "CBBTC",
+        "name": "Coinbase Wrapped BTC",
+        "slug": "coinbase-wrapped-btc",
+        "reasons": [
+          "symbol=CBBTC in tag-set",
+          "slug needle 'wrapped-btc'"
+        ]
+      },
+      {
+        "id": 24927,
+        "symbol": "CRVUSD",
+        "name": "crvUSD",
+        "slug": "crvusd",
+        "reasons": [
+          "symbol=CRVUSD in tag-set",
+          "name=CRVUSD in tag-set",
+          "slug=CRVUSD in tag-set"
+        ]
+      },
+      {
+        "id": 7236,
+        "symbol": "CUSD",
+        "name": "Celo Dollar",
+        "slug": "celo-dollar",
+        "reasons": [
+          "symbol=CUSD in tag-set",
+          "symbol=CUSD USD-suffix"
+        ]
+      },
+      {
+        "id": 4943,
+        "symbol": "DAI",
+        "name": "Dai",
+        "slug": "multi-collateral-dai",
+        "reasons": [
+          "symbol=DAI in tag-set",
+          "name=DAI in tag-set"
+        ]
+      },
+      {
+        "id": 31024,
+        "symbol": "DEUSD",
+        "name": "Elixir deUSD",
+        "slug": "elixir-deusd",
+        "reasons": [
+          "symbol=DEUSD USD-suffix"
+        ]
+      },
+      {
+        "id": 36762,
+        "symbol": "DUSD",
+        "name": "StandX DUSD",
+        "slug": "standx-dusd",
+        "reasons": [
+          "symbol=DUSD in tag-set",
+          "symbol=DUSD USD-suffix"
+        ]
+      },
+      {
+        "id": 20641,
+        "symbol": "EURC",
+        "name": "EURC",
+        "slug": "euro-coin",
+        "reasons": [
+          "symbol=EURC in tag-set",
+          "name=EURC in tag-set"
+        ]
+      },
+      {
+        "id": 2989,
+        "symbol": "EURS",
+        "name": "STASIS EURO",
+        "slug": "stasis-euro",
+        "reasons": [
+          "symbol=EURS in tag-set"
+        ]
+      },
+      {
+        "id": 10789,
+        "symbol": "EURt",
+        "name": "Tether EURt",
+        "slug": "tether-eurt",
+        "reasons": [
+          "symbol=EURT in tag-set",
+          "name needle 'tether'",
+          "slug needle 'tether'"
+        ]
+      },
+      {
+        "id": 29520,
+        "symbol": "EZETH",
+        "name": "Renzo Restaked ETH",
+        "slug": "renzo-restaked-eth",
+        "reasons": [
+          "symbol=EZETH in tag-set"
+        ]
+      },
+      {
+        "id": 26081,
+        "symbol": "FDUSD",
+        "name": "First Digital USD",
+        "slug": "first-digital-usd",
+        "reasons": [
+          "symbol=FDUSD in tag-set",
+          "symbol=FDUSD USD-suffix",
+          "slug needle 'first-digital-usd'"
+        ]
+      },
+      {
+        "id": 6952,
+        "symbol": "FRAX",
+        "name": "Legacy Frax Dollar",
+        "slug": "frax",
+        "reasons": [
+          "symbol=FRAX in tag-set",
+          "slug=FRAX in tag-set"
+        ]
+      },
+      {
+        "id": 23508,
+        "symbol": "GHO",
+        "name": "GHO",
+        "slug": "gho",
+        "reasons": [
+          "symbol=GHO in tag-set",
+          "name=GHO in tag-set",
+          "slug=GHO in tag-set"
+        ]
+      },
+      {
+        "id": 3306,
+        "symbol": "GUSD",
+        "name": "Gemini Dollar",
+        "slug": "gemini-dollar",
+        "reasons": [
+          "symbol=GUSD in tag-set",
+          "symbol=GUSD USD-suffix"
+        ]
+      },
+      {
+        "id": 38330,
+        "symbol": "GUSD",
+        "name": "GUSD",
+        "slug": "gusd",
+        "reasons": [
+          "symbol=GUSD in tag-set",
+          "symbol=GUSD USD-suffix",
+          "name=GUSD in tag-set",
+          "name=GUSD USD-suffix",
+          "slug=GUSD in tag-set",
+          "slug=GUSD USD-suffix"
+        ]
+      },
+      {
+        "id": 6941,
+        "symbol": "HBTC",
+        "name": "Huobi BTC",
+        "slug": "huobi-btc",
+        "reasons": [
+          "symbol=HBTC in tag-set"
+        ]
+      },
+      {
+        "id": 4779,
+        "symbol": "HUSD",
+        "name": "HUSD",
+        "slug": "husd",
+        "reasons": [
+          "symbol=HUSD in tag-set",
+          "symbol=HUSD USD-suffix",
+          "name=HUSD in tag-set",
+          "name=HUSD USD-suffix",
+          "slug=HUSD in tag-set",
+          "slug=HUSD USD-suffix"
+        ]
+      },
+      {
+        "id": 9566,
+        "symbol": "LUSD",
+        "name": "Liquity USD",
+        "slug": "liquity-usd",
+        "reasons": [
+          "symbol=LUSD in tag-set",
+          "symbol=LUSD USD-suffix"
+        ]
+      },
+      {
+        "id": 29035,
+        "symbol": "METH",
+        "name": "Mantle Staked Ether",
+        "slug": "mantle-staked-ether",
+        "reasons": [
+          "symbol=METH in tag-set"
+        ]
+      },
+      {
+        "id": 5747,
+        "symbol": "MUSD",
+        "name": "mStable USD",
+        "slug": "mstable-usd",
+        "reasons": [
+          "symbol=MUSD in tag-set",
+          "symbol=MUSD USD-suffix"
+        ]
+      },
+      {
+        "id": 7189,
+        "symbol": "OUSD",
+        "name": "Origin Dollar",
+        "slug": "origin-dollar",
+        "reasons": [
+          "symbol=OUSD in tag-set",
+          "symbol=OUSD USD-suffix"
+        ]
+      },
+      {
+        "id": 4705,
+        "symbol": "PAXG",
+        "name": "PAX Gold",
+        "slug": "pax-gold",
+        "reasons": [
+          "symbol=PAXG in tag-set"
+        ]
+      },
+      {
+        "id": 27772,
+        "symbol": "PYUSD",
+        "name": "PayPal USD",
+        "slug": "paypal-usd",
+        "reasons": [
+          "symbol=PYUSD in tag-set",
+          "symbol=PYUSD USD-suffix"
+        ]
+      },
+      {
+        "id": 5777,
+        "symbol": "RENBTC",
+        "name": "renBTC",
+        "slug": "renbtc",
+        "reasons": [
+          "symbol=RENBTC in tag-set",
+          "name=RENBTC in tag-set",
+          "slug=RENBTC in tag-set"
+        ]
+      },
+      {
+        "id": 15060,
+        "symbol": "RETH",
+        "name": "Rocket Pool ETH",
+        "slug": "rocket-pool-eth",
+        "reasons": [
+          "symbol=RETH in tag-set"
+        ]
+      },
+      {
+        "id": 34387,
+        "symbol": "RLUSD",
+        "name": "Ripple USD",
+        "slug": "ripple-usd",
+        "reasons": [
+          "symbol=RLUSD in tag-set",
+          "symbol=RLUSD USD-suffix"
+        ]
+      },
+      {
+        "id": 29242,
+        "symbol": "RSETH",
+        "name": "Kelp DAO Restaked ETH",
+        "slug": "kelp-dao-restaked-eth",
+        "reasons": [
+          "symbol=RSETH in tag-set"
+        ]
+      },
+      {
+        "id": 2927,
+        "symbol": "SUSD",
+        "name": "sUSD",
+        "slug": "susd",
+        "reasons": [
+          "symbol=SUSD in tag-set",
+          "symbol=SUSD USD-suffix",
+          "name=SUSD in tag-set",
+          "name=SUSD USD-suffix",
+          "slug=SUSD in tag-set",
+          "slug=SUSD USD-suffix"
+        ]
+      },
+      {
+        "id": 25147,
+        "symbol": "SWETH",
+        "name": "swETH",
+        "slug": "swell-sweth",
+        "reasons": [
+          "symbol=SWETH in tag-set",
+          "name=SWETH in tag-set"
+        ]
+      },
+      {
+        "id": 2563,
+        "symbol": "TUSD",
+        "name": "TrueUSD",
+        "slug": "trueusd",
+        "reasons": [
+          "symbol=TUSD in tag-set",
+          "symbol=TUSD USD-suffix",
+          "name needle 'trueusd'",
+          "slug needle 'trueusd'"
+        ]
+      },
+      {
+        "id": 32307,
+        "symbol": "USD0",
+        "name": "Usual USD",
+        "slug": "usual-usd",
+        "reasons": [
+          "symbol=USD0 in tag-set"
+        ]
+      },
+      {
+        "id": 36148,
+        "symbol": "USD1",
+        "name": "World Liberty Financial USD",
+        "slug": "usd1",
+        "reasons": [
+          "symbol=USD1 in tag-set",
+          "slug=USD1 in tag-set"
+        ]
+      },
+      {
+        "id": 3408,
+        "symbol": "USDC",
+        "name": "USDC",
+        "slug": "usd-coin",
+        "reasons": [
+          "symbol=USDC in tag-set",
+          "name=USDC in tag-set",
+          "slug needle 'usd-coin'"
+        ]
+      },
+      {
+        "id": 18852,
+        "symbol": "USDC.e",
+        "name": "USD Coin Bridged",
+        "slug": "usd-coin-bridged-usdc-e",
+        "reasons": [
+          "name needle 'usd coin'",
+          "slug needle 'usd-coin'"
+        ]
+      },
+      {
+        "id": 19891,
+        "symbol": "USDD",
+        "name": "USDD",
+        "slug": "usdd",
+        "reasons": [
+          "symbol=USDD in tag-set",
+          "name=USDD in tag-set",
+          "slug=USDD in tag-set"
+        ]
+      },
+      {
+        "id": 5446,
+        "symbol": "USDJ",
+        "name": "USDJ",
+        "slug": "usdj",
+        "reasons": [
+          "symbol=USDJ in tag-set",
+          "name=USDJ in tag-set",
+          "slug=USDJ in tag-set"
+        ]
+      },
+      {
+        "id": 3330,
+        "symbol": "USDP",
+        "name": "Pax Dollar",
+        "slug": "paxos-standard",
+        "reasons": [
+          "symbol=USDP in tag-set"
+        ]
+      },
+      {
+        "id": 17285,
+        "symbol": "USDS",
+        "name": "Sperax USD",
+        "slug": "sperax-usd",
+        "reasons": [
+          "symbol=USDS in tag-set"
+        ]
+      },
+      {
+        "id": 33039,
+        "symbol": "USDS",
+        "name": "USDS",
+        "slug": "usds",
+        "reasons": [
+          "symbol=USDS in tag-set",
+          "name=USDS in tag-set",
+          "slug=USDS in tag-set"
+        ]
+      },
+      {
+        "id": 825,
+        "symbol": "USDT",
+        "name": "Tether USDt",
+        "slug": "tether",
+        "reasons": [
+          "symbol=USDT in tag-set",
+          "name needle 'tether'",
+          "slug needle 'tether'"
+        ]
+      },
+      {
+        "id": 6651,
+        "symbol": "USDX",
+        "name": "USDX [Kava]",
+        "slug": "usdx-kava",
+        "reasons": [
+          "symbol=USDX in tag-set"
+        ]
+      },
+      {
+        "id": 29256,
+        "symbol": "USDY",
+        "name": "Ondo US Dollar Yield",
+        "slug": "ondo-us-dollar-yield",
+        "reasons": [
+          "symbol=USDY in tag-set"
+        ]
+      },
+      {
+        "id": 29470,
+        "symbol": "USDe",
+        "name": "Ethena USDe",
+        "slug": "ethena-usde",
+        "reasons": [
+          "symbol=USDE in tag-set"
+        ]
+      },
+      {
+        "id": 7129,
+        "symbol": "USTC",
+        "name": "TerraClassicUSD",
+        "slug": "terrausd",
+        "reasons": [
+          "symbol=USTC in tag-set",
+          "slug needle 'terrausd'"
+        ]
+      },
+      {
+        "id": 24760,
+        "symbol": "WBETH",
+        "name": "Wrapped Beacon ETH",
+        "slug": "wrapped-beacon-eth",
+        "reasons": [
+          "symbol=WBETH in tag-set"
+        ]
+      },
+      {
+        "id": 3717,
+        "symbol": "WBTC",
+        "name": "Wrapped Bitcoin",
+        "slug": "wrapped-bitcoin",
+        "reasons": [
+          "symbol=WBTC in tag-set",
+          "name needle 'wrapped bitcoin'",
+          "slug needle 'wrapped-bitcoin'"
+        ]
+      },
+      {
+        "id": 2396,
+        "symbol": "WETH",
+        "name": "WETH",
+        "slug": "weth",
+        "reasons": [
+          "symbol=WETH in tag-set",
+          "name=WETH in tag-set",
+          "slug=WETH in tag-set"
+        ]
+      },
+      {
+        "id": 12409,
+        "symbol": "WSTETH",
+        "name": "Lido wstETH",
+        "slug": "lido-finance-wsteth",
+        "reasons": [
+          "symbol=WSTETH in tag-set"
+        ]
+      },
+      {
+        "id": 5176,
+        "symbol": "XAUt",
+        "name": "Tether Gold",
+        "slug": "tether-gold",
+        "reasons": [
+          "symbol=XAUT in tag-set",
+          "name needle 'tether'",
+          "slug needle 'tether'"
+        ]
+      },
+      {
+        "id": 32372,
+        "symbol": "XUSD",
+        "name": "StraitsX USD",
+        "slug": "straitsx-xusd",
+        "reasons": [
+          "symbol=XUSD USD-suffix"
+        ]
+      },
+      {
+        "id": 21535,
+        "symbol": "cbETH",
+        "name": "Coinbase Wrapped Staked ETH",
+        "slug": "coinbase-wrapped-staked-eth",
+        "reasons": [
+          "symbol=CBETH in tag-set"
+        ]
+      },
+      {
+        "id": 38167,
+        "symbol": "mUSD",
+        "name": "MetaMask USD",
+        "slug": "metamask-usd",
+        "reasons": [
+          "symbol=MUSD in tag-set",
+          "symbol=MUSD USD-suffix"
+        ]
+      },
+      {
+        "id": 18523,
+        "symbol": "sAVAX",
+        "name": "BENQI Liquid Staked AVAX",
+        "slug": "benqi-liquid-staked-avax",
+        "reasons": [
+          "symbol=SAVAX in tag-set"
+        ]
+      },
+      {
+        "id": 8085,
+        "symbol": "stETH",
+        "name": "Lido Staked ETH",
+        "slug": "steth",
+        "reasons": [
+          "symbol=STETH in tag-set",
+          "slug=STETH in tag-set"
+        ]
+      },
+      {
+        "id": 26133,
+        "symbol": "tBTC",
+        "name": "tBTC",
+        "slug": "tbtc-token",
+        "reasons": [
+          "symbol=TBTC in tag-set",
+          "name=TBTC in tag-set"
+        ]
+      },
+      {
+        "id": 7959,
+        "symbol": "vBUSD",
+        "name": "Venus BUSD",
+        "slug": "venus-busd",
+        "reasons": [
+          "symbol=VBUSD USD-suffix"
+        ]
+      },
+      {
+        "id": 28695,
+        "symbol": "weETH",
+        "name": "Wrapped eETH",
+        "slug": "wrapped-eeth",
+        "reasons": [
+          "symbol=WEETH in tag-set"
+        ]
+      }
+    ],
+    "median_flagged_per_date": 43.0,
+    "mean_flagged_per_date": 55.32584559772786,
+    "n_dates": 3873
+  },
+  "extra": {
+    "pred_sha256": "28b0719167fe567d1a32e56bbb7bac77c597affb44b968dd40994ac985843f78",
+    "cmc_panel_sha256": "c8062ed5d524584c1369e2dab1a075e51c1e6b7c2ad90982bf810ee76eb11249",
+    "cmc_readonly_ok": true,
+    "start": "2019-10-20",
+    "end": "2026-08-08",
+    "n_days": 2485,
+    "gpu_used": false,
+    "elapsed_sec": 107.0661928653717,
+    "plain": "Best book daily_btc_in: total 59.39273490080397 vs BTC 6.892730650871092 (clause1=True); daily corr vs BTC 0.41445744898283027 (clause2=True). Rel-line Sharpe 0.7554201699668939; MaxDD -0.7545584327122357 vs BTC -0.7662925431645938. Score-vol tilt (Spearman score vs std63) = -0.4419882390985122. Verdict MANUEL-2 STRONG. Nothing adopted.",
+    "hybrid_bn_share": 0.6988173773129526,
+    "mean_univ_btc_in": 50.0,
+    "mean_univ_btc_ex": 50.0
+  }
+}

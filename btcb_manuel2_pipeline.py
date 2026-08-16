@@ -390,7 +390,9 @@ def run_manuel2() -> dict:
     nn = pd.Series(float("nan"), index=spr_rets.index)
     spr_sum = _sum(spr_rets, btc_r, z, nn, [])
     spr["rel_sharpe"] = spr_sum.get("rel_sharpe")
-    spr["rel_total"] = spr_sum.get("rel_total")
+    rel_eq = spr_sum.get("rel_equity")
+    if isinstance(rel_eq, pd.Series) and len(rel_eq):
+        spr["rel_total"] = float(rel_eq.iloc[-1] - 1.0)
     spr["book_sharpe"] = spr_sum.get("book_sharpe")
     spr["sharpe"] = spr_sum.get("book_sharpe")
     spr["net_sharpe_trail18m"] = _sharpe(trail_slice(spr_rets, LS_TRAIL_DAYS))

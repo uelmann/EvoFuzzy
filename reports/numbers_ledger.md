@@ -101,3 +101,10 @@ TWIN-RANK + vol-matched null + DIR reweighting. Backtest/analysis only. Nothing 
 **PRICE-VOLUME TAIL CEILING — within this data perimeter, tail improvements beyond the frozen spread are not demonstrable under vol-matched nulls; the fork (capital phase | Phase-5 hourly attention | perimeter expansion) passes to the PI.**
 
 Mechanical, no post-hoc adjustment. Frozen products untouched.
+## BTC-BEATER MANUEL-2
+
+gauss(ret14)·gauss(ret28)/gauss(std63), top-50 mcap, top 5%, long-only. Backtest only. Nothing adopted. Binance-hybrid.
+
+**MANUEL-2 STRONG.** Best=`daily_btc_in` total `59.39273490080397` vs BTC `6.892730650871092`; corr `0.41445744898283027`. Clause1=True clause2=True. Score-vol tilt `-0.4419882390985122`.
+
+Mechanical, no post-hoc adjustment. Frozen products untouched.
