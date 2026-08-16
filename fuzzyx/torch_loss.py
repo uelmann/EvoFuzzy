@@ -1,7 +1,7 @@
 """Differentiable weekly path loss.
 
-v1d: loss = −corr(cumprod(1+st_r), arange(T)). Wealth path, not period returns.
-corr(1+st_r, t) ≡ corr(st_r, t) and is not used.
+v1e: loss = −corr(wealth, t) · (1 + cumRet[-1]), with wealth = cumprod(1+st_r)
+and cumRet[-1] = wealth[-1] − 1.
 """
 
 from __future__ import annotations
@@ -73,8 +73,10 @@ def path_loss_torch(
     maxdd = (-dd.min()).clamp(max=MAXDD_CAP)
     under = torch.sigmoid((-dd - 1e-4) / 0.02)
     ddur = under.mean()
-    # v1d train core: corr(cumprod(1+st_r), arange). Period-return corr is diagnostic.
-    core = _pearson_vs_arange(equity)
+    # v1e: corr(wealth, t) * (1 + last cumret) = corr * equity[-1]
+    corr_w = _pearson_vs_arange(equity)
+    equity_end = equity[-1]
+    core = corr_w * equity_end
     trend_r = _pearson_vs_arange(port)
 
     if mask is not None:
@@ -96,9 +98,11 @@ def path_loss_torch(
     return {
         "loss": loss,
         "core": core.detach(),
-        "trend": core.detach(),
-        "trend_equity": core.detach(),
+        "trend": corr_w.detach(),
+        "trend_equity": corr_w.detach(),
         "trend_returns": trend_r.detach(),
+        "equity_end": equity_end.detach(),
+        "cumret_last": (equity_end - 1.0).detach(),
         "maxdd": maxdd.detach(),
         "ddur": ddur.detach(),
         "long_frac": long_f.detach(),

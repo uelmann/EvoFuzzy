@@ -1,6 +1,6 @@
-"""v1d path loss: −corr(cumprod(1+st_r), arange(T)).
+"""v1e path loss: −corr(wealth, t) · (1 + cumRet[-1]).
 
-Wealth path, not period returns. Occupancy nuke off. DD terms are diagnostics.
+wealth = cumprod(1+st_r). Occupancy nuke off. DD terms are diagnostics.
 """
 
 from __future__ import annotations
@@ -116,11 +116,13 @@ def path_loss(
     turn_lambda: float = TURN_LAMBDA,
     bias_lambda: float = BIAS_LAMBDA,
 ) -> dict[str, float]:
-    """v1d: loss = −corr(cumprod(1+st_r), arange). Lower is better."""
+    """v1e: loss = −corr(wealth, t) · (1 + last cumret). Lower is better."""
     port, w = portfolio_returns(positions, asset_ret, mask=mask)
     equity = np.cumprod(1.0 + port)
     maxdd, ddur, _ = max_dd_path(port)
-    core = trend_corr(equity)
+    corr_w = trend_corr(equity)
+    equity_end = float(equity[-1]) if equity.size else 1.0
+    core = corr_w * equity_end
     trend_r = trend_corr(port)
     long_f, short_f, traded_f = occupancy(positions, mask)
     if OCC_NUKE and (
@@ -133,9 +135,11 @@ def path_loss(
     return {
         "loss": float(loss),
         "core": float(core),
-        "trend": float(core),
-        "trend_equity": float(core),
+        "trend": float(corr_w),
+        "trend_equity": float(corr_w),
         "trend_returns": float(trend_r),
+        "equity_end": float(equity_end),
+        "cumret_last": float(equity_end - 1.0),
         "maxdd": float(maxdd),
         "ddur": float(ddur),
         "long_frac": long_f,
