@@ -51,3 +51,12 @@ cv:
   step_days: 90
   purge_horizon: 7
   embargo_extra: 3
+  inner_holdout_days: 90
+
+train:
+  lr: 0.001
+  weight_decay: 0.0001
+  max_epochs: 80
+  patience: 12
+  encoder: deepsets
+

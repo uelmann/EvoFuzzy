@@ -92,7 +92,7 @@ CMC daily panel
          occupancy fail → core /= 1e5     (notebook)
 ```
 
-Param budget (untrained, seed 42): DeepSets default ~15–25k; xsec ablation ~35k. Band **5–50k**. If a later torch port exceeds ~50k, cut rules or `d_model`, do not add layers.
+Param budget (untrained, seed 42): DeepSets default **17,668**; xsec ablation **35,394**. Band **5–50k**. If a later torch port exceeds ~50k, cut rules or `d_model`, do not add layers.
 
 ---
 
