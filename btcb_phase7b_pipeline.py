@@ -559,6 +559,22 @@ def run_btcb_p7b() -> dict:
         twin_c = collapse_spread(twin_raw)
         return {"top": top, "bot": bot, "twin_raw": twin_raw, "twin": twin_c, "metas_top": mt, "metas_bot": mb}
 
+    # Discard pred artifacts from aborted shots (hygiene best_iteration bug).
+    # Workers return parquet bytes; the orchestrator writes after .map, but a
+    # kill mid-persist can leave a partial preds/ tree that later globs mix in.
+    wiped = 0
+    for p in list(PRED_DIR.glob("preds_*")) + list(PRED_DIR.glob("meta_preds_*")):
+        p.unlink(missing_ok=True)
+        wiped += 1
+    null_dir = WORK / "null"
+    if null_dir.exists():
+        for p in null_dir.glob("*"):
+            if p.is_file():
+                p.unlink()
+                wiped += 1
+    print(f"[HB] wiped {wiped} aborted-shot pred/null artifacts in {WORK}", flush=True)
+    quant_vol.commit()
+
     # ----- Arm A stage 1 -----
     feats_s1 = list(orig_cols) + list(lib_names)
     prov_s1 = provenance_for(feats_s1, orig_cols, lib_names, {})

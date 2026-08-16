@@ -460,6 +460,43 @@ def make_hygiene_callbacks(
     return callbacks, state
 
 
+def _hygiene_best_iteration(
+    *,
+    hyg_state: dict,
+    booster,
+    evals_result: dict,
+    floor: int,
+) -> int:
+    """Pick the global best round after the two-phase (floor + official ES) train.
+
+    Reconstructing ``lgb.record_evaluation(evals_result)`` for the continuation
+    *clears* the dict, so argmax on that hist is relative to the short/reset
+    list (often ``best_iteration=1``) while the booster has hundreds of trees.
+    The hygiene callback tracks ``env.iteration`` across ``init_model``, which
+    LightGBM continues from ``booster.current_iteration()``.
+    """
+    n_trees = int(booster.num_trees())
+    tracked = int(hyg_state.get("best_iter") or 0)
+    official = int(getattr(booster, "best_iteration", 0) or 0)
+    if tracked > 0:
+        best = tracked
+    elif official > 0:
+        best = official
+    else:
+        ho = evals_result.get("inner_ho") or {}
+        ho_key = next(iter(ho), None)
+        hist = list(ho.get(ho_key) or []) if ho_key else []
+        if hist:
+            arr = np.asarray(hist, dtype=float)
+            if hyg_state.get("higher_better", True):
+                best = int(np.nanargmax(arr)) + 1
+            else:
+                best = int(np.nanargmin(arr)) + 1
+        else:
+            best = int(floor)
+    return max(1, min(int(best), n_trees))
+
+
 def fit_predict_fold(
     df: pd.DataFrame,
     fold: FoldSpec,
@@ -578,8 +615,10 @@ def fit_predict_fold(
         )
         remaining = max(0, int(n_estimators) - int(floor))
         if remaining:
+            # Reuse the first-phase record_evaluation callback. A new
+            # lgb.record_evaluation(evals_result) would clear the hist.
             es_callbacks = [
-                lgb.record_evaluation(evals_result),
+                callbacks[0],
                 callbacks[1],
                 lgb.early_stopping(stopping_rounds=patience, first_metric_only=True, verbose=False),
                 lgb.log_evaluation(period=0),
@@ -594,17 +633,12 @@ def fit_predict_fold(
                 feval=feval,
                 callbacks=es_callbacks,
             )
-        ho = (evals_result.get("inner_ho") or {})
-        ho_key = next(iter(ho), None)
-        hist = list(ho.get(ho_key) or []) if ho_key else []
-        if hist:
-            arr = np.asarray(hist, dtype=float)
-            if hyg_state.get("higher_better", True):
-                best_iteration = int(np.nanargmax(arr)) + 1
-            else:
-                best_iteration = int(np.nanargmin(arr)) + 1
-        else:
-            best_iteration = int(hyg_state.get("best_iter") or 0) or int(floor)
+        best_iteration = _hygiene_best_iteration(
+            hyg_state=hyg_state,
+            booster=booster,
+            evals_result=evals_result,
+            floor=floor,
+        )
     else:
         callbacks = [
             lgb.record_evaluation(evals_result),
