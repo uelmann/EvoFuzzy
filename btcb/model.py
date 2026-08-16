@@ -21,6 +21,7 @@ from btcb.constants import (
     LGBM_RANK,
     LGBM_V1,
     MIN_TRAIN_CALENDAR_DAYS,
+    PHASE4B_VOL_BINS,
     PRICE_COLS,
     SEED,
     STEP_CALENDAR_DAYS,
@@ -118,6 +119,61 @@ def pick_null_folds(folds: list[FoldSpec], anchor: str = "2022-01-01") -> list[F
     if nearest.fold_id == first.fold_id and len(folds) > 1:
         nearest = min(folds[1:], key=lambda f: abs((f.val_start - target).days))
     return [first, nearest]
+
+
+def vol_bucket_ids(vol: np.ndarray, n_bins: int = PHASE4B_VOL_BINS) -> np.ndarray:
+    """Rank-based quintiles; missing vol gets its own bucket (−1)."""
+    v = np.asarray(vol, dtype=float)
+    n = len(v)
+    out = np.full(n, -1, dtype=int)
+    m = np.isfinite(v)
+    nm = int(m.sum())
+    n_bins = int(n_bins)
+    if nm < max(4, n_bins):
+        out[m] = 0
+        return out
+    r = pd.Series(v[m]).rank(method="average", pct=True).to_numpy(dtype=float)
+    q = np.minimum((r * n_bins).astype(int), n_bins - 1)
+    out[m] = q
+    return out
+
+
+def shuffle_labels_frame(
+    d: pd.DataFrame,
+    cols: list[str],
+    rng: np.random.Generator,
+    mode: str = "plain",
+    vol_col: str = "yz_vol_30",
+    n_bins: int = PHASE4B_VOL_BINS,
+) -> pd.DataFrame:
+    """Joint within-date permutation of label columns. vol_matched = within vol quintiles."""
+    cols = [c for c in cols if c in d.columns]
+    if not cols or d.empty:
+        return d
+    mode = str(mode or "plain")
+    parts = []
+    for _, g in d.groupby("date", sort=False):
+        g = g.copy()
+        arr = np.array(g[cols].to_numpy(), copy=True)
+        n = len(g)
+        if n <= 1:
+            parts.append(g)
+            continue
+        if mode == "vol_matched":
+            vol = g[vol_col].to_numpy(dtype=float) if vol_col in g.columns else np.full(n, np.nan)
+            buckets = vol_bucket_ids(vol, n_bins=n_bins)
+            for b in np.unique(buckets):
+                idx = np.flatnonzero(buckets == b)
+                if len(idx) > 1:
+                    perm = rng.permutation(len(idx))
+                    arr[idx] = arr[idx][perm]
+        else:
+            perm = rng.permutation(n)
+            arr = arr[perm]
+        for j, c in enumerate(cols):
+            g[c] = arr[:, j]
+        parts.append(g)
+    return pd.concat(parts)
 
 
 def _auc(y: np.ndarray, p: np.ndarray) -> float:
@@ -292,6 +348,9 @@ def fit_predict_fold(
     lgbm_params: dict | None = None,
     early_stop: str = "auc",
     ycol: str | None = None,
+    weight_col: str | None = None,
+    shuffle_mode: str = "plain",
+    vol_col: str = "yz_vol_30",
 ) -> tuple[pd.DataFrame, dict]:
     seed_everything(seed + fold.fold_id + (0 if shuffle_seed is None else int(shuffle_seed)))
     ycol = ycol or f"y_h{fold.horizon}"
@@ -304,7 +363,10 @@ def fit_predict_fold(
     train_mask = (df["date"] >= fold.train_start) & (df["date"] <= fold.train_end)
     val_mask = (df["date"] >= fold.val_start) & (df["date"] <= fold.val_end)
     price_need = [c for c in PRICE_COLS if c in df.columns]
-    train = df.loc[train_mask].dropna(subset=price_need + [ycol])
+    drop_train = price_need + [ycol]
+    if weight_col:
+        drop_train = drop_train + [weight_col]
+    train = df.loc[train_mask].dropna(subset=drop_train)
     valid = df.loc[val_mask].dropna(subset=price_need)
     if train.empty or valid.empty:
         return pd.DataFrame(), {
@@ -326,16 +388,14 @@ def fit_predict_fold(
     if shuffle_labels:
         ss = int(shuffle_seed) if shuffle_seed is not None else int(seed) + 90_017
         rng = np.random.default_rng(ss)
+        shuf_cols = [ycol] + ([weight_col] if weight_col else [])
+        inner_tr = shuffle_labels_frame(inner_tr, shuf_cols, rng, mode=shuffle_mode, vol_col=vol_col)
+        inner_ho = shuffle_labels_frame(inner_ho, shuf_cols, rng, mode=shuffle_mode, vol_col=vol_col)
 
-        def _shuf(d: pd.DataFrame) -> pd.DataFrame:
-            d = d.copy()
-            d[ycol] = d.groupby("date", sort=False)[ycol].transform(lambda s: rng.permutation(s.to_numpy()))
-            return d
-
-        inner_tr = _shuf(inner_tr)
-        inner_ho = _shuf(inner_ho)
-
-    dtrain = lgb.Dataset(inner_tr[feats], label=inner_tr[ycol], free_raw_data=False)
+    dtrain_kw = dict(data=inner_tr[feats], label=inner_tr[ycol], free_raw_data=False)
+    if weight_col:
+        dtrain_kw["weight"] = inner_tr[weight_col].to_numpy(dtype=float)
+    dtrain = lgb.Dataset(**dtrain_kw)
     dvalid = lgb.Dataset(inner_ho[feats], label=inner_ho[ycol], reference=dtrain, free_raw_data=False)
 
     params = {
@@ -429,6 +489,8 @@ def fit_predict_fold(
         "ycol": ycol,
         "shuffle_labels": bool(shuffle_labels),
         "shuffle_seed": int(shuffle_seed) if shuffle_seed is not None else None,
+        "shuffle_mode": str(shuffle_mode) if shuffle_labels else None,
+        "weight_col": weight_col,
         "calibrated": ir is not None,
         "reliability": reliability,
         "horizon": fold.horizon,
@@ -466,6 +528,7 @@ def train_all_folds(
     ycol: str | None = None,
     tag: str | None = None,
     commit_fn=None,
+    weight_col: str | None = None,
 ) -> tuple[pd.DataFrame, list[dict], list[FoldSpec]]:
     folds = make_expanding_folds(pd.DatetimeIndex(df["date"].unique()), horizon=horizon)
     print(f"[HB] h={horizon} folds={len(folds)} early_stop={early_stop} ycol={ycol or f'y_h{horizon}'} tag={tag}", flush=True)
@@ -488,7 +551,7 @@ def train_all_folds(
                 print(f"[HB] fold {fold.fold_id} cached {dest.name}", flush=True)
                 continue
         pred_df, meta = fit_predict_fold(
-            df, fold, feature_cols=feature_cols, early_stop=early_stop, ycol=ycol
+            df, fold, feature_cols=feature_cols, early_stop=early_stop, ycol=ycol, weight_col=weight_col
         )
         metas.append(meta)
         if not pred_df.empty:
@@ -558,6 +621,8 @@ def fit_predict_rank_fold(
     shuffle_seed: int | None = None,
     lgbm_params: dict | None = None,
     ycol: str | None = None,
+    shuffle_mode: str = "plain",
+    vol_col: str = "yz_vol_30",
 ) -> tuple[pd.DataFrame, dict]:
     """LightGBM LambdaRank on per-date groups. Raw scores; no isotonic calibration."""
     seed_everything(seed + fold.fold_id + (0 if shuffle_seed is None else int(shuffle_seed)))
@@ -593,14 +658,8 @@ def fit_predict_rank_fold(
     if shuffle_labels:
         ss = int(shuffle_seed) if shuffle_seed is not None else int(seed) + 90_017
         rng = np.random.default_rng(ss)
-
-        def _shuf(d: pd.DataFrame) -> pd.DataFrame:
-            d = d.copy()
-            d[ycol] = d.groupby("date", sort=False)[ycol].transform(lambda s: rng.permutation(s.to_numpy()))
-            return d
-
-        inner_tr = _shuf(inner_tr)
-        inner_ho = _shuf(inner_ho)
+        inner_tr = shuffle_labels_frame(inner_tr, [ycol], rng, mode=shuffle_mode, vol_col=vol_col)
+        inner_ho = shuffle_labels_frame(inner_ho, [ycol], rng, mode=shuffle_mode, vol_col=vol_col)
 
     inner_tr = inner_tr.sort_values(["date", "id"]).reset_index(drop=True)
     inner_ho = inner_ho.sort_values(["date", "id"]).reset_index(drop=True)
@@ -701,6 +760,7 @@ def fit_predict_rank_fold(
         "ycol": ycol,
         "shuffle_labels": bool(shuffle_labels),
         "shuffle_seed": int(shuffle_seed) if shuffle_seed is not None else None,
+        "shuffle_mode": str(shuffle_mode) if shuffle_labels else None,
         "calibrated": False,
         "horizon": fold.horizon,
         "objective": "lambdarank",

@@ -630,3 +630,50 @@ assert len(PRICE_ADD_COLS) == 2, len(PRICE_ADD_COLS)
 assert not set(POSITIONING_COLS) & set(STAGE_S_COLS)
 assert not set(PRICE_ADD_COLS) & set(STAGE_S_COLS)
 
+# ---------------------------------------------------------------------------
+# Phase 4.b — TWIN-RANK + vol-matched null (new house standard) + DIR arm
+# (frozen a priori; backtest/analysis only; nothing adopted)
+# ---------------------------------------------------------------------------
+
+PHASE4B_NULL_REGISTRATION = (
+    "For tail metrics (tail-IC top-half, top-decile overlap, monster capture), "
+    "the empirical null shuffles labels WITHIN vol-quintile buckets per date "
+    "(yz_vol_30 quintiles), preserving the vol→outcome loading. Folds {0,5,9,15,21,24} "
+    "× 25 replicates. The null mean per fold becomes the structural reference level; "
+    "bias check = null mean stability across replicates (2·SE band around the fold's "
+    "own null mean, E.1b tolerance: ≥2 fold violations for CONTAMINATED). Skill = real "
+    "metric exceeds the vol-matched null 95th percentile on ≥5/6 folds OR Stouffer z ≥ 3.0. "
+    "This supersedes the plain within-date shuffle for tail metrics in all future phases; "
+    "plain-shuffle results remain on the record."
+)
+
+PHASE4B_CRITERION = (
+    "TWIN-RANK EXTRACTS if Δtail-IC(top-half) ≥ +0.010 AND Δoverlap ≥ +0.015 vs the "
+    "frozen spread, with the vol-matched null passing. DIR LIVE at the same thresholds "
+    "with the same null. If BOTH fail, the ledger records: 'PRICE-VOLUME TAIL CEILING — "
+    "within this data perimeter, tail improvements beyond the frozen spread are not "
+    "demonstrable under vol-matched nulls; the fork (capital phase | Phase-5 hourly "
+    "attention | perimeter expansion) passes to the PI.' Verdicts mechanical; nothing "
+    "adopted; any production change requires a fresh pre-registered phase. No post-hoc "
+    "adjustment."
+)
+
+PHASE4B_CEILING = (
+    "PRICE-VOLUME TAIL CEILING — within this data perimeter, tail improvements beyond "
+    "the frozen spread are not demonstrable under vol-matched nulls; the fork "
+    "(capital phase | Phase-5 hourly attention | perimeter expansion) passes to the PI."
+)
+
+PHASE4B_DIR_RATIONALE = (
+    "label-distribution reweighting for rare extreme positives (Yang et al. ICML 2021 "
+    "lineage; logit-adjustment Menon et al. 2021), the cheapest tail-emphasis "
+    "intervention available."
+)
+
+PHASE4B_H = 14
+PHASE4B_RANK_GRADES = 5
+PHASE4B_VOL_BINS = 5
+PHASE4B_DIR_BOOST = 2.0  # w_i = 1 + BOOST * 1[top decile]
+PHASE4B_TAIL_IC_DELTA = 0.010
+PHASE4B_OVERLAP_DELTA = 0.015
+
