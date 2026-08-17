@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -205,9 +206,23 @@ def _fit_predict_fold(
 
     evals_result: dict = {}
     callbacks = [lgb.record_evaluation(evals_result)]
+    log_period = int(os.environ.get("GATING_LGB_LOG_PERIOD", "0"))
+    t_boost = time.time()
+
+    def _hb_cb(env):
+        it = int(getattr(env, "iteration", 0) or 0)
+        if log_period > 0 and it % log_period == 0:
+            print(
+                f"[lgbm] fold={fold.fold_id} h={fold.horizon} iter={it} "
+                f"elapsed={time.time()-t_boost:.1f}s",
+                flush=True,
+            )
+
+    if log_period > 0:
+        callbacks.append(_hb_cb)
     if fixed_trees is not None:
         n_estimators = int(fixed_trees)
-        callbacks.append(lgb.log_evaluation(period=0))
+        callbacks.append(lgb.log_evaluation(period=log_period))
         booster = lgb.train(
             params,
             dtrain,
@@ -228,7 +243,7 @@ def _fit_predict_fold(
                 min_delta=0.0,
             )
         )
-        callbacks.append(lgb.log_evaluation(period=0))
+        callbacks.append(lgb.log_evaluation(period=log_period))
         # Also record huber-like L2 for diagnosis on first rounds
         diag_params = dict(params)
         if log_eval_curve:
@@ -323,6 +338,8 @@ def train_all_folds(
         step_days=cfg["cv"]["step_days"],
     )
     print(f"[model] horizon={horizon} folds={len(folds)}", flush=True)
+    if not folds:
+        raise RuntimeError(f"no folds for horizon={horizon} — run FAIL, no skip")
     all_preds = []
     metas = []
     warn_s = cfg["cv"].get("fold_warn_seconds", 1200)
@@ -339,14 +356,17 @@ def train_all_folds(
             seed=cfg["seed"],
             model_cfg=cfg["model"],
             inner_holdout_days=cfg["cv"]["inner_holdout_days"],
-            log_eval_curve=(fold.fold_id in {0, max(0, len(folds) // 2), len(folds) - 1}),
+            log_eval_curve=False,
         )
         if meta["elapsed"] > warn_s:
             print(f"[WARN] fold {fold.fold_id} took {meta['elapsed']:.0f}s > {warn_s}s", flush=True)
         metas.append(meta)
-        if not pred_df.empty:
-            all_preds.append(pred_df)
-            pred_df.to_parquet(out_dir / f"preds_h{horizon}_fold{fold.fold_id}.parquet", index=False)
+        if meta.get("status") == "empty" or pred_df.empty:
+            raise RuntimeError(
+                f"fold {fold.fold_id} h={horizon} did not converge/empty preds: {meta}"
+            )
+        all_preds.append(pred_df)
+        pred_df.to_parquet(out_dir / f"preds_h{horizon}_fold{fold.fold_id}.parquet", index=False)
         print(
             f"[model] fold {fold.fold_id} done status={meta['status']} "
             f"elapsed={time.time()-t0:.1f}s best_iter={meta.get('best_iteration')}",

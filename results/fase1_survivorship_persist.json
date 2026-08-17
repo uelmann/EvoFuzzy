@@ -1,0 +1,406 @@
+{
+  "written_at_utc": "2026-08-16T14:27:50.050585+00:00",
+  "listing_source": {
+    "function": "baseline.data.list_um_symbols",
+    "method": "Binance Vision S3 ListObjectsV2 delimiter=/ prefix=data/futures/um/monthly/klines/",
+    "exchangeInfo": false,
+    "includes_delisted_with_remaining_dumps": true,
+    "n_symbols_listed_is": "len(Vision USDT prefixes after should_exclude), then downloaded to /data/quant/raw/klines/{SYMBOL}.parquet",
+    "rebuild_required": false,
+    "rebuild_reason": "831 is already a historical Vision directory enumeration, not a live exchangeInfo snapshot. Delisted names with remaining monthly dumps are present. Do not rebuild."
+  },
+  "n_listed_parquet": 831,
+  "n_nonempty": 831,
+  "n_panel_min_history_100": 695,
+  "n_dropped_short_history": 136,
+  "n_last_bar_before_2026_07_all": 31,
+  "n_last_bar_before_2026_07_panel": 28,
+  "panel_pct_ended_before_2026_07": 4.03,
+  "delisted_share_panel": 0.04028776978417266,
+  "survivorship_only_survivors": false,
+  "baseline_json_invalid_survivorship": false,
+  "cut": "last_bar < 2026-07-01 UTC (no kline in July 2026)",
+  "panel_max_last": "2026-07-31",
+  "delisted_by_year_panel": {
+    "2020": [
+      "LENDUSDT"
+    ],
+    "2021": [
+      "BZRXUSDT"
+    ],
+    "2022": [
+      "AKROUSDT",
+      "BTTUSDT",
+      "DODOUSDT",
+      "KEEPUSDT",
+      "LUNAUSDT",
+      "NUUSDT",
+      "YFIIUSDT"
+    ],
+    "2024": [
+      "ANTUSDT",
+      "AUDIOUSDT",
+      "BLUEBIRDUSDT",
+      "BTSUSDT",
+      "COCOSUSDT",
+      "FOOTBALLUSDT",
+      "FRONTUSDT",
+      "GALUSDT",
+      "HNTUSDT",
+      "MATICUSDT",
+      "MBLUSDT",
+      "RNDRUSDT",
+      "SRMUSDT",
+      "TOMOUSDT"
+    ],
+    "2025": [
+      "EOSUSDT"
+    ],
+    "2026": [
+      "AERGOUSDT",
+      "BDXNUSDT",
+      "BTCSTUSDT",
+      "SXPUSDT"
+    ]
+  },
+  "delisted_by_year_listed": {
+    "2020": [
+      "LENDUSDT"
+    ],
+    "2021": [
+      "BZRXUSDT",
+      "DOTECOUSDT"
+    ],
+    "2022": [
+      "1000BTTCUSDT",
+      "AKROUSDT",
+      "ANCUSDT",
+      "BTTUSDT",
+      "DODOUSDT",
+      "KEEPUSDT",
+      "LUNAUSDT",
+      "NUUSDT",
+      "YFIIUSDT"
+    ],
+    "2024": [
+      "ANTUSDT",
+      "AUDIOUSDT",
+      "BLUEBIRDUSDT",
+      "BTSUSDT",
+      "COCOSUSDT",
+      "FOOTBALLUSDT",
+      "FRONTUSDT",
+      "GALUSDT",
+      "HNTUSDT",
+      "MATICUSDT",
+      "MBLUSDT",
+      "RNDRUSDT",
+      "SRMUSDT",
+      "TOMOUSDT"
+    ],
+    "2025": [
+      "EOSUSDT"
+    ],
+    "2026": [
+      "AERGOUSDT",
+      "BDXNUSDT",
+      "BTCSTUSDT",
+      "SXPUSDT"
+    ]
+  },
+  "delisted_panel_rows": [
+    {
+      "symbol": "LENDUSDT",
+      "first": "2020-07-23",
+      "last": "2020-11-10",
+      "n": 111,
+      "year": 2020
+    },
+    {
+      "symbol": "BZRXUSDT",
+      "first": "2020-09-05",
+      "last": "2021-12-19",
+      "n": 471,
+      "year": 2021
+    },
+    {
+      "symbol": "BTTUSDT",
+      "first": "2021-04-06",
+      "last": "2022-01-26",
+      "n": 296,
+      "year": 2022
+    },
+    {
+      "symbol": "NUUSDT",
+      "first": "2021-10-21",
+      "last": "2022-02-15",
+      "n": 118,
+      "year": 2022
+    },
+    {
+      "symbol": "KEEPUSDT",
+      "first": "2021-06-22",
+      "last": "2022-02-15",
+      "n": 239,
+      "year": 2022
+    },
+    {
+      "symbol": "YFIIUSDT",
+      "first": "2020-09-03",
+      "last": "2022-04-12",
+      "n": 582,
+      "year": 2022
+    },
+    {
+      "symbol": "LUNAUSDT",
+      "first": "2021-01-28",
+      "last": "2022-05-13",
+      "n": 466,
+      "year": 2022
+    },
+    {
+      "symbol": "AKROUSDT",
+      "first": "2021-01-19",
+      "last": "2022-05-27",
+      "n": 494,
+      "year": 2022
+    },
+    {
+      "symbol": "DODOUSDT",
+      "first": "2021-02-19",
+      "last": "2022-05-27",
+      "n": 463,
+      "year": 2022
+    },
+    {
+      "symbol": "SRMUSDT",
+      "first": "2020-09-05",
+      "last": "2024-05-28",
+      "n": 1362,
+      "year": 2024
+    },
+    {
+      "symbol": "MBLUSDT",
+      "first": "2023-11-14",
+      "last": "2024-05-28",
+      "n": 197,
+      "year": 2024
+    },
+    {
+      "symbol": "HNTUSDT",
+      "first": "2020-09-28",
+      "last": "2024-05-28",
+      "n": 1339,
+      "year": 2024
+    },
+    {
+      "symbol": "TOMOUSDT",
+      "first": "2020-10-12",
+      "last": "2024-05-28",
+      "n": 1325,
+      "year": 2024
+    },
+    {
+      "symbol": "FOOTBALLUSDT",
+      "first": "2022-09-01",
+      "last": "2024-05-28",
+      "n": 636,
+      "year": 2024
+    },
+    {
+      "symbol": "COCOSUSDT",
+      "first": "2023-02-21",
+      "last": "2024-05-28",
+      "n": 463,
+      "year": 2024
+    },
+    {
+      "symbol": "BTSUSDT",
+      "first": "2021-02-01",
+      "last": "2024-05-28",
+      "n": 1213,
+      "year": 2024
+    },
+    {
+      "symbol": "BLUEBIRDUSDT",
+      "first": "2022-11-02",
+      "last": "2024-05-28",
+      "n": 574,
+      "year": 2024
+    },
+    {
+      "symbol": "AUDIOUSDT",
+      "first": "2021-08-19",
+      "last": "2024-05-28",
+      "n": 1014,
+      "year": 2024
+    },
+    {
+      "symbol": "ANTUSDT",
+      "first": "2021-12-27",
+      "last": "2024-05-28",
+      "n": 884,
+      "year": 2024
+    },
+    {
+      "symbol": "GALUSDT",
+      "first": "2022-05-05",
+      "last": "2024-07-30",
+      "n": 818,
+      "year": 2024
+    },
+    {
+      "symbol": "RNDRUSDT",
+      "first": "2023-02-03",
+      "last": "2024-07-30",
+      "n": 544,
+      "year": 2024
+    },
+    {
+      "symbol": "FRONTUSDT",
+      "first": "2023-09-22",
+      "last": "2024-09-11",
+      "n": 356,
+      "year": 2024
+    },
+    {
+      "symbol": "MATICUSDT",
+      "first": "2020-10-22",
+      "last": "2024-09-11",
+      "n": 1421,
+      "year": 2024
+    },
+    {
+      "symbol": "EOSUSDT",
+      "first": "2020-01-08",
+      "last": "2025-05-21",
+      "n": 1961,
+      "year": 2025
+    },
+    {
+      "symbol": "BDXNUSDT",
+      "first": "2025-06-03",
+      "last": "2026-03-31",
+      "n": 302,
+      "year": 2026
+    },
+    {
+      "symbol": "SXPUSDT",
+      "first": "2020-07-21",
+      "last": "2026-05-31",
+      "n": 2141,
+      "year": 2026
+    },
+    {
+      "symbol": "BTCSTUSDT",
+      "first": "2021-03-04",
+      "last": "2026-06-30",
+      "n": 1945,
+      "year": 2026
+    },
+    {
+      "symbol": "AERGOUSDT",
+      "first": "2024-09-10",
+      "last": "2026-06-30",
+      "n": 659,
+      "year": 2026
+    }
+  ],
+  "dropped_short_history_ended_before_2026_07": {
+    "DOTECOUSDT": {
+      "n": 31,
+      "last": "2021-02-19"
+    },
+    "1000BTTCUSDT": {
+      "n": 76,
+      "last": "2022-04-11"
+    },
+    "ANCUSDT": {
+      "n": 67,
+      "last": "2022-05-13"
+    }
+  },
+  "verdict_reason": "28 / 695 panel names end before 2026-07 (4.0%). Not ~0. 831 comes from Vision historical prefixes, not live exchangeInfo. 136 dropped names are min_history=100, not a survivor filter. baseline.json is not invalid on survivorship.",
+  "persist": {
+    "top40": {
+      "n_days_score": 1620,
+      "n_names_cols": 239,
+      "rho_definition": "mean_t CS corr_i(score_i,t, score_i,t+10) on names present at both t and t+10",
+      "rho_pearson_mean": 0.34434083959054307,
+      "rho_pearson_median": 0.3714250820333378,
+      "rho_pearson_n": 1610,
+      "rho_spearman_mean": 0.2954361234771937,
+      "rho_spearman_median": 0.3052654819418168,
+      "rho_spearman_n": 1610,
+      "unshifted_mean_ic": 0.08032113973646492,
+      "unshifted_nw_t": 7.800801814307777,
+      "unshifted_n_days": 1620,
+      "ortho_mean_ic": 0.060941252161638114,
+      "ortho_nw_t": 6.403986551168602,
+      "ortho_n_days": 1610,
+      "ortho_ic_over_unshifted": 0.7587199629087367,
+      "shifted_over_unshifted_ref_top40": 0.7284708426353644,
+      "shifted_mean_ic_ref_top40": 0.058511608345255456,
+      "unshifted_mean_ic_ref_top40": 0.08032113973646492
+    },
+    "top20": {
+      "n_days_score": 1620,
+      "n_names_cols": 138,
+      "rho_definition": "mean_t CS corr_i(score_i,t, score_i,t+10) on names present at both t and t+10",
+      "rho_pearson_mean": 0.3618810950769235,
+      "rho_pearson_median": 0.4063116573724874,
+      "rho_pearson_n": 1610,
+      "rho_spearman_mean": 0.3198930724254297,
+      "rho_spearman_median": 0.3413996984976031,
+      "rho_spearman_n": 1610,
+      "unshifted_mean_ic": 0.09757549404920851,
+      "unshifted_nw_t": 7.440139632827606,
+      "unshifted_n_days": 1620,
+      "ortho_mean_ic": 0.07531662106719891,
+      "ortho_nw_t": 6.181960437762574,
+      "ortho_n_days": 1610,
+      "ortho_ic_over_unshifted": 0.771880499310778,
+      "shifted_over_unshifted_ref_top40": 0.7284708426353644,
+      "shifted_mean_ic_ref_top40": 0.058511608345255456,
+      "unshifted_mean_ic_ref_top40": 0.08032113973646492
+    },
+    "oos_all": {
+      "n_days_score": 1620,
+      "n_names_cols": 486,
+      "rho_definition": "mean_t CS corr_i(score_i,t, score_i,t+10) on names present at both t and t+10",
+      "rho_pearson_mean": 0.30761882729033035,
+      "rho_pearson_median": 0.3127238392162612,
+      "rho_pearson_n": 1610,
+      "rho_spearman_mean": 0.2569113362658713,
+      "rho_spearman_median": 0.26082323373245553,
+      "rho_spearman_n": 1610,
+      "unshifted_mean_ic": 0.05283458916356398,
+      "unshifted_nw_t": 8.112266844462718,
+      "unshifted_n_days": 1620,
+      "ortho_mean_ic": 0.038251298165833544,
+      "ortho_nw_t": 6.549695575131939,
+      "ortho_n_days": 1610,
+      "ortho_ic_over_unshifted": 0.723982125562028,
+      "shifted_over_unshifted_ref_top40": 0.7284708426353644,
+      "shifted_mean_ic_ref_top40": 0.058511608345255456,
+      "unshifted_mean_ic_ref_top40": 0.08032113973646492
+    }
+  },
+  "persist_verdict": {
+    "headline_universe": "top40",
+    "rho_spearman_lag10": 0.2954361234771937,
+    "shifted_ic_ratio_ref": 0.7284708426353644,
+    "rho_minus_shifted_ratio": -0.4330347191581707,
+    "ortho_mean_rank_ic": 0.060941252161638114,
+    "ortho_nw_t": 6.403986551168602,
+    "hypothesis": "shifted/unshifted RankIC 0.73 is entirely score stickiness (rho). If rho ~ 0.73, test_shifted_target_degrades found slowness, not leak. Orthogonalized residual RankIC vs y_h7 is the remaining timing signal.",
+    "rho_explains_shifted_ratio": false
+  },
+  "icir_definition": "annualized: mean(daily RankIC) / std(daily RankIC, ddof=1) * sqrt(252)",
+  "icir_annualized": true,
+  "icir_not_daily": true,
+  "noise_floor_note": "SE of daily CS Spearman ~ 1/sqrt(N); N=40 => ~0.16. ICIR 5.90 is the annualized ratio, not mean/std of daily IC without sqrt(252). A daily ICIR of 5.9 would be impossible under that noise floor.",
+  "pre_reg_untouched": true,
+  "shifted_target_threshold_untouched": true,
+  "stage_a": false
+}
