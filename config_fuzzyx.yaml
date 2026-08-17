@@ -1,0 +1,68 @@
+# FuzzyX prototype — not a trained book. Does not replace COMBO / A0.
+# Design: reports/fuzzyx_architecture.md
+seed: 42
+
+universe:
+  source: cmc
+  n: 30
+  rank: volume          # trailing 30d median dollar volume; fallback mcap
+  rank_alt: mcap
+  exclude_stables_wraps: true
+
+rebalance:
+  days: 7               # first experiment; daily is the ablation
+  hold: ffill
+
+features:
+  source: baseline.features.FEATURE_COLS   # identical A0 LightGBM inputs, no extras
+  n: 33
+  zscore_clip: 5.0
+  min_history_days: 100
+
+model:
+  n_mfs: 3              # Low / Mid / High Gaussians
+  n_rules: 24
+  encoder: deepsets     # default. xsec = 1-layer asset-token attention
+  d_model: 32
+  n_heads: 4
+  n_layers: 1
+  gate_temperature: 0.5
+  pos_temperature: 0.7
+  complex_cfs: false    # notebook CFS phase is a later ablation, off
+
+loss:
+  core: -mean(net weekly PnL)   # v1f
+  demean_cs: true               # p ← p − masked mean, then unit-gross
+  occ_nuke: false
+  occ_lambda: 0.0
+  active_lambda: 0.0
+  flat_init_bias: 0.0
+  occ_long_min: 0.20       # reported, not used in train
+  occ_short_min: 0.30
+  occ_traded_min: 0.25
+  occ_penalty: 1.0e5
+  turn_lambda: 0.0
+  bias_lambda: 0.0
+  lever_up: true           # w = p / Σ|p|
+
+portfolio:
+  gross_limit: 1.0
+  taker_fee_bps: 5.0
+  slippage_bps: 3.0
+  actions: [-1, 0, 1]
+
+cv:
+  min_train_days: 730
+  val_days: 90
+  step_days: 90
+  purge_horizon: 7
+  embargo_extra: 3
+  inner_holdout_days: 90
+
+train:
+  lr: 0.001
+  weight_decay: 0.0001
+  max_epochs: 80
+  patience: 12
+  encoder: deepsets
+
